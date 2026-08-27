@@ -29,7 +29,7 @@ La contraseña es la misma para todos: `Inscolar#2026`
 | p.lluberes@inscolar.do | Auditoría (cuenta inactiva) |
 | ana.beltre@correo.do | Tutor |
 
-Administrador y Soporte ven Usuarios, Notificaciones y Analíticas en el menú. Los demás roles solo ven "Mi cuenta". Esto no es solo visual, el control de acceso funciona de verdad por debajo.
+Administrador y Soporte ven Usuarios, Instituciones, Inscripciones, Notificaciones y Analíticas en el menú. Personal de institución ve Inscripciones (solo las de su propia institución). Tutor ve Inscripciones (solo las suyas, con sus estudiantes). El resto solo ve "Mi cuenta". Esto no es solo visual, el control de acceso funciona de verdad por debajo.
 
 ## El "modo de prueba" que aparece en pantalla
 
@@ -53,6 +53,10 @@ Mi cuenta: ver y editar perfil, cambiar contraseña (guarda historial de las úl
 
 Administración de usuarios (solo Admin/Soporte): listado con filtros, crear, modificar, activar/desactivar cuentas, resetear contraseñas, notificaciones cuando se toca una cuenta administrativa.
 
+Instituciones (solo Admin/Soporte): listado con filtros por provincia y estado, crear, modificar, activar/desactivar.
+
+Inscripciones: un tutor registra a sus estudiantes y solicita cupo en una institución (grado y ciclo escolar). El personal de esa institución ve solo sus propias solicitudes y las aprueba o rechaza (con motivo si rechaza). Admin/Soporte ven todas, con filtro por institución, y también pueden decidir. El tutor puede cancelar una solicitud mientras esté pendiente.
+
 Analíticas (solo Admin/Soporte): usuarios totales, activos, instituciones, cuentas con MFA, instituciones por provincia, usuarios por rol, actividad reciente — todo se calcula en vivo, no son números fijos.
 
 ## Estructura
@@ -67,4 +71,4 @@ public/             frontend (HTML/CSS/JS plano, sin build)
 
 ## Lo que falta
 
-Fondo real por institución (foto + overlay), mapa interactivo de provincias en Analíticas, PDFs con la plantilla de marca, modo de alto contraste, y las tres features que faltan del sistema completo: Instituciones, Inscripciones y Citas.
+El módulo de Citas (la última feature grande que falta del sistema completo). Además: fondo real por institución (foto + overlay), mapa interactivo de provincias en Analíticas, PDFs con la plantilla de marca, y modo de alto contraste.
