@@ -1358,7 +1358,7 @@
 
   // ---------------- Mapa interactivo de provincias ----------------
   function provinceColorScale(count, max) {
-    if (!count) return { fill: '#f1efec', text: '#6b5560' };
+    if (!count) return { fill: '#f4ede0', text: '#6b5560' };
     const t = Math.min(1, 0.22 + 0.78 * (count / Math.max(1, max)));
     const from = [246, 226, 230];
     const to = [175, 18, 44];
@@ -1366,24 +1366,100 @@
     return { fill: `rgb(${rgb.join(',')})`, text: t > 0.5 ? '#fff' : '#4a2530' };
   }
 
+  function computeConvexHull(points) {
+    const pts = points.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lower = [];
+    for (const p of pts) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+      lower.push(p);
+    }
+    const upper = [];
+    for (let i = pts.length - 1; i >= 0; i--) {
+      const p = pts[i];
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+      upper.push(p);
+    }
+    lower.pop(); upper.pop();
+    return lower.concat(upper);
+  }
+
+  function smoothBlobPath(hullPoints, margin) {
+    const cx = hullPoints.reduce((s, p) => s + p.x, 0) / hullPoints.length;
+    const cy = hullPoints.reduce((s, p) => s + p.y, 0) / hullPoints.length;
+    const expanded = hullPoints.map((p) => {
+      const dx = p.x - cx, dy = p.y - cy;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+      return { x: p.x + (dx / len) * margin, y: p.y + (dy / len) * margin };
+    });
+    const n = expanded.length;
+    const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    const first = mid(expanded[n - 1], expanded[0]);
+    let d = `M ${first.x.toFixed(1)} ${first.y.toFixed(1)} `;
+    for (let i = 0; i < n; i++) {
+      const next = expanded[(i + 1) % n];
+      const m = mid(expanded[i], next);
+      d += `Q ${expanded[i].x.toFixed(1)} ${expanded[i].y.toFixed(1)} ${m.x.toFixed(1)} ${m.y.toFixed(1)} `;
+    }
+    return d + 'Z';
+  }
+
   function renderProvinceMap(porProvincia) {
     const counts = {};
     porProvincia.forEach((r) => { counts[r.provincia] = r.count; });
     const max = Math.max(1, ...porProvincia.map((r) => r.count));
     const TILE = 44, STEP = 50, PAD = 16;
+    const centers = [];
     let tiles = '';
     Object.entries(PROVINCE_MAP_GRID).forEach(([name, g]) => {
       const count = counts[name] || 0;
       const { fill, text } = provinceColorScale(count, max);
       const x = g.col * STEP + (g.row % 2 === 1 ? STEP / 2 : 0) + PAD;
       const y = g.row * STEP + PAD;
+      centers.push({ x: x + TILE / 2, y: y + TILE / 2 });
       tiles += `<g class="prov-tile" tabindex="0" data-provincia="${escapeHtml(name)}" data-count="${count}" transform="translate(${x} ${y})">
-        <rect width="${TILE}" height="${TILE}" rx="10" fill="${fill}" stroke="rgba(28,16,19,.14)"></rect>
+        <rect width="${TILE}" height="${TILE}" rx="10" fill="${fill}" stroke="rgba(28,16,19,.18)"></rect>
         <text x="${TILE / 2}" y="${TILE / 2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="${text}">${g.code}</text>
         <title>${escapeHtml(name)} — ${count} ${count === 1 ? 'institución' : 'instituciones'}</title>
       </g>`;
     });
-    return `<svg class="province-map" viewBox="0 0 720 440" role="img" aria-label="Mapa de instituciones por provincia">${tiles}</svg>`;
+
+    const landmassD = smoothBlobPath(computeConvexHull(centers), 38);
+    const haitiPoints = [
+      { x: -30, y: 60 }, { x: -90, y: 20 }, { x: -170, y: 40 }, { x: -210, y: 110 },
+      { x: -190, y: 200 }, { x: -140, y: 270 }, { x: -70, y: 240 }, { x: -40, y: 160 },
+    ];
+    const haitiD = smoothBlobPath(computeConvexHull(haitiPoints), 14);
+
+    return `
+      <svg class="province-map" viewBox="-240 -80 1080 600" role="img" aria-label="Mapa interactivo de instituciones por provincia">
+        <defs>
+          <linearGradient id="oceanGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#e2f3f4"></stop>
+            <stop offset="100%" stop-color="#bfe0e6"></stop>
+          </linearGradient>
+          <filter id="landShadow" x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="9" stdDeviation="12" flood-color="#1c1013" flood-opacity="0.18"></feDropShadow>
+          </filter>
+        </defs>
+        <rect x="-240" y="-80" width="1080" height="600" rx="22" fill="url(#oceanGrad)"></rect>
+        <g class="map-decor" aria-hidden="true">
+          <path d="M -210 -50 Q -160 -68 -110 -50 T -10 -50" stroke="#ffffff" stroke-width="3" fill="none" opacity=".35"></path>
+          <path d="M 640 480 Q 690 462 740 480 T 840 480" stroke="#ffffff" stroke-width="3" fill="none" opacity=".3"></path>
+          <path d="${haitiD}" fill="#d9d3cb" stroke="#b7ada0" stroke-width="2"></path>
+          <text x="-120" y="150" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1" fill="#8a8072">HAITÍ</text>
+          <text x="330" y="-48" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="3" fill="#4f818c" opacity=".75">OCÉANO ATLÁNTICO</text>
+          <text x="330" y="500" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="3" fill="#4f818c" opacity=".75">MAR CARIBE</text>
+          <g transform="translate(770 -35)">
+            <circle r="18" fill="#ffffff" opacity=".65"></circle>
+            <path d="M 0 -12 L 5 2 L 0 -2 L -5 2 Z" fill="#4a5a5e"></path>
+            <text x="0" y="24" text-anchor="middle" font-size="10" font-weight="700" fill="#4a5a5e">N</text>
+          </g>
+        </g>
+        <path class="landmass" d="${landmassD}" filter="url(#landShadow)"></path>
+        ${tiles}
+      </svg>
+    `;
   }
 
   function bindProvinceMapEvents() {
