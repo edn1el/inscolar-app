@@ -115,6 +115,7 @@ button.link:hover{ color:var(--garnet-deep); }
 .topbar{ display:flex; align-items:center; gap:20px; padding:0 26px; height:64px; background:var(--surface); border-bottom:1px solid var(--border); flex:none; position:sticky; top:0; z-index:5; }
 .brand{ display:flex; align-items:center; gap:10px; }
 .brand .badge{ width:32px; height:32px; border-radius:8px; background:var(--garnet); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:.8rem; flex:none; }
+.brand .badge-logo{ width:32px; height:32px; object-fit:contain; flex:none; }
 .brand .stack{ line-height:1.2; }
 .brand .stack .b1{ font-weight:800; font-size:.95rem; }
 .brand .stack .b2{ font-size:.72rem; color:var(--ink-soft); }

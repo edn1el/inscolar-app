@@ -505,7 +505,7 @@
     return `
       <div class="app">
         <div class="topbar">
-          <div class="brand"><span class="badge">IN</span><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
+          <div class="brand"><img class="badge-logo" src="/assets/icon-mark.png" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
           <div class="search">${ICONS.search}<input placeholder="Buscar en el sistema..." disabled></div>
           <div class="topbar-right">
             ${admin ? `<button class="bell" id="bell-btn">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button>` : ''}
