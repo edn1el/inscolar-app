@@ -79,6 +79,15 @@
     const y = new Date().getFullYear();
     return [0, 1, 2].map((i) => `${y + i}-${y + i + 1}`);
   }
+  const MOTIVOS_CITA = ['Entrega de documentos', 'Entrevista de admisión', 'Seguimiento académico', 'Otro'];
+  function drIso(datetimeLocalValue) {
+    return datetimeLocalValue ? datetimeLocalValue + ':00-04:00' : '';
+  }
+  function nowLocalPlus(hours) {
+    const d = new Date(Date.now() + hours * 3600000);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
   const AVATAR_PALETTE = [
     ['#f6dde2', '#8a1330'], ['#e1ecf7', '#2a5c96'], ['#e6f2e0', '#2f6d24'],
     ['#fbeadb', '#93591a'], ['#eee1f7', '#6a3a97'], ['#deeef2', '#1f6d7c'],
@@ -484,6 +493,10 @@
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
+    if (section === 'citas' && !canSeeInscripciones) {
+      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      return;
+    }
 
     let unread = 0;
     if (isAdmin()) {
@@ -507,6 +520,8 @@
       else if (section === 'inscripciones' && segs[1] === 'estudiante-nuevo') await renderEstudianteForm();
       else if (section === 'inscripciones' && segs[1] === 'nueva') await renderInscripcionForm();
       else if (section === 'inscripciones') await renderInscripciones(query);
+      else if (section === 'citas' && segs[1] === 'nueva') await renderCitaForm();
+      else if (section === 'citas') await renderCitas(query);
       else if (section === 'notificaciones') await renderNotificaciones();
       else if (section === 'analiticas') await renderAnaliticas();
       else qs('.main').innerHTML = '<div class="empty-state">Sección no encontrada.</div>';
@@ -537,11 +552,13 @@
             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">Usuarios</button>
             <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">Instituciones</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
+            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">Citas</button>
             <button class="nav-item ${activeSection === 'notificaciones' ? 'active' : ''}" data-nav="#/app/notificaciones">Notificaciones</button>
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">Analíticas</button>
             ` : (u.role === 'Tutor' || u.role === 'Personal de institución') ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
+            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">Citas</button>
             ` : ''}
             <div class="sec-label">Mi cuenta</div>
             <button class="nav-item ${activeSection === 'perfil' ? 'active' : ''}" data-nav="#/app/perfil">Mi perfil</button>
@@ -1136,6 +1153,144 @@
         await api('/enrollments', { method: 'POST', body: Object.fromEntries(fd.entries()) });
         toast('Solicitud enviada.', 'ok');
         navigate('#/app/inscripciones');
+      } catch (err) {
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+      }
+    });
+  }
+
+  // ---------------- Citas ----------------
+  async function renderCitas(query) {
+    const u = state.user;
+    const tutor = u.role === 'Tutor';
+    const staff = u.role === 'Personal de institución';
+    const admin = isAdmin();
+
+    const params = new URLSearchParams();
+    if (query.estado) params.set('estado', query.estado);
+    if (query.institucionId && admin) params.set('institucionId', query.institucionId);
+    const { total, appointments } = await api('/appointments?' + params.toString());
+
+    let institucionesOptions = [];
+    if (admin) {
+      const ires = await api('/institutions');
+      institucionesOptions = ires.institutions;
+    }
+
+    const estados = ['Todos', 'Pendiente', 'Confirmada', 'Cancelada'];
+    const colCount = 5 + (tutor ? 0 : 1) + (admin ? 1 : 0);
+
+    qs('.main').innerHTML = `
+      <div class="page-head">
+        <div><h2>Citas</h2><div class="sub">${tutor ? 'Agenda una cita con una institución.' : staff ? 'Citas solicitadas a tu institución.' : 'Todas las citas del sistema.'}</div></div>
+        ${tutor ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/citas/nueva">Nueva cita</button>` : ''}
+      </div>
+      <div class="filters">
+        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        ${admin ? `<select id="f-institucion"><option ${!query.institucionId ? 'selected' : ''}>Todas</option>${institucionesOptions.map((i) => `<option value="${i.id}" ${query.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}</select>` : ''}
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${admin ? '<th>Institución</th>' : ''}<th>Motivo</th><th>Fecha y hora</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody>
+            ${appointments.length ? appointments.map((a) => {
+              const estadoColor = a.estado === 'Confirmada' ? '#2e9e5b' : a.estado === 'Cancelada' ? '#c23b3b' : '#c98a1b';
+              const when = a.fechaHoraConfirmada || a.fechaHoraSolicitada;
+              const adjusted = a.fechaHoraConfirmada && a.fechaHoraConfirmada !== a.fechaHoraSolicitada;
+              return `<tr>
+                <td>${escapeHtml(a.estudianteNombre || 'General')}</td>
+                ${tutor ? '' : `<td>${escapeHtml(a.tutorNombre)}</td>`}
+                ${admin ? `<td>${escapeHtml(a.institucionNombre)}</td>` : ''}
+                <td>${escapeHtml(a.motivo)}</td>
+                <td>${fmtDate(when)}${adjusted ? `<div class="help">Solicitada: ${fmtDate(a.fechaHoraSolicitada)}</div>` : ''}</td>
+                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${a.estado}</span>${a.estado === 'Cancelada' && a.motivoCancelacion ? `<div class="help">${escapeHtml(a.motivoCancelacion)}</div>` : ''}</td>
+                <td><span class="actions-cell">
+                  ${!tutor && a.estado === 'Pendiente' ? `<button class="ok" data-confirm="${a.id}">Confirmar</button>` : ''}
+                  ${a.estado !== 'Cancelada' ? `<button class="danger" data-cancel="${a.id}">Cancelar</button>` : '—'}
+                </span></td>
+              </tr>`;
+            }).join('') : `<tr><td colspan="${colCount}" class="empty-state">No hay citas${query.estado && query.estado !== 'Todos' ? ' con ese estado' : ''}.</td></tr>`}
+          </tbody>
+        </table>
+        <div class="table-footer"><span>Mostrando ${appointments.length} de ${total} citas</span></div>
+      </div>
+    `;
+    bindShellEvents();
+
+    function applyFilters() {
+      const p = new URLSearchParams();
+      if (qs('#f-estado').value !== 'Todos') p.set('estado', qs('#f-estado').value);
+      if (admin && qs('#f-institucion') && qs('#f-institucion').value !== 'Todas') p.set('institucionId', qs('#f-institucion').value);
+      navigate('#/app/citas?' + p.toString());
+    }
+    qs('#f-estado').addEventListener('change', applyFilters);
+    if (admin && qs('#f-institucion')) qs('#f-institucion').addEventListener('change', applyFilters);
+
+    qsa('[data-confirm]').forEach((b) => b.addEventListener('click', async () => {
+      try {
+        await api('/appointments/' + b.dataset.confirm + '/confirmar', { method: 'POST' });
+        toast('Cita confirmada.', 'ok');
+        renderCitas(query);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
+    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
+      let motivo = '';
+      if (!tutor) {
+        motivo = prompt('Motivo de la cancelación:');
+        if (!motivo || !motivo.trim()) return;
+      } else if (!confirm('¿Cancelar esta cita?')) {
+        return;
+      }
+      try {
+        await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo } });
+        toast('Cita cancelada.', 'ok');
+        renderCitas(query);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
+  }
+
+  async function renderCitaForm() {
+    const [{ students }, { institutions }] = await Promise.all([api('/students'), api('/institutions')]);
+    const activas = institutions.filter((i) => (i.estado || 'Activo') === 'Activo');
+    const minVal = nowLocalPlus(1);
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/citas">${ICONS.back} Volver a citas</button>
+      <div class="page-head"><h2>Nueva cita</h2></div>
+      <div class="chart-card" style="max-width:560px;">
+        <div id="err"></div>
+        <form id="cita-form">
+          <div class="field"><label>Institución</label>
+            <select name="institucionId">${activas.map((i) => `<option value="${i.id}">${escapeHtml(i.nombre)} — ${escapeHtml(i.provincia)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Estudiante (opcional)</label>
+            <select name="studentId">
+              <option value="">General (sin estudiante específico)</option>
+              ${students.map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Motivo</label>
+            <select name="motivo">${MOTIVOS_CITA.map((m) => `<option>${escapeHtml(m)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Fecha y hora</label><input type="datetime-local" name="fechaHoraSolicitada" min="${minVal}" required></div>
+          <div class="field"><label>Notas</label><input type="text" name="notas" placeholder="Opcional"></div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Solicitar cita</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/citas">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    bindShellEvents();
+    qs('#cita-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const body = Object.fromEntries(fd.entries());
+      body.fechaHoraSolicitada = drIso(body.fechaHoraSolicitada);
+      qs('#err').innerHTML = '';
+      try {
+        await api('/appointments', { method: 'POST', body });
+        toast('Cita solicitada.', 'ok');
+        navigate('#/app/citas');
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
       }

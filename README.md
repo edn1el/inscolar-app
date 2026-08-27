@@ -29,7 +29,7 @@ La contraseña es la misma para todos: `Inscolar#2026`
 | p.lluberes@inscolar.do | Auditoría (cuenta inactiva) |
 | ana.beltre@correo.do | Tutor |
 
-Administrador y Soporte ven Usuarios, Instituciones, Inscripciones, Notificaciones y Analíticas en el menú. Personal de institución ve Inscripciones (solo las de su propia institución). Tutor ve Inscripciones (solo las suyas, con sus estudiantes). El resto solo ve "Mi cuenta". Esto no es solo visual, el control de acceso funciona de verdad por debajo.
+Administrador y Soporte ven Usuarios, Instituciones, Inscripciones, Citas, Notificaciones y Analíticas en el menú. Personal de institución ve Inscripciones y Citas (solo las de su propia institución). Tutor ve Inscripciones y Citas (solo las suyas, con sus estudiantes). El resto solo ve "Mi cuenta". Esto no es solo visual, el control de acceso funciona de verdad por debajo.
 
 ## El "modo de prueba" que aparece en pantalla
 
@@ -57,6 +57,8 @@ Instituciones (solo Admin/Soporte): listado con filtros por provincia y estado, 
 
 Inscripciones: un tutor registra a sus estudiantes y solicita cupo en una institución (grado y ciclo escolar). El personal de esa institución ve solo sus propias solicitudes y las aprueba o rechaza (con motivo si rechaza). Admin/Soporte ven todas, con filtro por institución, y también pueden decidir. El tutor puede cancelar una solicitud mientras esté pendiente.
 
+Citas: un tutor agenda una cita con una institución (motivo, fecha y hora, opcionalmente ligada a uno de sus estudiantes). El personal de esa institución la confirma (puede ajustar la hora si hace falta) o la cancela con motivo. El tutor puede cancelar la suya en cualquier momento antes de que pase. Admin/Soporte ven todas, con el mismo filtro por institución que en Inscripciones.
+
 Analíticas (solo Admin/Soporte): usuarios totales, activos, instituciones, cuentas con MFA, instituciones por provincia, usuarios por rol, actividad reciente — todo se calcula en vivo, no son números fijos.
 
 ## Estructura
@@ -71,4 +73,4 @@ public/             frontend (HTML/CSS/JS plano, sin build)
 
 ## Lo que falta
 
-El módulo de Citas (la última feature grande que falta del sistema completo). Además: fondo real por institución (foto + overlay), mapa interactivo de provincias en Analíticas, PDFs con la plantilla de marca, y modo de alto contraste.
+Ya están las cuatro áreas principales del sistema (Usuarios, Instituciones, Inscripciones, Citas). Lo que queda es más de pulido visual que de funcionalidad nueva: fondo real por institución (foto + overlay), mapa interactivo de provincias en Analíticas, PDFs con la plantilla de marca, y modo de alto contraste.

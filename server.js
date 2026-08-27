@@ -14,6 +14,7 @@ const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const institutionRoutes = require('./routes/institutions');
 const enrollmentRoutes = require('./routes/enrollments');
+const appointmentRoutes = require('./routes/appointments');
 const miscRoutes = require('./routes/misc');
 
 const app = express();
@@ -33,6 +34,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/institutions', institutionRoutes);
 app.use('/api', enrollmentRoutes);
+app.use('/api', appointmentRoutes);
 app.use('/api', miscRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));
