@@ -70,6 +70,40 @@
     'Puerto Plata', 'Samaná', 'San Cristóbal', 'San José de Ocoa', 'San Juan', 'San Pedro de Macorís',
     'Sánchez Ramírez', 'Santiago', 'Santiago Rodríguez', 'Santo Domingo', 'Valverde',
   ];
+  const PROVINCE_MAP_GRID = {
+    'Monte Cristi': { col: 0, row: 0, code: 'MC' },
+    'Puerto Plata': { col: 3, row: 0, code: 'PP' },
+    'María Trinidad Sánchez': { col: 7, row: 0, code: 'MT' },
+    'Dajabón': { col: 0, row: 1, code: 'DJ' },
+    'Santiago Rodríguez': { col: 1, row: 1, code: 'SR' },
+    'Valverde': { col: 2, row: 1, code: 'VA' },
+    'Santiago': { col: 4, row: 1, code: 'ST' },
+    'Espaillat': { col: 5, row: 1, code: 'ES' },
+    'Hermanas Mirabal': { col: 6, row: 1, code: 'HM' },
+    'Samaná': { col: 9, row: 1, code: 'SM' },
+    'La Vega': { col: 5, row: 2, code: 'LV' },
+    'Sánchez Ramírez': { col: 6, row: 2, code: 'SZ' },
+    'Duarte': { col: 7, row: 2, code: 'DU' },
+    'Monseñor Nouel': { col: 5, row: 3, code: 'MN' },
+    'Hato Mayor': { col: 8, row: 3, code: 'HY' },
+    'El Seibo': { col: 9, row: 3, code: 'SB' },
+    'La Altagracia': { col: 11, row: 3, code: 'LA' },
+    'San José de Ocoa': { col: 4, row: 4, code: 'OC' },
+    'Monte Plata': { col: 7, row: 4, code: 'MP' },
+    'San Pedro de Macorís': { col: 9, row: 4, code: 'SP' },
+    'La Romana': { col: 10, row: 4, code: 'LR' },
+    'Distrito Nacional': { col: 6, row: 4, code: 'DN' },
+    'San Juan': { col: 2, row: 4, code: 'SJ' },
+    'Elías Piña': { col: 1, row: 4, code: 'EP' },
+    'Azua': { col: 3, row: 5, code: 'AZ' },
+    'Peravia': { col: 4, row: 5, code: 'PV' },
+    'San Cristóbal': { col: 5, row: 5, code: 'SC' },
+    'Santo Domingo': { col: 6, row: 5, code: 'SD' },
+    'Independencia': { col: 1, row: 5, code: 'IN' },
+    'Bahoruco': { col: 2, row: 6, code: 'BH' },
+    'Barahona': { col: 2, row: 7, code: 'BR' },
+    'Pedernales': { col: 1, row: 7, code: 'PD' },
+  };
   const GRADOS = [
     'Pre-Primario', '1ro de Primaria', '2do de Primaria', '3ro de Primaria', '4to de Primaria',
     '5to de Primaria', '6to de Primaria', '1ro de Secundaria', '2do de Secundaria',
@@ -1322,11 +1356,63 @@
     }));
   }
 
+  // ---------------- Mapa interactivo de provincias ----------------
+  function provinceColorScale(count, max) {
+    if (!count) return { fill: '#f1efec', text: '#6b5560' };
+    const t = Math.min(1, 0.22 + 0.78 * (count / Math.max(1, max)));
+    const from = [246, 226, 230];
+    const to = [175, 18, 44];
+    const rgb = from.map((c, i) => Math.round(c + (to[i] - c) * t));
+    return { fill: `rgb(${rgb.join(',')})`, text: t > 0.5 ? '#fff' : '#4a2530' };
+  }
+
+  function renderProvinceMap(porProvincia) {
+    const counts = {};
+    porProvincia.forEach((r) => { counts[r.provincia] = r.count; });
+    const max = Math.max(1, ...porProvincia.map((r) => r.count));
+    const TILE = 44, STEP = 50, PAD = 16;
+    let tiles = '';
+    Object.entries(PROVINCE_MAP_GRID).forEach(([name, g]) => {
+      const count = counts[name] || 0;
+      const { fill, text } = provinceColorScale(count, max);
+      const x = g.col * STEP + (g.row % 2 === 1 ? STEP / 2 : 0) + PAD;
+      const y = g.row * STEP + PAD;
+      tiles += `<g class="prov-tile" tabindex="0" data-provincia="${escapeHtml(name)}" data-count="${count}" transform="translate(${x} ${y})">
+        <rect width="${TILE}" height="${TILE}" rx="10" fill="${fill}" stroke="rgba(28,16,19,.14)"></rect>
+        <text x="${TILE / 2}" y="${TILE / 2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="${text}">${g.code}</text>
+        <title>${escapeHtml(name)} — ${count} ${count === 1 ? 'institución' : 'instituciones'}</title>
+      </g>`;
+    });
+    return `<svg class="province-map" viewBox="0 0 720 440" role="img" aria-label="Mapa de instituciones por provincia">${tiles}</svg>`;
+  }
+
+  function bindProvinceMapEvents() {
+    const tooltip = qs('#map-tooltip');
+    const wrap = qs('.map-wrap');
+    if (!tooltip || !wrap) return;
+    qsa('.prov-tile').forEach((tile) => {
+      const name = tile.dataset.provincia;
+      const count = tile.dataset.count;
+      const show = (x, y) => {
+        const rect = wrap.getBoundingClientRect();
+        tooltip.textContent = `${name} — ${count} ${count === '1' ? 'institución' : 'instituciones'}`;
+        tooltip.style.left = (x - rect.left) + 'px';
+        tooltip.style.top = (y - rect.top) + 'px';
+        tooltip.classList.add('show');
+      };
+      tile.addEventListener('mousemove', (e) => show(e.clientX, e.clientY));
+      tile.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+      tile.addEventListener('focus', () => { const r = tile.getBoundingClientRect(); show(r.left + r.width / 2, r.top); });
+      tile.addEventListener('blur', () => tooltip.classList.remove('show'));
+      tile.addEventListener('click', () => navigate('#/app/instituciones?provincia=' + encodeURIComponent(name)));
+      tile.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('#/app/instituciones?provincia=' + encodeURIComponent(name)); } });
+    });
+  }
+
   // ---------------- Analíticas ----------------
   async function renderAnaliticas() {
     const s = await api('/analytics/summary');
     const maxRol = Math.max(1, ...s.porRol.map((r) => r.count));
-    const maxProv = Math.max(1, ...s.porProvincia.map((r) => r.count));
 
     qs('.main').innerHTML = `
       <div class="page-head"><div><h2>Analíticas</h2><div class="sub">Indicadores y tendencias del sistema.</div></div></div>
@@ -1336,22 +1422,28 @@
         <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.totalInstituciones}</div><div class="kpi-label">Instituciones vinculadas</div><div class="kpi-delta">${s.porProvincia.length} provincias</div></div>
         <div class="kpi-card"><div class="kpi-icon">${ICONS.shield}</div><div class="kpi-num">${s.mfaActivo}</div><div class="kpi-label">Cuentas con MFA activo</div><div class="kpi-delta">${s.tutores} tutores registrados</div></div>
       </div>
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Instituciones por provincia</h3>
-          ${s.porProvincia.map((r) => `<div class="bar-row"><span class="bar-label">${escapeHtml(r.provincia)}</span><span class="bar-track"><span class="bar-fill" data-w="${(r.count / maxProv) * 100}"></span></span><span class="bar-value">${r.count}</span></div>`).join('')}
+      <div class="chart-card map-card">
+        <h3>Instituciones por provincia</h3>
+        <div class="map-wrap">
+          ${renderProvinceMap(s.porProvincia)}
+          <div class="map-tooltip" id="map-tooltip"></div>
         </div>
+        <div class="map-legend"><span>Menos</span><span class="map-legend-scale"></span><span>Más</span></div>
+        <div class="help">Selecciona una provincia para ver sus instituciones.</div>
+      </div>
+      <div class="chart-row">
         <div class="chart-card">
           <h3>Usuarios por rol</h3>
           ${s.porRol.map((r) => `<div class="bar-row"><span class="bar-label">${escapeHtml(r.role)}</span><span class="bar-track"><span class="bar-fill" data-w="${(r.count / maxRol) * 100}"></span></span><span class="bar-value">${r.count}</span></div>`).join('')}
         </div>
-      </div>
-      <div class="chart-card">
-        <h3>Actividad reciente</h3>
-        ${s.actividadReciente.length ? s.actividadReciente.map((n) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(n.createdAt)}</span><span style="flex:1;">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)} — por ${escapeHtml(n.actorNombre)}</span></div>`).join('') : '<div class="help">Sin actividad reciente.</div>'}
+        <div class="chart-card">
+          <h3>Actividad reciente</h3>
+          ${s.actividadReciente.length ? s.actividadReciente.map((n) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(n.createdAt)}</span><span style="flex:1;">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)} — por ${escapeHtml(n.actorNombre)}</span></div>`).join('') : '<div class="help">Sin actividad reciente.</div>'}
+        </div>
       </div>
     `;
     bindShellEvents();
     requestAnimationFrame(() => { setTimeout(() => qsa('.bar-fill').forEach((el) => { el.style.width = el.dataset.w + '%'; }), 60); });
+    bindProvinceMapEvents();
   }
 })();

@@ -164,6 +164,17 @@ button.link:hover{ color:var(--garnet-deep); }
 .bar-fill{ display:block; height:100%; border-radius:999px; background:linear-gradient(90deg, var(--garnet-bright), var(--garnet-deep)); width:0; transition:width 1s cubic-bezier(.2,.8,.2,1); }
 .bar-value{ width:30px; flex:none; text-align:right; font-weight:700; }
 
+.map-card{ margin-bottom:16px; }
+.map-wrap{ position:relative; display:flex; justify-content:center; }
+.province-map{ width:100%; max-width:640px; height:auto; }
+.prov-tile{ cursor:pointer; outline:none; }
+.prov-tile rect{ transition: filter .15s ease, stroke-width .15s ease; }
+.prov-tile:hover rect, .prov-tile:focus rect{ filter:brightness(1.1); stroke:var(--garnet-deep); stroke-width:2; }
+.map-tooltip{ position:absolute; pointer-events:none; background:var(--ink); color:#fff; padding:6px 10px; border-radius:8px; font-size:.75rem; font-weight:600; white-space:nowrap; transform:translate(-50%,-130%); opacity:0; transition:opacity .12s ease; z-index:10; box-shadow:0 10px 20px -8px rgba(0,0,0,.35); }
+.map-tooltip.show{ opacity:1; }
+.map-legend{ display:flex; align-items:center; gap:10px; justify-content:center; margin-top:14px; font-size:.72rem; color:var(--ink-soft); }
+.map-legend-scale{ width:140px; height:10px; border-radius:999px; background:linear-gradient(90deg, #f6e2e6, var(--garnet)); }
+
 /* Filters + table */
 .filters{ display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
 .filters input, .filters select{ border:1px solid var(--border); border-radius:9px; padding:9px 12px; font-size:.84rem; background:#fff; color:var(--ink); }
