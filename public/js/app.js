@@ -4,6 +4,23 @@
   const root = document.getElementById('root');
   const state = { user: null, authChecked: false, setupNeeded: false, pendingMfa: null };
 
+  // ---------------- alto contraste ----------------
+  function isHighContrast() {
+    try { return localStorage.getItem('inscolar_contrast') === 'high'; } catch (e) { return false; }
+  }
+  function applyContrastPreference() {
+    document.documentElement.setAttribute('data-contrast', isHighContrast() ? 'high' : 'normal');
+  }
+  function toggleContrast() {
+    const next = isHighContrast() ? 'normal' : 'high';
+    try { localStorage.setItem('inscolar_contrast', next); } catch (e) {}
+    document.documentElement.setAttribute('data-contrast', next);
+    const btn = qs('#contrast-btn');
+    if (btn) btn.setAttribute('aria-pressed', next === 'high' ? 'true' : 'false');
+    toast(next === 'high' ? 'Alto contraste activado.' : 'Alto contraste desactivado.', 'ok');
+  }
+  applyContrastPreference();
+
   // ---------------- helpers ----------------
   function escapeHtml(s) {
     if (s === null || s === undefined) return '';
@@ -103,6 +120,7 @@
     bell: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
     back: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>',
     printer: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+    contrast: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" stroke="none"/></svg>',
   };
 
   // ---------------- router ----------------
@@ -543,6 +561,7 @@
           <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
           <div class="search">${ICONS.search}<input placeholder="Buscar en el sistema..." disabled></div>
           <div class="topbar-right">
+            <button class="contrast-toggle" id="contrast-btn" title="Alternar alto contraste" aria-pressed="${isHighContrast() ? 'true' : 'false'}">${ICONS.contrast}</button>
             ${admin ? `<button class="bell" id="bell-btn">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button>` : ''}
             <span class="who"><span class="avatar" style="background:${avBg};color:${avFg}">${initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></span>
             <button class="logout" id="logout-btn">Cerrar sesión</button>
@@ -584,6 +603,8 @@
     });
     const bellBtn = qs('#bell-btn');
     bellBtn && bellBtn.addEventListener('click', () => navigate('#/app/notificaciones'));
+    const contrastBtn = qs('#contrast-btn');
+    contrastBtn && contrastBtn.addEventListener('click', toggleContrast);
   }
 
   // ---------------- HU011/HU012 perfil ----------------
