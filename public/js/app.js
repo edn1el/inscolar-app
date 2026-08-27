@@ -173,8 +173,8 @@
         <div class="hero">
           <div class="arches">${'<div class="arch"></div>'.repeat(6)}</div>
           <div class="hero-glow"></div>
-          <div class="medallion-wrap"><img class="medallion" src="/assets/icon-mark.png" alt=""></div>
-          <div class="brand-row"><img src="/assets/icon-mark.png" alt="Inscolar"><span class="wordmark">Inscolar</span></div>
+          <div class="medallion-wrap"><img class="medallion" src="/assets/brand/inscolar-symbol-white.svg" alt=""></div>
+          <div class="brand-row"><img class="brand-logo" src="/assets/brand/inscolar-logo-horizontal-white.svg" alt="Inscolar"></div>
           <div class="headline-block">
             <h1>${headline}</h1>
             <p>${lede}</p>
@@ -184,7 +184,7 @@
         <div class="panel"><div class="card">${body}</div></div>
         ` : `
         <div class="card wide">
-          <div class="plain-brand"><img src="/assets/icon-mark.png" alt="Inscolar"><span>Inscolar</span></div>
+          <div class="plain-brand"><img class="brand-logo" src="/assets/brand/inscolar-logo-horizontal-primary.svg" alt="Inscolar"></div>
           ${badge ? `<span class="badge-chip">${badge}</span>` : ''}
           ${body}
         </div>
@@ -537,7 +537,7 @@
     return `
       <div class="app">
         <div class="topbar">
-          <div class="brand"><img class="badge-logo" src="/assets/icon-mark.png" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
+          <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
           <div class="search">${ICONS.search}<input placeholder="Buscar en el sistema..." disabled></div>
           <div class="topbar-right">
             ${admin ? `<button class="bell" id="bell-btn">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button>` : ''}

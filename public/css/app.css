@@ -1,5 +1,5 @@
 :root{
-  --garnet: #af112b;
+  --garnet: #af122c;
   --garnet-deep: #6e0c1f;
   --garnet-bright: #d4183f;
   --ink: #1c1013;
@@ -38,10 +38,9 @@ h1,h2,h3{ margin:0; }
 .arch:nth-child(2n){ height:82%; } .arch:nth-child(3n){ height:65%; }
 .hero-glow{ position:absolute; top:-18%; right:-12%; width:60%; height:60%; border-radius:50%; background: radial-gradient(circle, rgba(255,255,255,.55), transparent 70%); animation: glowPulse 7s ease-in-out infinite; pointer-events:none; }
 .medallion-wrap{ position:absolute; right:-54px; bottom:-46px; width:280px; height:280px; perspective:1000px; opacity:.92; pointer-events:none; }
-.medallion{ width:100%; display:block; filter: drop-shadow(0 26px 40px rgba(0,0,0,.4)); animation: spin3d 15s linear infinite, floatY 6s ease-in-out infinite; }
+.medallion{ width:100%; display:block; animation: spin3d 15s linear infinite, floatY 6s ease-in-out infinite; }
 .brand-row{ display:flex; align-items:center; gap:11px; position:relative; z-index:2; }
-.brand-row img{ width:30px; filter: drop-shadow(0 2px 5px rgba(0,0,0,.35)); }
-.wordmark{ font-weight:800; font-size:1.12rem; letter-spacing:.01em; color:#fff; }
+.brand-row .brand-logo{ height:34px; width:auto; display:block; }
 .headline-block{ position:relative; z-index:2; max-width:380px; }
 .headline-block h1{ font-family:'Fraunces',serif; font-weight:560; font-size:clamp(1.9rem,3.6vw,2.6rem); line-height:1.08; margin:0; text-wrap:balance; }
 .headline-block p{ margin:16px 0 0; font-size:.98rem; line-height:1.6; color:#f6dde2; }
@@ -58,8 +57,7 @@ h1,h2,h3{ margin:0; }
 .card.wide{ max-width:460px; }
 
 .plain-brand{ display:flex; align-items:center; gap:10px; margin-bottom:22px; }
-.plain-brand img{ width:28px; }
-.plain-brand span{ font-weight:800; font-size:1.02rem; }
+.plain-brand .brand-logo{ height:28px; width:auto; display:block; }
 
 .eyebrow{ display:flex; align-items:center; gap:9px; font-family:'Fraunces',serif; font-weight:600; font-size:1.3rem; margin:0; }
 .eyebrow::before{ content:''; width:9px; height:9px; background:var(--garnet); transform:rotate(45deg); flex:none; }
