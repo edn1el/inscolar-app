@@ -166,12 +166,11 @@ button.link:hover{ color:var(--garnet-deep); }
 
 .map-card{ margin-bottom:16px; }
 .map-wrap{ position:relative; display:flex; justify-content:center; border-radius:22px; overflow:hidden; }
-.province-map{ width:100%; max-width:720px; height:auto; display:block; }
-.landmass{ fill:#f2e4c9; stroke:#cdb98d; stroke-width:2; }
-.map-decor{ pointer-events:none; }
+.province-map{ width:100%; max-width:760px; height:auto; display:block; }
+.map-decor, .map-labels{ pointer-events:none; }
 .prov-tile{ cursor:pointer; outline:none; }
-.prov-tile rect{ transition: filter .15s ease, stroke-width .15s ease; }
-.prov-tile:hover rect, .prov-tile:focus rect{ filter:brightness(1.1); stroke:var(--garnet-deep); stroke-width:2; }
+.prov-tile path{ transition: filter .15s ease, stroke-width .15s ease; }
+.prov-tile:hover path, .prov-tile:focus path{ filter:brightness(1.12); stroke:var(--garnet-deep); stroke-width:2.5; }
 .map-tooltip{ position:absolute; pointer-events:none; background:var(--ink); color:#fff; padding:6px 10px; border-radius:8px; font-size:.75rem; font-weight:600; white-space:nowrap; transform:translate(-50%,-130%); opacity:0; transition:opacity .12s ease; z-index:10; box-shadow:0 10px 20px -8px rgba(0,0,0,.35); }
 .map-tooltip.show{ opacity:1; }
 .map-legend{ display:flex; align-items:center; gap:10px; justify-content:center; margin-top:14px; font-size:.72rem; color:var(--ink-soft); }
