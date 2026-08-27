@@ -1,0 +1,326 @@
+{
+  "institutions": [
+    {
+      "id": "i001",
+      "nombre": "Colegio San Rafael",
+      "provincia": "Santo Domingo",
+      "distrito": "10-02"
+    },
+    {
+      "id": "i002",
+      "nombre": "Liceo Matutino Duarte",
+      "provincia": "Duarte",
+      "distrito": "07-01"
+    },
+    {
+      "id": "i003",
+      "nombre": "Escuela Básica Juan Pablo Duarte",
+      "provincia": "Santo Domingo",
+      "distrito": "10-05"
+    },
+    {
+      "id": "i004",
+      "nombre": "Colegio Loyola",
+      "provincia": "Santiago",
+      "distrito": "08-01"
+    },
+    {
+      "id": "i005",
+      "nombre": "Liceo Vespertino Independencia",
+      "provincia": "Distrito Nacional",
+      "distrito": "15-01"
+    },
+    {
+      "id": "i006",
+      "nombre": "Escuela Primaria Las Flores",
+      "provincia": "Santo Domingo",
+      "distrito": "10-03"
+    },
+    {
+      "id": "i007",
+      "nombre": "Colegio Santa Teresa de Jesús",
+      "provincia": "Santiago",
+      "distrito": "08-02"
+    },
+    {
+      "id": "i008",
+      "nombre": "Liceo Eugenio María de Hostos",
+      "provincia": "Distrito Nacional",
+      "distrito": "15-02"
+    },
+    {
+      "id": "i009",
+      "nombre": "Escuela José Martí",
+      "provincia": "La Vega",
+      "distrito": "09-01"
+    },
+    {
+      "id": "i010",
+      "nombre": "Colegio Nuevo Amanecer",
+      "provincia": "San Cristóbal",
+      "distrito": "18-01"
+    },
+    {
+      "id": "i011",
+      "nombre": "Liceo Gastón Fernando Deligne",
+      "provincia": "Puerto Plata",
+      "distrito": "06-01"
+    },
+    {
+      "id": "i012",
+      "nombre": "Escuela Padre Fantino Falco",
+      "provincia": "Santo Domingo",
+      "distrito": "10-06"
+    },
+    {
+      "id": "i013",
+      "nombre": "Colegio Sagrado Corazón",
+      "provincia": "Santiago",
+      "distrito": "08-03"
+    },
+    {
+      "id": "i014",
+      "nombre": "Liceo Profesor Juan Bosch",
+      "provincia": "La Vega",
+      "distrito": "09-02"
+    },
+    {
+      "id": "i015",
+      "nombre": "Escuela Ercilia Pepín",
+      "provincia": "Distrito Nacional",
+      "distrito": "15-03"
+    },
+    {
+      "id": "i016",
+      "nombre": "Colegio Metodista",
+      "provincia": "Santo Domingo",
+      "distrito": "10-07"
+    },
+    {
+      "id": "i017",
+      "nombre": "Liceo Matutino Salomé Ureña",
+      "provincia": "La Altagracia",
+      "distrito": "11-01"
+    },
+    {
+      "id": "i018",
+      "nombre": "Escuela Básica María Trinidad Sánchez",
+      "provincia": "Santiago",
+      "distrito": "08-04"
+    },
+    {
+      "id": "i019",
+      "nombre": "Colegio Santo Tomás de Aquino",
+      "provincia": "Santo Domingo",
+      "distrito": "10-08"
+    },
+    {
+      "id": "i020",
+      "nombre": "Liceo Nocturno Duarte",
+      "provincia": "San Cristóbal",
+      "distrito": "18-02"
+    },
+    {
+      "id": "i021",
+      "nombre": "Escuela Fe y Alegría",
+      "provincia": "Puerto Plata",
+      "distrito": "06-02"
+    },
+    {
+      "id": "i022",
+      "nombre": "Colegio Cristo Rey",
+      "provincia": "Distrito Nacional",
+      "distrito": "15-04"
+    },
+    {
+      "id": "i023",
+      "nombre": "Liceo Pedro Henríquez Ureña",
+      "provincia": "Santo Domingo",
+      "distrito": "10-09"
+    },
+    {
+      "id": "i024",
+      "nombre": "Escuela Básica Altagracia",
+      "provincia": "Santiago",
+      "distrito": "08-05"
+    }
+  ],
+  "users": [
+    {
+      "id": "u001",
+      "nombre": "María Altagracia Rosario",
+      "email": "maria.rosario@inscolar.do",
+      "passwordHash": "$2a$10$eirbUlzKqROL13q6POSsW.AlJBIkfRWhfCIRvDJrYvP0DTWDd8/46",
+      "passwordHistory": [],
+      "role": "Administrador",
+      "institucionId": null,
+      "estado": "Activo",
+      "sexo": "Femenino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(829) 214-8890",
+      "cedula": null,
+      "mfaEnabled": true,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2025-11-05T13:58:00.000Z",
+      "lastAccess": "2026-08-27T06:48:02.028Z"
+    },
+    {
+      "id": "u002",
+      "nombre": "Ana Beltré Peña",
+      "email": "ana.beltre@correo.do",
+      "passwordHash": "$2a$10$u9QBw.0w9REnzXcO1hfLpuCZ4Q.2pT6/g11nFW3MOvte.s38Kcmim",
+      "passwordHistory": [],
+      "role": "Tutor",
+      "institucionId": null,
+      "estado": "Activo",
+      "sexo": "Femenino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(809) 214-8890",
+      "cedula": "00112345678",
+      "mfaEnabled": false,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2026-01-10T10:00:00.000Z",
+      "lastAccess": "2026-08-24T09:12:00.000Z"
+    },
+    {
+      "id": "u003",
+      "nombre": "José Manuel Cepeda",
+      "email": "jm.cepeda@sanrafael.edu.do",
+      "passwordHash": "$2a$10$M9hZDX.h.Sh6dLxYwcKwnef9Ck6UHThbP64LAWF0G9BG8JKl8JY/y",
+      "passwordHistory": [],
+      "role": "Personal de institución",
+      "institucionId": "i001",
+      "estado": "Activo",
+      "sexo": "Masculino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(809) 555-0199",
+      "cedula": null,
+      "mfaEnabled": false,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2026-02-14T11:00:00.000Z",
+      "lastAccess": "2026-08-24T08:40:00.000Z"
+    },
+    {
+      "id": "u004",
+      "nombre": "Yorlenny Sánchez",
+      "email": "y.sanchez@inscolar.do",
+      "passwordHash": "$2a$10$U9CdJmPQ5P63LS8eqedfvuwBhU9PvSGO2qNBmZfesrpZWu3QbyRYa",
+      "passwordHistory": [],
+      "role": "Soporte",
+      "institucionId": null,
+      "estado": "Inactivo",
+      "sexo": "Femenino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(809) 555-0142",
+      "cedula": null,
+      "mfaEnabled": false,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2025-09-01T09:00:00.000Z",
+      "lastAccess": "2026-08-12T15:03:00.000Z"
+    },
+    {
+      "id": "u005",
+      "nombre": "Rafael Ureña Mota",
+      "email": "r.urena@liceoduarte.edu.do",
+      "passwordHash": "$2a$10$o.CiKpcczADPC6gX/L8Cm.LgOconMlUFKNM7dwFRl90QfWsC29vxa",
+      "passwordHistory": [],
+      "role": "Personal de institución",
+      "institucionId": "i002",
+      "estado": "Activo",
+      "sexo": "Masculino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(809) 555-0166",
+      "cedula": null,
+      "mfaEnabled": false,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2026-03-20T09:00:00.000Z",
+      "lastAccess": "2026-08-23T17:55:00.000Z"
+    },
+    {
+      "id": "u006",
+      "nombre": "Claribel Guzmán Ferreras",
+      "email": "c.guzman@inscolar.do",
+      "passwordHash": "$2a$10$Ju2xI3.FFOYPobT5wT6ds.pZVTNz..xnOuq9TiGP9w1drd8iwl9ge",
+      "passwordHistory": [],
+      "role": "Administrador",
+      "institucionId": null,
+      "estado": "Activo",
+      "sexo": "Femenino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(809) 555-0177",
+      "cedula": null,
+      "mfaEnabled": false,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2025-02-14T09:00:00.000Z",
+      "lastAccess": "2026-08-25T08:41:00.000Z"
+    },
+    {
+      "id": "u007",
+      "nombre": "Pedro Antonio Lluberes",
+      "email": "p.lluberes@inscolar.do",
+      "passwordHash": "$2a$10$/nj7YTeOn8RA6ieILX7SMeQeixDuQfG321QLaqjdo9ZOr2eTbJPVG",
+      "passwordHistory": [],
+      "role": "Auditoría",
+      "institucionId": null,
+      "estado": "Inactivo",
+      "sexo": "Masculino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(809) 555-0188",
+      "cedula": null,
+      "mfaEnabled": false,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2025-06-01T09:00:00.000Z",
+      "lastAccess": "2026-08-01T11:20:00.000Z"
+    }
+  ],
+  "mfaCodes": [],
+  "resetTokens": [],
+  "notifications": [
+    {
+      "id": "n001",
+      "userId": "u006",
+      "userNombre": "Claribel Guzmán",
+      "campo": "Rol",
+      "anterior": "Soporte",
+      "nuevo": "Administrador",
+      "actorId": "u001",
+      "actorNombre": "María Rosario",
+      "createdAt": "2026-08-25T08:41:00.000Z",
+      "read": true
+    },
+    {
+      "id": "n002",
+      "userId": "u007",
+      "userNombre": "Pedro A. Lluberes",
+      "campo": "Contraseña restablecida",
+      "anterior": "",
+      "nuevo": "",
+      "actorId": "u001",
+      "actorNombre": "Carlos Peña",
+      "createdAt": "2026-08-24T17:12:00.000Z",
+      "read": false
+    },
+    {
+      "id": "n003",
+      "userId": "u004",
+      "userNombre": "Yorlenny Sánchez",
+      "campo": "Estado",
+      "anterior": "Activo",
+      "nuevo": "Inactivo",
+      "actorId": "u001",
+      "actorNombre": "Carlos Peña",
+      "createdAt": "2026-08-12T15:03:00.000Z",
+      "read": false
+    }
+  ],
+  "meta": {
+    "defaultPassword": "Inscolar#2026"
+  }
+}
