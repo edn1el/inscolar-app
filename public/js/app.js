@@ -59,6 +59,17 @@
     'Soporte': { bg: '#fbf0da', fg: '#8a6414' },
     'Auditoría': { bg: '#efe7fb', fg: '#5b3fa0' },
   };
+  const INST_TIPO_STYLE = {
+    'Público': { bg: '#e1f2f0', fg: '#1c7c72' },
+    'Privado': { bg: '#eef1f4', fg: '#46505c' },
+  };
+  const PROVINCIAS = [
+    'Azua', 'Bahoruco', 'Barahona', 'Dajabón', 'Distrito Nacional', 'Duarte', 'Elías Piña', 'El Seibo',
+    'Espaillat', 'Hato Mayor', 'Hermanas Mirabal', 'Independencia', 'La Altagracia', 'La Romana', 'La Vega',
+    'María Trinidad Sánchez', 'Monseñor Nouel', 'Monte Cristi', 'Monte Plata', 'Pedernales', 'Peravia',
+    'Puerto Plata', 'Samaná', 'San Cristóbal', 'San José de Ocoa', 'San Juan', 'San Pedro de Macorís',
+    'Sánchez Ramírez', 'Santiago', 'Santiago Rodríguez', 'Santo Domingo', 'Valverde',
+  ];
   const AVATAR_PALETTE = [
     ['#f6dde2', '#8a1330'], ['#e1ecf7', '#2a5c96'], ['#e6f2e0', '#2f6d24'],
     ['#fbeadb', '#93591a'], ['#eee1f7', '#6a3a97'], ['#deeef2', '#1f6d7c'],
@@ -455,7 +466,7 @@
 
   async function viewApp(segs, query) {
     const section = segs[0] || 'perfil';
-    if (['usuarios', 'notificaciones', 'analiticas'].includes(section) && !isAdmin()) {
+    if (['usuarios', 'instituciones', 'notificaciones', 'analiticas'].includes(section) && !isAdmin()) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -476,6 +487,9 @@
       else if (section === 'usuarios' && segs[1] === 'nuevo') await renderUsuarioForm(null);
       else if (section === 'usuarios' && segs[2] === 'editar') await renderUsuarioForm(segs[1]);
       else if (section === 'usuarios') await renderUsuarios(query);
+      else if (section === 'instituciones' && segs[1] === 'nueva') await renderInstitucionForm(null);
+      else if (section === 'instituciones' && segs[2] === 'editar') await renderInstitucionForm(segs[1]);
+      else if (section === 'instituciones') await renderInstituciones(query);
       else if (section === 'notificaciones') await renderNotificaciones();
       else if (section === 'analiticas') await renderAnaliticas();
       else qs('.main').innerHTML = '<div class="empty-state">Sección no encontrada.</div>';
@@ -504,6 +518,7 @@
             ${admin ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">Usuarios</button>
+            <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">Instituciones</button>
             <button class="nav-item ${activeSection === 'notificaciones' ? 'active' : ''}" data-nav="#/app/notificaciones">Notificaciones</button>
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">Analíticas</button>
             ` : ''}
@@ -794,6 +809,125 @@
           alert('Usuario creado. Contraseña temporal (modo de prueba, sin envío real de correo):\n\n' + data.devTempPassword);
         }
         navigate('#/app/usuarios');
+      } catch (err) {
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+      }
+    });
+  }
+
+  // ---------------- Instituciones ----------------
+  async function renderInstituciones(query) {
+    const params = new URLSearchParams();
+    if (query.q) params.set('q', query.q);
+    if (query.provincia) params.set('provincia', query.provincia);
+    if (query.estado) params.set('estado', query.estado);
+    const { total, institutions } = await api('/institutions?' + params.toString());
+    const provinciasFiltro = ['Todas', ...PROVINCIAS];
+    const estados = ['Todos', 'Activo', 'Inactivo'];
+
+    qs('.main').innerHTML = `
+      <div class="page-head"><div><h2>Instituciones</h2><div class="sub">Centros educativos registrados en el sistema.</div></div></div>
+      <div class="filters">
+        <input id="f-q" placeholder="Buscar por nombre o distrito..." value="${escapeHtml(query.q || '')}">
+        <select id="f-provincia">${provinciasFiltro.map((p) => `<option ${query.provincia === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select>
+        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        <button class="btn btn-primary spacer" style="width:auto; padding:10px 18px;" data-nav="#/app/instituciones/nueva">Nueva institución</button>
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>Institución</th><th>Provincia</th><th>Distrito</th><th>Tipo</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <tbody>
+            ${institutions.map((inst) => {
+              const ts = INST_TIPO_STYLE[inst.tipo] || { bg: '#eee', fg: '#333' };
+              const active = (inst.estado || 'Activo') === 'Activo';
+              return `<tr>
+                <td><div class="user-cell"><span class="av" style="background:#e1ecf7;color:#2a5c96">${ICONS.building}</span><span><div class="name">${escapeHtml(inst.nombre)}</div><div class="mail">${escapeHtml(inst.direccion || 'Sin dirección registrada')}</div></span></div></td>
+                <td>${escapeHtml(inst.provincia)}</td>
+                <td>${escapeHtml(inst.distrito)}</td>
+                <td><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
+                <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${inst.estado || 'Activo'}</span></td>
+                <td><span class="actions-cell">
+                  <button class="neutral" data-edit="${inst.id}">Modificar</button>
+                  <button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>
+                </span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div class="table-footer"><span>Mostrando ${institutions.length} de ${total} instituciones</span></div>
+      </div>
+    `;
+    bindShellEvents();
+
+    function applyFilters() {
+      const p = new URLSearchParams();
+      if (qs('#f-q').value) p.set('q', qs('#f-q').value);
+      if (qs('#f-provincia').value !== 'Todas') p.set('provincia', qs('#f-provincia').value);
+      if (qs('#f-estado').value !== 'Todos') p.set('estado', qs('#f-estado').value);
+      navigate('#/app/instituciones?' + p.toString());
+    }
+    qs('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
+    qs('#f-provincia').addEventListener('change', applyFilters);
+    qs('#f-estado').addEventListener('change', applyFilters);
+
+    qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.edit + '/editar')));
+    qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
+      await api('/institutions/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
+      renderInstituciones(query);
+    }));
+  }
+
+  async function renderInstitucionForm(id) {
+    let editing = null;
+    if (id) {
+      const { institutions } = await api('/institutions');
+      editing = institutions.find((i) => i.id === id);
+    }
+    const digits = (s) => (s || '').replace(/[^0-9]/g, '');
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      <div class="page-head"><h2>${editing ? 'Modificar institución' : 'Nueva institución'}</h2></div>
+      <div class="chart-card" style="max-width:560px;">
+        <div id="err"></div>
+        <form id="inst-form">
+          <div class="field"><label>Nombre de la institución</label><input type="text" name="nombre" value="${escapeHtml(editing ? editing.nombre : '')}" required></div>
+          <div class="two-col">
+            <div class="field"><label>Provincia</label>
+              <select name="provincia">${PROVINCIAS.map((p) => `<option ${editing && editing.provincia === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select>
+            </div>
+            <div class="field"><label>Distrito educativo</label><input type="text" name="distrito" placeholder="00-00" value="${escapeHtml(editing ? editing.distrito : '')}" required></div>
+          </div>
+          <div class="field"><label>Tipo</label>
+            <select name="tipo">
+              <option value="Público" ${editing && editing.tipo === 'Público' ? 'selected' : ''}>Público</option>
+              <option value="Privado" ${editing && editing.tipo === 'Privado' ? 'selected' : ''}>Privado</option>
+            </select>
+          </div>
+          <div class="field"><label>Dirección</label><input type="text" name="direccion" value="${escapeHtml(editing ? editing.direccion || '' : '')}" placeholder="Opcional"></div>
+          <div class="field"><label>Teléfono</label><input type="text" name="telefono" maxlength="10" value="${escapeHtml(editing ? digits(editing.telefono) : '')}" placeholder="8095551234 (opcional)"></div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">${editing ? 'Guardar cambios' : 'Crear institución'}</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/instituciones">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    bindShellEvents();
+
+    qs('#inst-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const body = Object.fromEntries(fd.entries());
+      qs('#err').innerHTML = '';
+      try {
+        if (editing) {
+          await api('/institutions/' + editing.id, { method: 'PUT', body });
+          toast('Institución actualizada.', 'ok');
+        } else {
+          await api('/institutions', { method: 'POST', body });
+          toast('Institución creada.', 'ok');
+        }
+        navigate('#/app/instituciones');
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
       }

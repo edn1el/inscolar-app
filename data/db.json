@@ -4,145 +4,265 @@
       "id": "i001",
       "nombre": "Colegio San Rafael",
       "provincia": "Santo Domingo",
-      "distrito": "10-02"
+      "distrito": "10-02",
+      "tipo": "Privado",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i002",
       "nombre": "Liceo Matutino Duarte",
       "provincia": "Duarte",
-      "distrito": "07-01"
+      "distrito": "07-01",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i003",
       "nombre": "Escuela Básica Juan Pablo Duarte",
       "provincia": "Santo Domingo",
-      "distrito": "10-05"
+      "distrito": "10-05",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i004",
       "nombre": "Colegio Loyola",
       "provincia": "Santiago",
-      "distrito": "08-01"
+      "distrito": "08-01",
+      "tipo": "Privado",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i005",
       "nombre": "Liceo Vespertino Independencia",
       "provincia": "Distrito Nacional",
-      "distrito": "15-01"
+      "distrito": "15-01",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i006",
       "nombre": "Escuela Primaria Las Flores",
       "provincia": "Santo Domingo",
-      "distrito": "10-03"
+      "distrito": "10-03",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i007",
       "nombre": "Colegio Santa Teresa de Jesús",
       "provincia": "Santiago",
-      "distrito": "08-02"
+      "distrito": "08-02",
+      "tipo": "Privado",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i008",
       "nombre": "Liceo Eugenio María de Hostos",
       "provincia": "Distrito Nacional",
-      "distrito": "15-02"
+      "distrito": "15-02",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i009",
       "nombre": "Escuela José Martí",
       "provincia": "La Vega",
-      "distrito": "09-01"
+      "distrito": "09-01",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i010",
       "nombre": "Colegio Nuevo Amanecer",
       "provincia": "San Cristóbal",
-      "distrito": "18-01"
+      "distrito": "18-01",
+      "tipo": "Privado",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i011",
       "nombre": "Liceo Gastón Fernando Deligne",
       "provincia": "Puerto Plata",
-      "distrito": "06-01"
+      "distrito": "06-01",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i012",
       "nombre": "Escuela Padre Fantino Falco",
       "provincia": "Santo Domingo",
-      "distrito": "10-06"
+      "distrito": "10-06",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i013",
       "nombre": "Colegio Sagrado Corazón",
       "provincia": "Santiago",
-      "distrito": "08-03"
+      "distrito": "08-03",
+      "tipo": "Privado",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i014",
       "nombre": "Liceo Profesor Juan Bosch",
       "provincia": "La Vega",
-      "distrito": "09-02"
+      "distrito": "09-02",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i015",
       "nombre": "Escuela Ercilia Pepín",
       "provincia": "Distrito Nacional",
-      "distrito": "15-03"
+      "distrito": "15-03",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i016",
       "nombre": "Colegio Metodista",
       "provincia": "Santo Domingo",
-      "distrito": "10-07"
+      "distrito": "10-07",
+      "tipo": "Privado",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i017",
       "nombre": "Liceo Matutino Salomé Ureña",
       "provincia": "La Altagracia",
-      "distrito": "11-01"
+      "distrito": "11-01",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i018",
       "nombre": "Escuela Básica María Trinidad Sánchez",
       "provincia": "Santiago",
-      "distrito": "08-04"
+      "distrito": "08-04",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i019",
       "nombre": "Colegio Santo Tomás de Aquino",
       "provincia": "Santo Domingo",
-      "distrito": "10-08"
+      "distrito": "10-08",
+      "tipo": "Privado",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i020",
       "nombre": "Liceo Nocturno Duarte",
       "provincia": "San Cristóbal",
-      "distrito": "18-02"
+      "distrito": "18-02",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Inactivo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i021",
       "nombre": "Escuela Fe y Alegría",
       "provincia": "Puerto Plata",
-      "distrito": "06-02"
+      "distrito": "06-02",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Inactivo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i022",
       "nombre": "Colegio Cristo Rey",
       "provincia": "Distrito Nacional",
-      "distrito": "15-04"
+      "distrito": "15-04",
+      "tipo": "Privado",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i023",
       "nombre": "Liceo Pedro Henríquez Ureña",
       "provincia": "Santo Domingo",
-      "distrito": "10-09"
+      "distrito": "10-09",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     },
     {
       "id": "i024",
       "nombre": "Escuela Básica Altagracia",
       "provincia": "Santiago",
-      "distrito": "08-05"
+      "distrito": "08-05",
+      "tipo": "Público",
+      "direccion": "",
+      "telefono": "",
+      "estado": "Activo",
+      "createdAt": "2025-08-01T09:00:00.000Z"
     }
   ],
   "users": [
@@ -163,7 +283,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-11-05T13:58:00.000Z",
-      "lastAccess": "2026-08-27T06:48:02.028Z"
+      "lastAccess": "2026-08-27T07:11:57.595Z"
     },
     {
       "id": "u002",
@@ -258,7 +378,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-02-14T09:00:00.000Z",
-      "lastAccess": "2026-08-25T08:41:00.000Z"
+      "lastAccess": "2026-08-27T07:13:49.886Z"
     },
     {
       "id": "u007",

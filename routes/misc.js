@@ -5,11 +5,6 @@ const { requireAuth, requireAdmin } = require('../lib/middleware');
 const router = express.Router();
 router.use(requireAuth);
 
-// ---- instituciones ----
-router.get('/institutions', (req, res) => {
-  res.json({ institutions: req.db.institutions });
-});
-
 // ---- notificaciones (admin) ----
 router.get('/notifications', requireAdmin, (req, res) => {
   const db = req.db;

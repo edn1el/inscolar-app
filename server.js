@@ -12,6 +12,7 @@ if (!fs.existsSync(DB_PATH)) {
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
+const institutionRoutes = require('./routes/institutions');
 const miscRoutes = require('./routes/misc');
 
 const app = express();
@@ -29,6 +30,7 @@ app.use(
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/institutions', institutionRoutes);
 app.use('/api', miscRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));
