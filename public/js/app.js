@@ -102,6 +102,7 @@
     search: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
     bell: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
     back: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>',
+    printer: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
   };
 
   // ---------------- router ----------------
@@ -519,8 +520,10 @@
       else if (section === 'instituciones') await renderInstituciones(query);
       else if (section === 'inscripciones' && segs[1] === 'estudiante-nuevo') await renderEstudianteForm();
       else if (section === 'inscripciones' && segs[1] === 'nueva') await renderInscripcionForm();
+      else if (section === 'inscripciones' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteInscripcion(segs[2]);
       else if (section === 'inscripciones') await renderInscripciones(query);
       else if (section === 'citas' && segs[1] === 'nueva') await renderCitaForm();
+      else if (section === 'citas' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteCita(segs[2]);
       else if (section === 'citas') await renderCitas(query);
       else if (section === 'notificaciones') await renderNotificaciones();
       else if (section === 'analiticas') await renderAnaliticas();
@@ -1035,7 +1038,7 @@
                 <td><span class="actions-cell">
                   ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
                   ${!tutor && e.estado === 'Pendiente' ? `<button class="ok" data-approve="${e.id}">Aprobar</button><button class="danger" data-reject="${e.id}">Rechazar</button>` : ''}
-                  ${e.estado !== 'Pendiente' ? '—' : ''}
+                  <button class="neutral" data-comprobante="${e.id}">Comprobante</button>
                 </span></td>
               </tr>`;
             }).join('') : `<tr><td colspan="${colCount}" class="empty-state">No hay solicitudes${query.estado && query.estado !== 'Todos' ? ' con ese estado' : ''}.</td></tr>`}
@@ -1055,6 +1058,7 @@
     qs('#f-estado').addEventListener('change', applyFilters);
     if (admin && qs('#f-institucion')) qs('#f-institucion').addEventListener('change', applyFilters);
 
+    qsa('[data-comprobante]').forEach((b) => b.addEventListener('click', () => navigate('#/app/inscripciones/comprobante/' + b.dataset.comprobante)));
     qsa('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
       if (!confirm('¿Cancelar esta solicitud de inscripción?')) return;
       try {
@@ -1206,7 +1210,8 @@
                 <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${a.estado}</span>${a.estado === 'Cancelada' && a.motivoCancelacion ? `<div class="help">${escapeHtml(a.motivoCancelacion)}</div>` : ''}</td>
                 <td><span class="actions-cell">
                   ${!tutor && a.estado === 'Pendiente' ? `<button class="ok" data-confirm="${a.id}">Confirmar</button>` : ''}
-                  ${a.estado !== 'Cancelada' ? `<button class="danger" data-cancel="${a.id}">Cancelar</button>` : '—'}
+                  ${a.estado !== 'Cancelada' ? `<button class="danger" data-cancel="${a.id}">Cancelar</button>` : ''}
+                  <button class="neutral" data-comprobante="${a.id}">Comprobante</button>
                 </span></td>
               </tr>`;
             }).join('') : `<tr><td colspan="${colCount}" class="empty-state">No hay citas${query.estado && query.estado !== 'Todos' ? ' con ese estado' : ''}.</td></tr>`}
@@ -1226,6 +1231,7 @@
     qs('#f-estado').addEventListener('change', applyFilters);
     if (admin && qs('#f-institucion')) qs('#f-institucion').addEventListener('change', applyFilters);
 
+    qsa('[data-comprobante]').forEach((b) => b.addEventListener('click', () => navigate('#/app/citas/comprobante/' + b.dataset.comprobante)));
     qsa('[data-confirm]').forEach((b) => b.addEventListener('click', async () => {
       try {
         await api('/appointments/' + b.dataset.confirm + '/confirmar', { method: 'POST' });
@@ -1294,6 +1300,91 @@
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
       }
+    });
+  }
+
+  // ---------------- Comprobantes imprimibles ----------------
+  function printableShell({ tipo, folio, estado, estadoColor, fields, motivoLabel, motivo, backHref }) {
+    qs('.main').innerHTML = `
+      <div class="comprobante-toolbar no-print">
+        <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
+        <button class="btn btn-primary" style="width:auto; padding:10px 18px;" id="btn-print">${ICONS.printer} Imprimir / Guardar como PDF</button>
+      </div>
+      <div class="comprobante">
+        <div class="comprobante-head">
+          <img class="comprobante-logo" src="/assets/brand/inscolar-logo-horizontal-primary.svg" alt="Inscolar">
+          <div class="comprobante-folio"><div class="cf-label">Folio</div><div class="cf-value">${escapeHtml(folio)}</div></div>
+        </div>
+        <h2 class="comprobante-title">${escapeHtml(tipo)}</h2>
+        <div class="comprobante-meta">Emitido el ${fmtDate(new Date().toISOString())} · Documento generado electrónicamente, no requiere firma.</div>
+        <div class="comprobante-status" style="background:${estadoColor}1f; color:${estadoColor};"><span class="dot" style="background:${estadoColor}"></span>${escapeHtml(estado)}</div>
+        ${motivo ? `<div class="comprobante-motivo"><strong>${escapeHtml(motivoLabel)}:</strong> ${escapeHtml(motivo)}</div>` : ''}
+        <div class="comprobante-grid">
+          ${fields.map((f) => `<div class="cg-item"><div class="cg-label">${escapeHtml(f.label)}</div><div class="cg-value">${escapeHtml(f.value)}</div></div>`).join('')}
+        </div>
+        <div class="comprobante-foot">
+          <img src="/assets/brand/inscolar-symbol-primary.svg" alt="">
+          <div>Inscolar — Sistema de inscripción escolar<br>Ministerio de Educación · República Dominicana</div>
+        </div>
+      </div>
+    `;
+    bindShellEvents();
+    qs('#btn-print').addEventListener('click', () => window.print());
+  }
+
+  async function renderComprobanteInscripcion(id) {
+    const { enrollments } = await api('/enrollments');
+    const e = enrollments.find((x) => x.id === id);
+    if (!e) { qs('.main').innerHTML = '<div class="empty-state">Solicitud no encontrada.</div>'; bindShellEvents(); return; }
+    const { institutions } = await api('/institutions');
+    const inst = institutions.find((i) => i.id === e.institucionId);
+    const estadoColor = e.estado === 'Aprobada' ? '#1f7a4c' : e.estado === 'Rechazada' ? '#c23b3b' : '#8a6414';
+    printableShell({
+      tipo: 'Comprobante de inscripción',
+      folio: e.id,
+      estado: e.estado,
+      estadoColor,
+      motivoLabel: 'Motivo de rechazo',
+      motivo: e.estado === 'Rechazada' ? e.motivoRechazo : '',
+      backHref: '#/app/inscripciones',
+      fields: [
+        { label: 'Estudiante', value: e.estudianteNombre },
+        { label: 'Tutor', value: e.tutorNombre },
+        { label: 'Institución', value: e.institucionNombre },
+        { label: 'Provincia', value: inst ? inst.provincia : '—' },
+        { label: 'Dirección', value: inst && inst.direccion ? inst.direccion : 'No registrada' },
+        { label: 'Grado solicitado', value: e.gradoSolicitado },
+        { label: 'Ciclo escolar', value: e.cicloEscolar },
+        { label: 'Fecha de solicitud', value: fmtDate(e.createdAt) },
+      ],
+    });
+  }
+
+  async function renderComprobanteCita(id) {
+    const { appointments } = await api('/appointments');
+    const a = appointments.find((x) => x.id === id);
+    if (!a) { qs('.main').innerHTML = '<div class="empty-state">Cita no encontrada.</div>'; bindShellEvents(); return; }
+    const { institutions } = await api('/institutions');
+    const inst = institutions.find((i) => i.id === a.institucionId);
+    const estadoColor = a.estado === 'Confirmada' ? '#1f7a4c' : a.estado === 'Cancelada' ? '#c23b3b' : '#8a6414';
+    const when = a.fechaHoraConfirmada || a.fechaHoraSolicitada;
+    printableShell({
+      tipo: 'Comprobante de cita',
+      folio: a.id,
+      estado: a.estado,
+      estadoColor,
+      motivoLabel: 'Motivo de cancelación',
+      motivo: a.estado === 'Cancelada' ? a.motivoCancelacion : '',
+      backHref: '#/app/citas',
+      fields: [
+        { label: 'Tutor', value: a.tutorNombre },
+        { label: 'Estudiante', value: a.estudianteNombre || 'No especificado' },
+        { label: 'Institución', value: a.institucionNombre },
+        { label: 'Provincia', value: inst ? inst.provincia : '—' },
+        { label: 'Dirección', value: inst && inst.direccion ? inst.direccion : 'No registrada' },
+        { label: 'Motivo de la cita', value: a.motivo },
+        { label: 'Fecha y hora', value: fmtDate(when) },
+      ],
     });
   }
 

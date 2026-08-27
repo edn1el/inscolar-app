@@ -225,3 +225,30 @@ tbody tr:last-child td{ border-bottom:none; }
   .sidebar{ display:none; }
   .chart-row{ grid-template-columns:1fr; }
 }
+
+/* ---------------- Comprobante imprimible ---------------- */
+.comprobante-toolbar{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.comprobante{ background:#fff; max-width:720px; margin:0 auto; border-radius:18px; padding:44px 46px 36px; box-shadow:0 30px 60px -30px rgba(28,16,19,.25); border-top:8px solid var(--garnet); }
+.comprobante-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:22px; }
+.comprobante-logo{ height:34px; width:auto; }
+.comprobante-folio{ text-align:right; }
+.cf-label{ font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); }
+.cf-value{ font-family:'Fraunces',serif; font-weight:700; font-size:1.1rem; color:var(--ink); }
+.comprobante-title{ font-family:'Fraunces',serif; font-weight:600; font-size:1.5rem; margin:0 0 6px; }
+.comprobante-meta{ font-size:.78rem; color:var(--ink-soft); margin-bottom:18px; }
+.comprobante-status{ display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border-radius:999px; font-weight:700; font-size:.82rem; margin-bottom:18px; }
+.comprobante-status .dot{ width:8px; height:8px; border-radius:50%; }
+.comprobante-motivo{ background:var(--bg); border-radius:10px; padding:12px 14px; font-size:.85rem; margin-bottom:18px; }
+.comprobante-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px 24px; border-top:1px solid var(--border); padding-top:22px; }
+.cg-label{ font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:3px; }
+.cg-value{ font-size:.95rem; font-weight:600; color:var(--ink); }
+.comprobante-foot{ display:flex; align-items:center; gap:12px; margin-top:34px; padding-top:20px; border-top:1px solid var(--border); font-size:.72rem; color:var(--ink-soft); line-height:1.5; }
+.comprobante-foot img{ width:26px; height:26px; flex:none; }
+
+@media print{
+  .no-print, .topbar, .sidebar{ display:none !important; }
+  body, .app, .body, .main{ background:#fff !important; }
+  .main{ padding:0 !important; overflow:visible !important; }
+  .comprobante{ box-shadow:none !important; max-width:100%; padding:0 6mm; }
+  @page{ margin:14mm; }
+}

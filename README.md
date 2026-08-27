@@ -73,4 +73,4 @@ public/             frontend (HTML/CSS/JS plano, sin build)
 
 ## Lo que falta
 
-Ya están las cuatro áreas principales del sistema (Usuarios, Instituciones, Inscripciones, Citas), el logo oficial (kit de marca en SVG) puesto en todas partes, y en Analíticas ahora hay un mapa interactivo por provincia (se puede hacer clic en una provincia para ver sus instituciones). Lo que queda es más de pulido visual que de funcionalidad nueva: fondo real por institución (foto + overlay), PDFs con la plantilla de marca, y modo de alto contraste.
+Ya están las cuatro áreas principales del sistema (Usuarios, Instituciones, Inscripciones, Citas), el logo oficial (kit de marca en SVG) puesto en todas partes, en Analíticas hay un mapa interactivo con el contorno real de las provincias, y tanto en Inscripciones como en Citas se puede generar un comprobante imprimible (con el membrete de Inscolar) desde cada solicitud. Lo que queda es más de pulido visual que de funcionalidad nueva: fondo real por institución (foto + overlay) y modo de alto contraste.
