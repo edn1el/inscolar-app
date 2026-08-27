@@ -1,32 +1,23 @@
-# Inscolar — prototipo funcional (Gestión de Usuario + Analíticas)
+# Inscolar (prototipo)
 
-Esto convierte el prototipo de diseño en una aplicación que corre de verdad en tu
-computadora: backend en Node/Express, datos guardados en un archivo JSON (no hace falta
-instalar ninguna base de datos), y el frontend con la misma identidad visual que ya
-habíamos definido (logo, colores, sello 3D, tarjetas con tilt, etc.).
+Este es el prototipo de Inscolar ya funcionando de verdad, no solo la maqueta. Backend en Node/Express, los datos se guardan en un JSON así que no hay que instalar nada de base de datos, y el frontend mantiene el mismo diseño que ya teníamos (logo, colores, el sello 3D, las tarjetas con tilt).
 
-Nivel de "funcional": es un prototipo con datos reales que persisten mientras usas la
-app (crear un usuario, cambiar una contraseña, activar MFA, etc. de verdad se guarda en
-`data/db.json`), pero sin la robustez de un backend de producción: las contraseñas
-"enviadas por correo" (MFA, recuperación, contraseñas temporales) se muestran en pantalla
-en vez de mandarse por email real, y las sesiones se pierden si reinicias el servidor.
-Perfecto para exponer y probar los flujos; no está pensado para desplegarse tal cual a
-usuarios reales.
+Cuando digo "funcional" me refiero a que los datos persisten de verdad mientras usas la app — si creas un usuario, cambias una contraseña o activas el MFA, eso se guarda en `data/db.json` y sigue ahí. Lo que no tiene es la robustez de un backend en producción: como no conecté ningún servicio de correo real, las cosas que normalmente se mandarían por email (códigos MFA, links de recuperación, contraseñas temporales) simplemente se muestran en pantalla. Y las sesiones se pierden si reinicias el servidor. Sirve para mostrar y probar los flujos completos, pero todavía no está listo para usuarios reales.
 
-## Cómo correrlo
+## Para correrlo
 
-Necesitas tener [Node.js](https://nodejs.org) instalado (cualquier versión reciente, 18+).
+Hace falta tener [Node.js](https://nodejs.org) (18 o más reciente).
 
 ```bash
 npm install
 npm start
 ```
 
-Abre **http://localhost:3000** en el navegador. Con eso ya está corriendo.
+Y ya, entras a **http://localhost:3000**.
 
 ## Usuarios de prueba
 
-Todos los usuarios de prueba tienen la misma contraseña: **`Inscolar#2026`**
+La contraseña es la misma para todos: `Inscolar#2026`
 
 | Correo | Rol |
 |---|---|
@@ -38,60 +29,42 @@ Todos los usuarios de prueba tienen la misma contraseña: **`Inscolar#2026`**
 | p.lluberes@inscolar.do | Auditoría (cuenta inactiva) |
 | ana.beltre@correo.do | Tutor |
 
-Los roles **Administrador** y **Soporte** ven Usuarios, Notificaciones y Analíticas en el
-menú. Los demás roles solo ven "Mi cuenta" (perfil y seguridad) — así se comporta el
-control de acceso real, no solo la maqueta.
+Administrador y Soporte ven Usuarios, Notificaciones y Analíticas en el menú. Los demás roles solo ven "Mi cuenta". Esto no es solo visual, el control de acceso funciona de verdad por debajo.
 
-## Qué es "modo de prueba" en pantalla
+## El "modo de prueba" que aparece en pantalla
 
-Como no hay un servicio de correo real conectado, cuando el sistema necesita "enviar"
-algo (un código MFA, un enlace de recuperación, una contraseña temporal), en vez de
-mandarlo a un correo lo muestra directamente en la pantalla dentro de un aviso amarillo
-que dice **"Modo de prueba (sin envío real de correo)"**. Así puedes probar el flujo
-completo sin necesitar una bandeja de entrada real. Para una versión real habría que
-conectar un proveedor de correo (SendGrid, SES, etc.) — el resto de la lógica (expiración
-de códigos, límite de intentos, historial de contraseñas) ya está implementada de verdad.
+Como no hay correo real conectado, cuando el sistema necesita "enviar" algo (código MFA, link de recuperación, contraseña temporal) lo pone directamente en pantalla en un aviso amarillo que dice "Modo de prueba (sin envío real de correo)". Así se puede probar el flujo completo sin necesitar una bandeja de entrada de verdad. Para producción tocaría conectar algo como SendGrid o SES — el resto de la lógica (expiración de códigos, límite de intentos, historial de contraseñas) ya está hecha.
 
-## Reiniciar los datos de prueba
+## Resetear los datos
 
-Si quieres devolver todo al estado inicial (deshacer usuarios creados, cambios de estado,
-etc.):
+Para volver todo al estado inicial y deshacer lo que se haya creado o cambiado:
 
 ```bash
 npm run reset-data
 ```
 
-Esto reescribe `data/db.json` con el set de datos original.
+Esto reescribe `data/db.json` desde cero.
 
-## Qué incluye
+## Qué tiene hecho
 
-**Acceso:** configuración inicial del primer administrador, login, verificación en dos
-pasos (MFA) por correo, registro de tutor (autoservicio), recuperar contraseña, cambio
-obligatorio de contraseña (tras contraseña temporal).
+Acceso: configuración inicial del primer admin, login, MFA por correo, registro de tutor, recuperar contraseña, cambio obligatorio de contraseña después de una temporal.
 
-**Mi cuenta:** ver/editar perfil, cambiar contraseña (con historial de últimas 5),
-activar/desactivar MFA.
+Mi cuenta: ver y editar perfil, cambiar contraseña (guarda historial de las últimas 5), prender/apagar MFA.
 
-**Administración de usuarios** (solo Administrador/Soporte): listado con filtros, crear
-usuario, modificar usuario, activar/desactivar cuenta, resetear contraseña, notificaciones
-cuando se modifica una cuenta administrativa.
+Administración de usuarios (solo Admin/Soporte): listado con filtros, crear, modificar, activar/desactivar cuentas, resetear contraseñas, notificaciones cuando se toca una cuenta administrativa.
 
-**Analíticas** (solo Administrador/Soporte): indicadores (usuarios totales, activos,
-instituciones, cuentas con MFA), instituciones por provincia, usuarios por rol, actividad
-reciente — todo calculado en vivo a partir de los datos reales, no números fijos.
+Analíticas (solo Admin/Soporte): usuarios totales, activos, instituciones, cuentas con MFA, instituciones por provincia, usuarios por rol, actividad reciente — todo se calcula en vivo, no son números fijos.
 
-## Estructura del proyecto
+## Estructura
 
 ```
-server.js          punto de entrada (Express)
+server.js          entrada de la app (Express)
 routes/             endpoints de la API (auth, users, misc/analíticas)
-lib/                acceso a datos (db.json), validaciones, seed de datos de prueba
-data/db.json        "base de datos" — un archivo JSON que se lee/escribe en cada acción
-public/             frontend (HTML/CSS/JS, sin frameworks ni paso de compilación)
+lib/                acceso a datos, validaciones, seed de datos de prueba
+data/db.json        la "base de datos", un JSON que se lee y escribe en cada acción
+public/             frontend (HTML/CSS/JS plano, sin build)
 ```
 
-## Siguiente nivel (no incluido en esta versión)
+## Lo que falta
 
-Fondo real por institución (foto + overlay), mapa interactivo de provincias en
-Analíticas, generación de PDFs con la plantilla de marca, modo de alto contraste, y las
-tres features restantes del sistema completo (Instituciones, Inscripciones, Citas).
+Fondo real por institución (foto + overlay), mapa interactivo de provincias en Analíticas, PDFs con la plantilla de marca, modo de alto contraste, y las tres features que faltan del sistema completo: Instituciones, Inscripciones y Citas.
