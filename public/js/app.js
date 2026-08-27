@@ -70,6 +70,15 @@
     'Puerto Plata', 'Samaná', 'San Cristóbal', 'San José de Ocoa', 'San Juan', 'San Pedro de Macorís',
     'Sánchez Ramírez', 'Santiago', 'Santiago Rodríguez', 'Santo Domingo', 'Valverde',
   ];
+  const GRADOS = [
+    'Pre-Primario', '1ro de Primaria', '2do de Primaria', '3ro de Primaria', '4to de Primaria',
+    '5to de Primaria', '6to de Primaria', '1ro de Secundaria', '2do de Secundaria',
+    '3ro de Secundaria', '4to de Secundaria', '5to de Secundaria', '6to de Secundaria',
+  ];
+  function cicloOptions() {
+    const y = new Date().getFullYear();
+    return [0, 1, 2].map((i) => `${y + i}-${y + i + 1}`);
+  }
   const AVATAR_PALETTE = [
     ['#f6dde2', '#8a1330'], ['#e1ecf7', '#2a5c96'], ['#e6f2e0', '#2f6d24'],
     ['#fbeadb', '#93591a'], ['#eee1f7', '#6a3a97'], ['#deeef2', '#1f6d7c'],
@@ -466,7 +475,12 @@
 
   async function viewApp(segs, query) {
     const section = segs[0] || 'perfil';
+    const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes((state.user || {}).role);
     if (['usuarios', 'instituciones', 'notificaciones', 'analiticas'].includes(section) && !isAdmin()) {
+      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      return;
+    }
+    if (section === 'inscripciones' && !canSeeInscripciones) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -490,6 +504,9 @@
       else if (section === 'instituciones' && segs[1] === 'nueva') await renderInstitucionForm(null);
       else if (section === 'instituciones' && segs[2] === 'editar') await renderInstitucionForm(segs[1]);
       else if (section === 'instituciones') await renderInstituciones(query);
+      else if (section === 'inscripciones' && segs[1] === 'estudiante-nuevo') await renderEstudianteForm();
+      else if (section === 'inscripciones' && segs[1] === 'nueva') await renderInscripcionForm();
+      else if (section === 'inscripciones') await renderInscripciones(query);
       else if (section === 'notificaciones') await renderNotificaciones();
       else if (section === 'analiticas') await renderAnaliticas();
       else qs('.main').innerHTML = '<div class="empty-state">Sección no encontrada.</div>';
@@ -519,8 +536,12 @@
             <div class="sec-label">Módulos</div>
             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">Usuarios</button>
             <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">Instituciones</button>
+            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
             <button class="nav-item ${activeSection === 'notificaciones' ? 'active' : ''}" data-nav="#/app/notificaciones">Notificaciones</button>
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">Analíticas</button>
+            ` : (u.role === 'Tutor' || u.role === 'Personal de institución') ? `
+            <div class="sec-label">Módulos</div>
+            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
             ` : ''}
             <div class="sec-label">Mi cuenta</div>
             <button class="nav-item ${activeSection === 'perfil' ? 'active' : ''}" data-nav="#/app/perfil">Mi perfil</button>
@@ -928,6 +949,193 @@
           toast('Institución creada.', 'ok');
         }
         navigate('#/app/instituciones');
+      } catch (err) {
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+      }
+    });
+  }
+
+  // ---------------- Inscripciones ----------------
+  async function renderInscripciones(query) {
+    const u = state.user;
+    const tutor = u.role === 'Tutor';
+    const staff = u.role === 'Personal de institución';
+    const admin = isAdmin();
+
+    const params = new URLSearchParams();
+    if (query.estado) params.set('estado', query.estado);
+    if (query.institucionId && admin) params.set('institucionId', query.institucionId);
+    const { total, enrollments } = await api('/enrollments?' + params.toString());
+
+    let students = [];
+    let studentsBlock = '';
+    if (tutor) {
+      const sres = await api('/students');
+      students = sres.students;
+      studentsBlock = `
+        <div class="chart-card" style="margin-bottom:20px;">
+          <div class="page-head" style="margin:0 0 12px;"><h3 style="margin:0;">Mis estudiantes</h3>
+            <button class="btn btn-primary btn-small" style="width:auto; padding:8px 16px;" data-nav="#/app/inscripciones/estudiante-nuevo">Agregar estudiante</button>
+          </div>
+          ${students.length ? `<div class="two-col">${students.map((s) => `<div><div class="help">${escapeHtml(s.nombre)}</div><div>Nacimiento: ${escapeHtml(s.fechaNacimiento)}</div></div>`).join('')}</div>` : '<div class="help">Todavía no has registrado ningún estudiante.</div>'}
+        </div>
+      `;
+    }
+
+    let institucionesOptions = [];
+    if (admin) {
+      const ires = await api('/institutions');
+      institucionesOptions = ires.institutions;
+    }
+
+    const estados = ['Todos', 'Pendiente', 'Aprobada', 'Rechazada'];
+    const colCount = 6 + (tutor ? 0 : 1) + (admin ? 1 : 0);
+
+    qs('.main').innerHTML = `
+      <div class="page-head">
+        <div><h2>Inscripciones</h2><div class="sub">${tutor ? 'Solicita el cupo de tus estudiantes en una institución.' : staff ? 'Solicitudes de inscripción para tu institución.' : 'Todas las solicitudes de inscripción del sistema.'}</div></div>
+        ${tutor ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/inscripciones/nueva" ${!students.length ? 'disabled title="Agrega un estudiante primero"' : ''}>Nueva inscripción</button>` : ''}
+      </div>
+      ${studentsBlock}
+      <div class="filters">
+        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        ${admin ? `<select id="f-institucion"><option ${!query.institucionId ? 'selected' : ''}>Todas</option>${institucionesOptions.map((i) => `<option value="${i.id}" ${query.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}</select>` : ''}
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${admin ? '<th>Institución</th>' : ''}<th>Grado</th><th>Ciclo</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
+          <tbody>
+            ${enrollments.length ? enrollments.map((e) => {
+              const estadoColor = e.estado === 'Aprobada' ? '#2e9e5b' : e.estado === 'Rechazada' ? '#c23b3b' : '#c98a1b';
+              return `<tr>
+                <td>${escapeHtml(e.estudianteNombre)}</td>
+                ${tutor ? '' : `<td>${escapeHtml(e.tutorNombre)}</td>`}
+                ${admin ? `<td>${escapeHtml(e.institucionNombre)}</td>` : ''}
+                <td>${escapeHtml(e.gradoSolicitado)}</td>
+                <td>${escapeHtml(e.cicloEscolar)}</td>
+                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}</td>
+                <td>${fmtDate(e.createdAt)}</td>
+                <td><span class="actions-cell">
+                  ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
+                  ${!tutor && e.estado === 'Pendiente' ? `<button class="ok" data-approve="${e.id}">Aprobar</button><button class="danger" data-reject="${e.id}">Rechazar</button>` : ''}
+                  ${e.estado !== 'Pendiente' ? '—' : ''}
+                </span></td>
+              </tr>`;
+            }).join('') : `<tr><td colspan="${colCount}" class="empty-state">No hay solicitudes${query.estado && query.estado !== 'Todos' ? ' con ese estado' : ''}.</td></tr>`}
+          </tbody>
+        </table>
+        <div class="table-footer"><span>Mostrando ${enrollments.length} de ${total} solicitudes</span></div>
+      </div>
+    `;
+    bindShellEvents();
+
+    function applyFilters() {
+      const p = new URLSearchParams();
+      if (qs('#f-estado').value !== 'Todos') p.set('estado', qs('#f-estado').value);
+      if (admin && qs('#f-institucion') && qs('#f-institucion').value !== 'Todas') p.set('institucionId', qs('#f-institucion').value);
+      navigate('#/app/inscripciones?' + p.toString());
+    }
+    qs('#f-estado').addEventListener('change', applyFilters);
+    if (admin && qs('#f-institucion')) qs('#f-institucion').addEventListener('change', applyFilters);
+
+    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('¿Cancelar esta solicitud de inscripción?')) return;
+      try {
+        await api('/enrollments/' + b.dataset.cancel + '/cancelar', { method: 'POST' });
+        toast('Solicitud cancelada.', 'ok');
+        renderInscripciones(query);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
+    qsa('[data-approve]').forEach((b) => b.addEventListener('click', async () => {
+      try {
+        await api('/enrollments/' + b.dataset.approve + '/decidir', { method: 'POST', body: { estado: 'Aprobada' } });
+        toast('Inscripción aprobada.', 'ok');
+        renderInscripciones(query);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
+    qsa('[data-reject]').forEach((b) => b.addEventListener('click', async () => {
+      const motivo = prompt('Motivo del rechazo:');
+      if (!motivo || !motivo.trim()) return;
+      try {
+        await api('/enrollments/' + b.dataset.reject + '/decidir', { method: 'POST', body: { estado: 'Rechazada', motivo } });
+        toast('Inscripción rechazada.', 'ok');
+        renderInscripciones(query);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
+  }
+
+  async function renderEstudianteForm() {
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
+      <div class="page-head"><h2>Agregar estudiante</h2></div>
+      <div class="chart-card" style="max-width:520px;">
+        <div id="err"></div>
+        <form id="student-form">
+          <div class="field"><label>Nombre completo</label><input type="text" name="nombre" required></div>
+          <div class="field"><label>Fecha de nacimiento</label><input type="date" name="fechaNacimiento" required></div>
+          <div class="field"><label>Acta o NUP</label><input type="text" name="documento" placeholder="Opcional"></div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Guardar estudiante</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    bindShellEvents();
+    qs('#student-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      qs('#err').innerHTML = '';
+      try {
+        await api('/students', { method: 'POST', body: Object.fromEntries(fd.entries()) });
+        toast('Estudiante agregado.', 'ok');
+        navigate('#/app/inscripciones');
+      } catch (err) {
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+      }
+    });
+  }
+
+  async function renderInscripcionForm() {
+    const [{ students }, { institutions }] = await Promise.all([api('/students'), api('/institutions')]);
+    const activas = institutions.filter((i) => (i.estado || 'Activo') === 'Activo');
+    const ciclos = cicloOptions();
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
+      <div class="page-head"><h2>Nueva inscripción</h2></div>
+      <div class="chart-card" style="max-width:560px;">
+        <div id="err"></div>
+        <form id="enroll-form">
+          <div class="field"><label>Estudiante</label>
+            <select name="studentId">${students.map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Institución</label>
+            <select name="institucionId">${activas.map((i) => `<option value="${i.id}">${escapeHtml(i.nombre)} — ${escapeHtml(i.provincia)}</option>`).join('')}</select>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>Grado</label>
+              <select name="gradoSolicitado">${GRADOS.map((g) => `<option>${escapeHtml(g)}</option>`).join('')}</select>
+            </div>
+            <div class="field"><label>Ciclo escolar</label>
+              <select name="cicloEscolar">${ciclos.map((c) => `<option>${c}</option>`).join('')}</select>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Enviar solicitud</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    bindShellEvents();
+    qs('#enroll-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      qs('#err').innerHTML = '';
+      try {
+        await api('/enrollments', { method: 'POST', body: Object.fromEntries(fd.entries()) });
+        toast('Solicitud enviada.', 'ok');
+        navigate('#/app/inscripciones');
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
       }
