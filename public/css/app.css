@@ -252,3 +252,28 @@ tbody tr:last-child td{ border-bottom:none; }
   .comprobante{ box-shadow:none !important; max-width:100%; padding:0 6mm; }
   @page{ margin:14mm; }
 }
+
+/* ---------------- Alto contraste ---------------- */
+.contrast-toggle{ color:var(--ink-soft); background:none; border:none; cursor:pointer; padding:6px; border-radius:7px; display:flex; }
+.contrast-toggle:hover{ background:var(--bg); color:var(--ink); }
+.contrast-toggle[aria-pressed="true"]{ color:var(--garnet); }
+
+:root[data-contrast="high"]{
+  --border: rgba(28,16,19,.5);
+  --ink-soft: #3d2c32;
+  --bg: #ece9e2;
+}
+[data-contrast="high"] body{ color:#0f0a0c; }
+[data-contrast="high"] .card,
+[data-contrast="high"] .chart-card,
+[data-contrast="high"] .kpi-card,
+[data-contrast="high"] .table-card,
+[data-contrast="high"] .modal,
+[data-contrast="high"] .comprobante,
+[data-contrast="high"] input,
+[data-contrast="high"] select,
+[data-contrast="high"] .logout,
+[data-contrast="high"] .btn-ghost{ border-width:2px; }
+[data-contrast="high"] .nav-item.active{ outline:2px solid var(--garnet); outline-offset:-2px; }
+[data-contrast="high"] .actions-cell button{ text-decoration:underline; }
+[data-contrast="high"] *:focus-visible{ outline:3px solid var(--garnet); outline-offset:2px; }
