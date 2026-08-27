@@ -1368,10 +1368,15 @@
           <path d="M 620 600 Q 670 585 720 600 T 820 600" stroke="#ffffff" stroke-width="3" fill="none" opacity=".3"></path>
           <text x="396" y="-38" text-anchor="middle" font-size="13" font-weight="700" letter-spacing="3" fill="#4f818c" opacity=".75">OCÉANO ATLÁNTICO</text>
           <text x="396" y="608" text-anchor="middle" font-size="13" font-weight="700" letter-spacing="3" fill="#4f818c" opacity=".75">MAR CARIBE</text>
-          <g transform="translate(790 -25)">
-            <circle r="19" fill="#ffffff" opacity=".65"></circle>
-            <path d="M 0 -12 L 5 3 L 0 -1 L -5 3 Z" fill="#4a5a5e"></path>
-            <text x="0" y="26" text-anchor="middle" font-size="11" font-weight="700" fill="#4a5a5e">N</text>
+          <g class="compass" transform="translate(778 -18)">
+            <circle r="34" fill="#ffffff" opacity=".6" stroke="rgba(28,16,19,.15)" stroke-width="1"></circle>
+            <path d="M 0 -16 L 4.24 -4.24 L 16 0 L 4.24 4.24 L 0 16 L -4.24 4.24 L -16 0 L -4.24 -4.24 Z" fill="#8a97a0" opacity=".85"></path>
+            <path d="M 0 0 L -4.24 -4.24 L 0 -16 L 4.24 -4.24 Z" fill="#af122c"></path>
+            <circle r="3" fill="#ffffff"></circle>
+            <text x="0" y="-28" text-anchor="middle" font-size="10" font-weight="800" fill="#3a4448">N</text>
+            <text x="0" y="33" text-anchor="middle" font-size="9" font-weight="700" fill="#7a848a">S</text>
+            <text x="31" y="4" text-anchor="middle" font-size="9" font-weight="700" fill="#7a848a">E</text>
+            <text x="-31" y="4" text-anchor="middle" font-size="9" font-weight="700" fill="#7a848a">O</text>
           </g>
         </g>
         <g filter="url(#landShadow)">${shapes}</g>
