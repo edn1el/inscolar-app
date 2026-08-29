@@ -88,9 +88,9 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU | Título | Estado |
 |----|--------|--------|
 | HU046 | Iniciar proceso de inscripción | ✅ |
-| HU047 | Subir documentos requeridos para inscripción | ❌ |
-| HU048 | Rechazar un documento entregado | ❌ |
-| HU049 | Aceptar un documento entregado | ❌ |
+| HU047 | Subir documentos requeridos para inscripción | ✅ (2026-08-29, Fase 3) |
+| HU048 | Rechazar un documento entregado | ✅ (2026-08-29, Fase 3) |
+| HU049 | Aceptar un documento entregado | ✅ (2026-08-29, Fase 3) |
 | HU056 | Listar solicitudes de inscripción | ✅ |
 | HU057 | Rechazar una solicitud de inscripción | ✅ |
 | HU058 | Abandonar solicitud de inscripción por inactividad | ❌ |
@@ -156,8 +156,8 @@ Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden 
 
 1. **Fase 1 — Notificaciones de inscripciones y citas** (HU055, HU060, HU063, HU064): reutiliza el sistema de notificaciones ya construido. **✅ Completada 2026-08-29** — verificada con Playwright real (crear inscripcion/cita, aprobar/confirmar desde el rol Personal de institucion, y comprobar que el tutor recibe la notificacion correcta con aislamiento correcto entre usuarios).
 2. **Fase 2 — Calificar y reportar instituciones** (HU027-030, habilita HU024). **✅ Completada 2026-08-29** — verificada con Playwright real (calificar y reportar una institución con relación real, rechazo 403 sin relación, promedio y filtro visibles para Admin/Soporte, detalle de calificaciones/reportes). Nota: HU076-079 (indicadores/gráficos de calificaciones y reportes en Analíticas) quedan para la Fase 7, ya que dependen de tener datos acumulados.
-3. **Fase 3 — Documentos de inscripción**: subir/aceptar/rechazar (HU047-049, habilita HU085-088). *Siguiente fase pendiente.*
-4. **Fase 4 — Filtros adicionales de instituciones**: por municipio y por calificación (HU024, HU025).
+3. **Fase 3 — Documentos de inscripción**: subir/aceptar/rechazar (HU047-049, habilita HU085-088). **✅ Completada 2026-08-29** — verificada con Playwright real (subida de PDF, rechazo de tipo de archivo no permitido, aceptar/rechazar desde el rol de personal de institución con notificación al tutor, y control de acceso por sesión). HU085-088 (indicadores de documentos en Analíticas) quedan para la Fase 7.
+4. **Fase 4 — Filtros adicionales de instituciones**: por municipio (HU025) — el filtro por calificación (HU024) ya se completó en la Fase 2. *Siguiente fase pendiente.*
 5. **Fase 5 — Módulo de Auditoría/Logs** (HU096-132): el bloque más grande — bitácora de eventos + pantalla para el rol Auditoría. Se recomienda hacerlo en más de una sesión.
 6. **Fase 6 — Periodos y configuración** (HU034-045).
 7. **Fase 7 — Analíticas restantes** (HU070-072, HU080-095): se van completando a medida que las fases anteriores generan los datos que necesitan.
