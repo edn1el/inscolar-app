@@ -4,23 +4,6 @@
   const root = document.getElementById('root');
   const state = { user: null, authChecked: false, setupNeeded: false, pendingMfa: null };
 
-  // ---------------- alto contraste ----------------
-  function isHighContrast() {
-    try { return localStorage.getItem('inscolar_contrast') === 'high'; } catch (e) { return false; }
-  }
-  function applyContrastPreference() {
-    document.documentElement.setAttribute('data-contrast', isHighContrast() ? 'high' : 'normal');
-  }
-  function toggleContrast() {
-    const next = isHighContrast() ? 'normal' : 'high';
-    try { localStorage.setItem('inscolar_contrast', next); } catch (e) {}
-    document.documentElement.setAttribute('data-contrast', next);
-    const btn = qs('#contrast-btn');
-    if (btn) btn.setAttribute('aria-pressed', next === 'high' ? 'true' : 'false');
-    toast(next === 'high' ? 'Alto contraste activado.' : 'Alto contraste desactivado.', 'ok');
-  }
-  applyContrastPreference();
-
   // ---------------- helpers ----------------
   function escapeHtml(s) {
     if (s === null || s === undefined) return '';
@@ -36,6 +19,16 @@
   }
   function qs(sel, el) { return (el || document).querySelector(sel); }
   function qsa(sel, el) { return Array.from((el || document).querySelectorAll(sel)); }
+
+  document.addEventListener('click', (e) => {
+    const panel = document.getElementById('notif-panel');
+    const bell = document.getElementById('bell-btn');
+    if (!panel || panel.hidden) return;
+    if (panel.contains(e.target) || e.target === bell || (bell && bell.contains(e.target))) return;
+    panel.hidden = true;
+    panel.innerHTML = '';
+    bell && bell.setAttribute('aria-expanded', 'false');
+  });
 
   async function api(path, opts) {
     opts = opts || {};
@@ -501,70 +494,6 @@
 
   function isAdmin() { return state.user && ADMIN_ROLES.includes(state.user.role); }
 
-  function searchTermMatches(record, term) {
-    return Object.keys(record).some((k) => {
-      const v = record[k];
-      return typeof v === 'string' && v.toLowerCase().includes(term);
-    });
-  }
-
-  async function performGlobalSearch(rawQuery) {
-    const term = rawQuery.trim().toLowerCase();
-    if (!term || !state.user) return [];
-    const results = [];
-    try {
-      if (isAdmin()) {
-        const [instRes, userRes] = await Promise.all([
-          api('/institutions?q=' + encodeURIComponent(rawQuery)),
-          api('/users?q=' + encodeURIComponent(rawQuery)),
-        ]);
-        (instRes.institutions || []).slice(0, 5).forEach((i) => results.push({
-          label: i.nombre,
-          sub: 'Institución · ' + i.provincia,
-          href: '#/app/instituciones/' + i.id + '/editar',
-        }));
-        (userRes.users || []).slice(0, 5).forEach((u) => results.push({
-          label: u.nombre,
-          sub: 'Usuario · ' + u.email,
-          href: '#/app/usuarios/' + u.id + '/editar',
-        }));
-      } else {
-        const tasks = [api('/enrollments'), api('/appointments')];
-        if (state.user.role === 'Tutor') tasks.push(api('/students'));
-        const [encRes, apptRes, studRes] = await Promise.all(tasks);
-        (encRes.enrollments || [])
-          .filter((e) => searchTermMatches(e, term))
-          .slice(0, 5)
-          .forEach((e) => results.push({
-            label: e.estudianteNombre || e.institucionNombre || 'Inscripción',
-            sub: 'Inscripción · ' + (e.institucionNombre || ''),
-            href: '#/app/inscripciones/comprobante/' + e.id,
-          }));
-        (apptRes.appointments || [])
-          .filter((a) => searchTermMatches(a, term))
-          .slice(0, 5)
-          .forEach((a) => results.push({
-            label: a.estudianteNombre || a.motivo || 'Cita',
-            sub: 'Cita · ' + (a.institucionNombre || a.motivo || ''),
-            href: '#/app/citas/comprobante/' + a.id,
-          }));
-        if (studRes) {
-          (studRes.students || [])
-            .filter((s) => (s.nombre || '').toLowerCase().includes(term))
-            .slice(0, 5)
-            .forEach((s) => results.push({
-              label: s.nombre,
-              sub: 'Estudiante',
-              href: '#/app/inscripciones',
-            }));
-        }
-      }
-    } catch (e) {
-      // búsqueda best-effort: si un endpoint falla, se muestran los resultados que sí llegaron
-    }
-    return results.slice(0, 8);
-  }
-
 
   async function viewApp(segs, query) {
     const section = segs[0] || 'perfil';
@@ -624,10 +553,8 @@
       <div class="app">
         <div class="topbar">
           <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
-          <div class="search">${ICONS.search}<input id="global-search" placeholder="Buscar en el sistema..." autocomplete="off"><div class="search-results" id="global-search-results" hidden></div></div>
           <div class="topbar-right">
-            <button class="contrast-toggle" id="contrast-btn" title="Alternar alto contraste" aria-pressed="${isHighContrast() ? 'true' : 'false'}">${ICONS.contrast}</button>
-            ${admin ? `<button class="bell" id="bell-btn">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button>` : ''}
+            ${admin ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
             <span class="who"><span class="avatar" style="background:${avBg};color:${avFg}">${initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></span>
             <button class="logout" id="logout-btn">Cerrar sesión</button>
           </div>
@@ -667,76 +594,66 @@
       navigate('#/login');
     });
     const bellBtn = qs('#bell-btn');
-    bellBtn && bellBtn.addEventListener('click', () => navigate('#/app/notificaciones'));
-    const contrastBtn = qs('#contrast-btn');
-    contrastBtn && contrastBtn.addEventListener('click', toggleContrast);
-
-    const searchInput = qs('#global-search');
-    const searchBox = qs('#global-search-results');
-    if (searchInput && searchBox) {
-      let searchTimer = null;
-      let currentResults = [];
-      let activeIndex = -1;
-
-      const closeResults = () => {
-        searchBox.hidden = true;
-        searchBox.innerHTML = '';
-        currentResults = [];
-        activeIndex = -1;
+    const notifPanel = qs('#notif-panel');
+    if (bellBtn && notifPanel) {
+      const closePanel = () => {
+        notifPanel.hidden = true;
+        notifPanel.innerHTML = '';
+        bellBtn.setAttribute('aria-expanded', 'false');
       };
-
-      const highlightActive = () => {
-        qsa('.search-result-item', searchBox).forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+      const updateBellDot = (count) => {
+        const existing = qs('.dot', bellBtn);
+        if (count > 0) {
+          if (existing) existing.textContent = count;
+          else bellBtn.insertAdjacentHTML('beforeend', `<span class="dot">${count}</span>`);
+        } else if (existing) {
+          existing.remove();
+        }
       };
-
-      const openResult = (r) => {
-        closeResults();
-        searchInput.value = '';
-        navigate(r.href);
-      };
-
-      const renderResults = (results) => {
-        currentResults = results;
-        activeIndex = -1;
-        searchBox.innerHTML = results.length
-          ? results.map((r, i) => `<button type="button" class="search-result-item" data-idx="${i}"><div>${escapeHtml(r.label)}</div><div class="search-result-sub">${escapeHtml(r.sub || '')}</div></button>`).join('')
-          : '<div class="search-empty">Sin resultados.</div>';
-        qsa('.search-result-item', searchBox).forEach((btn) => {
-          btn.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            openResult(currentResults[Number(btn.dataset.idx)]);
-          });
+      const renderPanel = (notifications) => {
+        const recent = notifications.slice(0, 6);
+        notifPanel.innerHTML = `
+          <div class="notif-panel-head">Notificaciones</div>
+          ${recent.length ? recent.map((n) => `
+            <div class="notif-item ${n.read ? '' : 'unread'}">
+              <div>
+                <div class="t1">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)}</div>
+                <div class="t2">${n.anterior || n.nuevo ? `Campo ${escapeHtml(n.campo)}: ${escapeHtml(n.anterior || '—')} → ${escapeHtml(n.nuevo || '—')}. ` : ''}Realizado por ${escapeHtml(n.actorNombre)}.</div>
+                <div class="t3">${fmtDate(n.createdAt)}</div>
+              </div>
+              ${!n.read ? `<button class="btn btn-ghost btn-small" data-panel-read="${n.id}">Marcar leída</button>` : ''}
+            </div>
+          `).join('') : '<div class="notif-panel-empty">No hay notificaciones.</div>'}
+          <div class="notif-panel-foot"><button type="button" id="notif-panel-viewall">Ver todas</button></div>
+        `;
+        qsa('[data-panel-read]', notifPanel).forEach((b) => b.addEventListener('mousedown', async (e) => {
+          e.preventDefault();
+          await api('/notifications/' + b.dataset.panelRead + '/read', { method: 'POST' });
+          const { notifications: fresh } = await api('/notifications');
+          renderPanel(fresh);
+          updateBellDot(fresh.filter((n) => !n.read).length);
+        }));
+        const viewAllBtn = qs('#notif-panel-viewall', notifPanel);
+        viewAllBtn && viewAllBtn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          closePanel();
+          navigate('#/app/notificaciones');
         });
-        searchBox.hidden = false;
       };
 
-      searchInput.addEventListener('input', () => {
-        const val = searchInput.value;
-        clearTimeout(searchTimer);
-        if (val.trim().length < 2) { closeResults(); return; }
-        searchTimer = setTimeout(async () => {
-          const results = await performGlobalSearch(val);
-          if (searchInput.value === val) renderResults(results);
-        }, 300);
-      });
-
-      searchInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { closeResults(); searchInput.blur(); }
-        else if (e.key === 'Enter') {
-          e.preventDefault();
-          if (currentResults.length) openResult(currentResults[activeIndex >= 0 ? activeIndex : 0]);
-        } else if (e.key === 'ArrowDown' && currentResults.length) {
-          e.preventDefault();
-          activeIndex = Math.min(activeIndex + 1, currentResults.length - 1);
-          highlightActive();
-        } else if (e.key === 'ArrowUp' && currentResults.length) {
-          e.preventDefault();
-          activeIndex = Math.max(activeIndex - 1, 0);
-          highlightActive();
+      bellBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!notifPanel.hidden) { closePanel(); return; }
+        notifPanel.hidden = false;
+        bellBtn.setAttribute('aria-expanded', 'true');
+        notifPanel.innerHTML = '<div class="notif-panel-empty">Cargando…</div>';
+        try {
+          const { notifications } = await api('/notifications');
+          renderPanel(notifications);
+        } catch (err) {
+          notifPanel.innerHTML = '<div class="notif-panel-empty">No se pudieron cargar.</div>';
         }
       });
-
-      searchInput.addEventListener('blur', () => setTimeout(closeResults, 150));
     }
   }
 
