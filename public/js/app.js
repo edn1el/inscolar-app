@@ -501,6 +501,71 @@
 
   function isAdmin() { return state.user && ADMIN_ROLES.includes(state.user.role); }
 
+  function searchTermMatches(record, term) {
+    return Object.keys(record).some((k) => {
+      const v = record[k];
+      return typeof v === 'string' && v.toLowerCase().includes(term);
+    });
+  }
+
+  async function performGlobalSearch(rawQuery) {
+    const term = rawQuery.trim().toLowerCase();
+    if (!term || !state.user) return [];
+    const results = [];
+    try {
+      if (isAdmin()) {
+        const [instRes, userRes] = await Promise.all([
+          api('/institutions?q=' + encodeURIComponent(rawQuery)),
+          api('/users?q=' + encodeURIComponent(rawQuery)),
+        ]);
+        (instRes.institutions || []).slice(0, 5).forEach((i) => results.push({
+          label: i.nombre,
+          sub: 'Institución · ' + i.provincia,
+          href: '#/app/instituciones/' + i.id + '/editar',
+        }));
+        (userRes.users || []).slice(0, 5).forEach((u) => results.push({
+          label: u.nombre,
+          sub: 'Usuario · ' + u.email,
+          href: '#/app/usuarios/' + u.id + '/editar',
+        }));
+      } else {
+        const tasks = [api('/enrollments'), api('/appointments')];
+        if (state.user.role === 'Tutor') tasks.push(api('/students'));
+        const [encRes, apptRes, studRes] = await Promise.all(tasks);
+        (encRes.enrollments || [])
+          .filter((e) => searchTermMatches(e, term))
+          .slice(0, 5)
+          .forEach((e) => results.push({
+            label: e.estudianteNombre || e.institucionNombre || 'Inscripción',
+            sub: 'Inscripción · ' + (e.institucionNombre || ''),
+            href: '#/app/inscripciones/comprobante/' + e.id,
+          }));
+        (apptRes.appointments || [])
+          .filter((a) => searchTermMatches(a, term))
+          .slice(0, 5)
+          .forEach((a) => results.push({
+            label: a.estudianteNombre || a.motivo || 'Cita',
+            sub: 'Cita · ' + (a.institucionNombre || a.motivo || ''),
+            href: '#/app/citas/comprobante/' + a.id,
+          }));
+        if (studRes) {
+          (studRes.students || [])
+            .filter((s) => (s.nombre || '').toLowerCase().includes(term))
+            .slice(0, 5)
+            .forEach((s) => results.push({
+              label: s.nombre,
+              sub: 'Estudiante',
+              href: '#/app/inscripciones',
+            }));
+        }
+      }
+    } catch (e) {
+      // búsqueda best-effort: si un endpoint falla, se muestran los resultados que sí llegaron
+    }
+    return results.slice(0, 8);
+  }
+
+
   async function viewApp(segs, query) {
     const section = segs[0] || 'perfil';
     const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes((state.user || {}).role);
@@ -559,7 +624,7 @@
       <div class="app">
         <div class="topbar">
           <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
-          <div class="search">${ICONS.search}<input placeholder="Buscar en el sistema..." disabled></div>
+          <div class="search">${ICONS.search}<input id="global-search" placeholder="Buscar en el sistema..." autocomplete="off"><div class="search-results" id="global-search-results" hidden></div></div>
           <div class="topbar-right">
             <button class="contrast-toggle" id="contrast-btn" title="Alternar alto contraste" aria-pressed="${isHighContrast() ? 'true' : 'false'}">${ICONS.contrast}</button>
             ${admin ? `<button class="bell" id="bell-btn">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button>` : ''}
@@ -605,6 +670,74 @@
     bellBtn && bellBtn.addEventListener('click', () => navigate('#/app/notificaciones'));
     const contrastBtn = qs('#contrast-btn');
     contrastBtn && contrastBtn.addEventListener('click', toggleContrast);
+
+    const searchInput = qs('#global-search');
+    const searchBox = qs('#global-search-results');
+    if (searchInput && searchBox) {
+      let searchTimer = null;
+      let currentResults = [];
+      let activeIndex = -1;
+
+      const closeResults = () => {
+        searchBox.hidden = true;
+        searchBox.innerHTML = '';
+        currentResults = [];
+        activeIndex = -1;
+      };
+
+      const highlightActive = () => {
+        qsa('.search-result-item', searchBox).forEach((el, i) => el.classList.toggle('active', i === activeIndex));
+      };
+
+      const openResult = (r) => {
+        closeResults();
+        searchInput.value = '';
+        navigate(r.href);
+      };
+
+      const renderResults = (results) => {
+        currentResults = results;
+        activeIndex = -1;
+        searchBox.innerHTML = results.length
+          ? results.map((r, i) => `<button type="button" class="search-result-item" data-idx="${i}"><div>${escapeHtml(r.label)}</div><div class="search-result-sub">${escapeHtml(r.sub || '')}</div></button>`).join('')
+          : '<div class="search-empty">Sin resultados.</div>';
+        qsa('.search-result-item', searchBox).forEach((btn) => {
+          btn.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            openResult(currentResults[Number(btn.dataset.idx)]);
+          });
+        });
+        searchBox.hidden = false;
+      };
+
+      searchInput.addEventListener('input', () => {
+        const val = searchInput.value;
+        clearTimeout(searchTimer);
+        if (val.trim().length < 2) { closeResults(); return; }
+        searchTimer = setTimeout(async () => {
+          const results = await performGlobalSearch(val);
+          if (searchInput.value === val) renderResults(results);
+        }, 300);
+      });
+
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { closeResults(); searchInput.blur(); }
+        else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (currentResults.length) openResult(currentResults[activeIndex >= 0 ? activeIndex : 0]);
+        } else if (e.key === 'ArrowDown' && currentResults.length) {
+          e.preventDefault();
+          activeIndex = Math.min(activeIndex + 1, currentResults.length - 1);
+          highlightActive();
+        } else if (e.key === 'ArrowUp' && currentResults.length) {
+          e.preventDefault();
+          activeIndex = Math.max(activeIndex - 1, 0);
+          highlightActive();
+        }
+      });
+
+      searchInput.addEventListener('blur', () => setTimeout(closeResults, 150));
+    }
   }
 
   // ---------------- HU011/HU012 perfil ----------------
