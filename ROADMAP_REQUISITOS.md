@@ -53,13 +53,13 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU021 (filtro ubicación) | Filtrar instituciones por ubicación actual del dispositivo | ❌ |
 | HU020/HU022 | Filtrar instituciones por nombre | ✅ |
 | HU023 | Filtrar instituciones por provincia | ✅ (arreglado 2026-08-29 — bug de espacios en la URL) |
-| HU024 | Filtrar instituciones por calificación | ❌ (depende de que exista el sistema de calificaciones) |
+| HU024 | Filtrar instituciones por calificación | ✅ (2026-08-29, Fase 2) |
 | HU025 | Filtrar instituciones por municipio | ❌ |
 | HU026 | Visualizar detalles sobre una institución | 🟡 (se ve en la lista/edición, no hay una pantalla de "detalle" dedicada) |
-| HU027 | Calificar una institución | ❌ |
-| HU028 | Listar calificaciones dadas a una institución | ❌ |
-| HU029 | Reportar una institución | ❌ |
-| HU030 | Listar reportes hechos contra una institución | ❌ |
+| HU027 | Calificar una institución | ✅ (2026-08-29, Fase 2) |
+| HU028 | Listar calificaciones dadas a una institución | ✅ (2026-08-29, Fase 2) |
+| HU029 | Reportar una institución | ✅ (2026-08-29, Fase 2) |
+| HU030 | Listar reportes hechos contra una institución | ✅ (2026-08-29, Fase 2 — solo lectura; no incluye marcar un reporte como "Revisado") |
 | HU031 | Activar una institución | ✅ |
 | HU032 | Desactivar una institución | ✅ |
 | HU033 | Modificar una institución | ✅ |
@@ -155,8 +155,8 @@ Este es el bloque más grande (37 historias) y el más "todo o nada": es esencia
 Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden sugerido por impacto/esfuerzo:
 
 1. **Fase 1 — Notificaciones de inscripciones y citas** (HU055, HU060, HU063, HU064): reutiliza el sistema de notificaciones ya construido. **✅ Completada 2026-08-29** — verificada con Playwright real (crear inscripcion/cita, aprobar/confirmar desde el rol Personal de institucion, y comprobar que el tutor recibe la notificacion correcta con aislamiento correcto entre usuarios).
-2. **Fase 2 — Calificar y reportar instituciones** (HU027-030, habilita HU024 y HU076-079). *Siguiente fase pendiente.*
-3. **Fase 3 — Documentos de inscripción**: subir/aceptar/rechazar (HU047-049, habilita HU085-088).
+2. **Fase 2 — Calificar y reportar instituciones** (HU027-030, habilita HU024). **✅ Completada 2026-08-29** — verificada con Playwright real (calificar y reportar una institución con relación real, rechazo 403 sin relación, promedio y filtro visibles para Admin/Soporte, detalle de calificaciones/reportes). Nota: HU076-079 (indicadores/gráficos de calificaciones y reportes en Analíticas) quedan para la Fase 7, ya que dependen de tener datos acumulados.
+3. **Fase 3 — Documentos de inscripción**: subir/aceptar/rechazar (HU047-049, habilita HU085-088). *Siguiente fase pendiente.*
 4. **Fase 4 — Filtros adicionales de instituciones**: por municipio y por calificación (HU024, HU025).
 5. **Fase 5 — Módulo de Auditoría/Logs** (HU096-132): el bloque más grande — bitácora de eventos + pantalla para el rol Auditoría. Se recomienda hacerlo en más de una sesión.
 6. **Fase 6 — Periodos y configuración** (HU034-045).
