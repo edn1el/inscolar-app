@@ -95,7 +95,7 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU057 | Rechazar una solicitud de inscripción | ✅ |
 | HU058 | Abandonar solicitud de inscripción por inactividad | ❌ |
 | HU059 | Aceptar una solicitud de inscripción | ✅ |
-| HU060 | Notificar de cambios de estatus de una solicitud de inscripción | ❌ |
+| HU060 | Notificar de cambios de estatus de una solicitud de inscripción | ✅ (2026-08-29, Fase 1) |
 
 ## 6. Citas
 
@@ -106,7 +106,7 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU052 | Listar citas agendadas | ✅ |
 | HU053 | Aceptar una cita | ✅ |
 | HU054 | Rechazar una cita | 🟡 (existe cancelar con motivo, no un "rechazar" separado de "cancelar") |
-| HU055 | Notificar sobre cambios en el estado de una cita | ❌ |
+| HU055 | Notificar sobre cambios en el estado de una cita | ✅ (2026-08-29, Fase 1) |
 | HU061 | Mostrar calendario de una institución | ❌ |
 
 ## 7. Notificaciones
@@ -114,11 +114,11 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU | Título | Estado |
 |----|--------|--------|
 | HU062 | Recibir notificaciones por correo electrónico | ❌ |
-| HU063 | Presentar notificaciones de cambio de estatus del proceso de inscripción por la interfaz web | ❌ |
-| HU064 | Presentar notificaciones de cambios en el estado de una cita por la interfaz web | ❌ |
+| HU063 | Presentar notificaciones de cambio de estatus del proceso de inscripción por la interfaz web | ✅ (2026-08-29, Fase 1) |
+| HU064 | Presentar notificaciones de cambios en el estado de una cita por la interfaz web | ✅ (2026-08-29, Fase 1) |
 | HU066 | Configurar preferencias para notificaciones por correo | ❌ |
 
-Hoy el panel de notificaciones (campana) **solo** cubre cambios en cuentas administrativas (HU017). No cubre inscripciones ni citas todavía.
+Actualizado 2026-08-29: el panel de notificaciones ahora tambien notifica al tutor cuando su inscripcion es aprobada/rechazada o su cita es confirmada/cancelada por la institucion (Fase 1 completada). Sigue faltando el correo real (HU062) y las preferencias (HU066).
 
 ## 8. Analíticas
 
@@ -154,8 +154,8 @@ Este es el bloque más grande (37 historias) y el más "todo o nada": es esencia
 
 Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden sugerido por impacto/esfuerzo:
 
-1. **Fase 1 — Notificaciones de inscripciones y citas** (HU055, HU060, HU063, HU064): reutiliza el sistema de notificaciones ya construido. *En progreso.*
-2. **Fase 2 — Calificar y reportar instituciones** (HU027-030, habilita HU024 y HU076-079).
+1. **Fase 1 — Notificaciones de inscripciones y citas** (HU055, HU060, HU063, HU064): reutiliza el sistema de notificaciones ya construido. **✅ Completada 2026-08-29** — verificada con Playwright real (crear inscripcion/cita, aprobar/confirmar desde el rol Personal de institucion, y comprobar que el tutor recibe la notificacion correcta con aislamiento correcto entre usuarios).
+2. **Fase 2 — Calificar y reportar instituciones** (HU027-030, habilita HU024 y HU076-079). *Siguiente fase pendiente.*
 3. **Fase 3 — Documentos de inscripción**: subir/aceptar/rechazar (HU047-049, habilita HU085-088).
 4. **Fase 4 — Filtros adicionales de instituciones**: por municipio y por calificación (HU024, HU025).
 5. **Fase 5 — Módulo de Auditoría/Logs** (HU096-132): el bloque más grande — bitácora de eventos + pantalla para el rol Auditoría. Se recomienda hacerlo en más de una sesión.
