@@ -545,6 +545,7 @@
       else if (section === 'inscripciones' && segs[1] === 'estudiante-nuevo') await renderEstudianteForm();
       else if (section === 'inscripciones' && segs[1] === 'nueva') await renderInscripcionForm();
       else if (section === 'inscripciones' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteInscripcion(segs[2]);
+      else if (section === 'inscripciones' && segs[2] === 'documentos') await renderDocumentosInscripcion(segs[1]);
       else if (section === 'inscripciones') await renderInscripciones(query);
       else if (section === 'citas' && segs[1] === 'nueva') await renderCitaForm();
       else if (section === 'citas' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteCita(segs[2]);
@@ -1274,6 +1275,7 @@
                   ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
                   ${!tutor && e.estado === 'Pendiente' ? `<button class="ok" data-approve="${e.id}">Aprobar</button><button class="danger" data-reject="${e.id}">Rechazar</button>` : ''}
                   ${tutor && e.estado === 'Aprobada' ? `<button class="neutral" data-nav="#/app/calificar/${e.institucionId}">Calificar</button><button class="neutral" data-nav="#/app/reportar/${e.institucionId}">Reportar</button>` : ''}
+                  <button class="neutral" data-nav="#/app/inscripciones/${e.id}/documentos">Documentos</button>
                   <button class="neutral" data-comprobante="${e.id}">Comprobante</button>
                 </span></td>
               </tr>`;
@@ -1397,6 +1399,95 @@
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
       }
     });
+  }
+
+  // ---------------- Documentos de una inscripcion ----------------
+  const TIPOS_DOCUMENTO = ['Acta de nacimiento', 'Cédula o identificación del tutor', 'Certificado de notas', 'Foto 2x2', 'Otro'];
+
+  function fmtBytes(n) {
+    if (!n && n !== 0) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  async function renderDocumentosInscripcion(enrollmentId) {
+    const { enrollments } = await api('/enrollments');
+    const enrollment = enrollments.find((e) => e.id === enrollmentId);
+    if (!enrollment) {
+      qs('.main').innerHTML = '<div class="empty-state">No se encontró esa solicitud de inscripción.</div>';
+      return;
+    }
+    const u = state.user;
+    const isOwnerTutor = u.role === 'Tutor' && enrollment.tutorId === u.id;
+    const canDecide = isAdmin() || (u.role === 'Personal de institución' && u.institucionId === enrollment.institucionId);
+
+    const { documents } = await api('/enrollments/' + enrollmentId + '/documents');
+
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
+      <div class="page-head"><div><h2>Documentos — ${escapeHtml(enrollment.estudianteNombre)}</h2><div class="sub">${escapeHtml(enrollment.institucionNombre)} · ${escapeHtml(enrollment.gradoSolicitado)} · ${escapeHtml(enrollment.cicloEscolar)}</div></div></div>
+      ${isOwnerTutor ? `
+        <div class="chart-card" style="max-width:560px; margin-bottom:20px;">
+          <div id="doc-err"></div>
+          <form id="doc-form">
+            <div class="field"><label>Tipo de documento</label>
+              <select name="tipoDocumento">${TIPOS_DOCUMENTO.map((t) => `<option>${escapeHtml(t)}</option>`).join('')}</select>
+            </div>
+            <div class="field"><label>Archivo (PDF, JPG o PNG, máx. 5 MB)</label><input type="file" name="archivo" accept=".pdf,.jpg,.jpeg,.png" required></div>
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Subir documento</button>
+          </form>
+        </div>
+      ` : ''}
+      <div class="notif-list">
+        ${documents.length ? documents.map((d) => `
+          <div class="notif-item">
+            <div>
+              <div class="t1">${escapeHtml(d.tipoDocumento || d.nombreArchivo)} · <a href="/api/documents/${d.id}/file" target="_blank" rel="noopener">${escapeHtml(d.nombreArchivo)}</a> <span class="help">(${fmtBytes(d.size)})</span></div>
+              ${d.estado === 'Rechazado' && d.motivoRechazo ? `<div class="t2">${escapeHtml(d.motivoRechazo)}</div>` : ''}
+              <div class="t3">${fmtDate(d.uploadedAt)} · ${escapeHtml(d.estado)}</div>
+            </div>
+            ${canDecide && d.estado === 'Pendiente' ? `<span class="actions-cell"><button class="ok" data-doc-accept="${d.id}">Aceptar</button><button class="danger" data-doc-reject="${d.id}">Rechazar</button></span>` : ''}
+          </div>
+        `).join('') : '<div class="empty-state">No se han subido documentos todavía.</div>'}
+      </div>
+    `;
+    bindShellEvents();
+
+    const docForm = qs('#doc-form');
+    if (docForm) {
+      docForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        qs('#doc-err').innerHTML = '';
+        const fd = new FormData(docForm);
+        try {
+          const res = await fetch('/api/enrollments/' + enrollmentId + '/documents', { method: 'POST', body: fd });
+          const data = await res.json();
+          if (!res.ok) throw { errors: data.errors || [data.error || 'No se pudo subir el documento.'] };
+          toast('Documento subido.', 'ok');
+          renderDocumentosInscripcion(enrollmentId);
+        } catch (err) {
+          qs('#doc-err').innerHTML = fieldErrorsBlock(err.errors || [err.message || 'No se pudo subir el documento.']);
+        }
+      });
+    }
+
+    qsa('[data-doc-accept]').forEach((b) => b.addEventListener('click', async () => {
+      try {
+        await api('/documents/' + b.dataset.docAccept + '/decidir', { method: 'POST', body: { estado: 'Aceptado' } });
+        toast('Documento aceptado.', 'ok');
+        renderDocumentosInscripcion(enrollmentId);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
+    qsa('[data-doc-reject]').forEach((b) => b.addEventListener('click', async () => {
+      const motivo = prompt('Motivo del rechazo:');
+      if (!motivo || !motivo.trim()) return;
+      try {
+        await api('/documents/' + b.dataset.docReject + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
+        toast('Documento rechazado.', 'ok');
+        renderDocumentosInscripcion(enrollmentId);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
   }
 
   // ---------------- Citas ----------------
