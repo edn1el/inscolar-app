@@ -127,7 +127,7 @@
     if (queryPart) {
       queryPart.split('&').forEach((kv) => {
         const [k, v] = kv.split('=');
-        query[decodeURIComponent(k)] = decodeURIComponent(v || '');
+        query[decodeURIComponent(k)] = decodeURIComponent((v || '').replace(/\+/g, ' '));
       });
     }
     return { segs, query };
