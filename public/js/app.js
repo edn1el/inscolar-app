@@ -567,7 +567,6 @@
             <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">Instituciones</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
             <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">Citas</button>
-            <button class="nav-item ${activeSection === 'notificaciones' ? 'active' : ''}" data-nav="#/app/notificaciones">Notificaciones</button>
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">Analíticas</button>
             ` : (u.role === 'Tutor' || u.role === 'Personal de institución') ? `
             <div class="sec-label">Módulos</div>
@@ -595,7 +594,13 @@
     });
     const bellBtn = qs('#bell-btn');
     const notifPanel = qs('#notif-panel');
-    if (bellBtn && notifPanel) {
+    // bindShellEvents() se llama dos veces por render (una vez en viewApp al armar
+    // el shell, y otra vez dentro de cada render*() de sección) sobre el MISMO botón
+    // de campana, porque solo se reemplaza el contenido de .main, no el topbar. Sin
+    // este guard, el clic quedaba enganchado dos veces y el segundo listener cerraba
+    // el panel apenas el primero lo abría (por eso no "se veía" nada al hacer clic).
+    if (bellBtn && notifPanel && !bellBtn.dataset.notifBound) {
+      bellBtn.dataset.notifBound = '1';
       const closePanel = () => {
         notifPanel.hidden = true;
         notifPanel.innerHTML = '';
