@@ -1,6 +1,7 @@
 const express = require('express');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
+const { notifyUser } = require('../lib/notify');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -102,6 +103,19 @@ router.post('/appointments/:id/confirmar', (req, res) => {
   appointment.fechaHoraConfirmada = finalWhen;
   appointment.decidedAt = new Date().toISOString();
   appointment.decidedBy = u.id;
+
+  const tutorConfirm = db.users.find((t) => t.id === appointment.tutorId);
+  if (tutorConfirm) {
+    notifyUser(db, {
+      recipient: tutorConfirm,
+      campo: 'Estado de cita',
+      anterior: 'Pendiente',
+      nuevo: 'Confirmada',
+      actor: u,
+      userNombre: tutorConfirm.nombre,
+    });
+  }
+
   save(db);
   res.json({ appointment: publicAppointment(appointment, db) });
 });
@@ -121,10 +135,27 @@ router.post('/appointments/:id/cancelar', (req, res) => {
   const { motivo } = req.body || {};
   if (!isOwner && (!motivo || !motivo.trim())) return res.status(400).json({ error: 'Indica el motivo de la cancelación.' });
 
+  const estadoAnterior = appointment.estado;
   appointment.estado = 'Cancelada';
   appointment.motivoCancelacion = (motivo || '').trim();
   appointment.decidedAt = new Date().toISOString();
   appointment.decidedBy = u.id;
+
+  // Si fue el propio tutor quien cancelo, no hace falta notificarlo de su propia accion.
+  if (!isOwner) {
+    const tutorCancel = db.users.find((t) => t.id === appointment.tutorId);
+    if (tutorCancel) {
+      notifyUser(db, {
+        recipient: tutorCancel,
+        campo: 'Estado de cita',
+        anterior: estadoAnterior,
+        nuevo: 'Cancelada',
+        actor: u,
+        userNombre: tutorCancel.nombre,
+      });
+    }
+  }
+
   save(db);
   res.json({ appointment: publicAppointment(appointment, db) });
 });

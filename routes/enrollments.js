@@ -1,6 +1,7 @@
 const express = require('express');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
+const { notifyUser } = require('../lib/notify');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -135,6 +136,20 @@ router.post('/enrollments/:id/decidir', (req, res) => {
   enrollment.motivoRechazo = estado === 'Rechazada' ? motivo.trim() : '';
   enrollment.decidedAt = new Date().toISOString();
   enrollment.decidedBy = u.id;
+
+  const tutor = db.users.find((t) => t.id === enrollment.tutorId);
+  if (tutor) {
+    const student = db.students.find((s) => s.id === enrollment.studentId);
+    notifyUser(db, {
+      recipient: tutor,
+      campo: 'Estado de inscripción',
+      anterior: 'Pendiente',
+      nuevo: estado,
+      actor: u,
+      userNombre: student ? student.nombre : tutor.nombre,
+    });
+  }
+
   save(db);
   res.json({ enrollment: publicEnrollment(enrollment, db) });
 });

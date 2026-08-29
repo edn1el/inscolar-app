@@ -5,17 +5,30 @@ const { requireAuth, requireAdmin } = require('../lib/middleware');
 const router = express.Router();
 router.use(requireAuth);
 
-// ---- notificaciones (admin) ----
-router.get('/notifications', requireAdmin, (req, res) => {
+// ---- notificaciones ----
+// Sin recipientId: notificacion "broadcast" para el equipo administrativo (Administrador/Soporte).
+// Con recipientId: notificacion dirigida a ese usuario especifico (ej. un tutor).
+const NOTIF_ADMIN_ROLES = ['Administrador', 'Soporte'];
+
+router.get('/notifications', (req, res) => {
   const db = req.db;
-  const list = db.notifications.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const u = req.currentUser;
+  const isAdminRole = NOTIF_ADMIN_ROLES.includes(u.role);
+  const list = db.notifications
+    .filter((n) => (n.recipientId ? n.recipientId === u.id : isAdminRole))
+    .slice()
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   res.json({ notifications: list, unreadCount: list.filter((n) => !n.read).length });
 });
 
-router.post('/notifications/:id/read', requireAdmin, (req, res) => {
+router.post('/notifications/:id/read', (req, res) => {
   const db = req.db;
+  const u = req.currentUser;
+  const isAdminRole = NOTIF_ADMIN_ROLES.includes(u.role);
   const n = db.notifications.find((n) => n.id === req.params.id);
   if (n) {
+    const canMark = n.recipientId ? n.recipientId === u.id : isAdminRole;
+    if (!canMark) return res.status(403).json({ error: 'No tienes permiso para modificar esta notificación.' });
     n.read = true;
     save(db);
   }

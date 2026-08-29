@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdmin } = require('../lib/middleware');
+const { notifyAdmins } = require('../lib/notify');
 const { isEmail, passwordRules, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 
 const router = express.Router();
@@ -20,21 +21,6 @@ function genTempPassword() {
   const w = words[Math.floor(Math.random() * words.length)];
   const digits = String(Math.floor(1000 + Math.random() * 9000));
   return `${w}-2026-${digits}`;
-}
-
-function notifyAdmins(db, { affectedUser, campo, anterior, nuevo, actor }) {
-  db.notifications.unshift({
-    id: nextId(db.notifications, 'n'),
-    userId: affectedUser.id,
-    userNombre: affectedUser.nombre,
-    campo,
-    anterior: anterior || '',
-    nuevo: nuevo || '',
-    actorId: actor.id,
-    actorNombre: actor.nombre,
-    createdAt: new Date().toISOString(),
-    read: false,
-  });
 }
 
 // ---- mi perfil ----

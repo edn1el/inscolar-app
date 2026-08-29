@@ -498,7 +498,11 @@
   async function viewApp(segs, query) {
     const section = segs[0] || 'perfil';
     const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes((state.user || {}).role);
-    if (['usuarios', 'instituciones', 'notificaciones', 'analiticas'].includes(section) && !isAdmin()) {
+    if (['usuarios', 'instituciones', 'analiticas'].includes(section) && !isAdmin()) {
+      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      return;
+    }
+    if (section === 'notificaciones' && !(isAdmin() || (state.user || {}).role === 'Tutor')) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -512,7 +516,7 @@
     }
 
     let unread = 0;
-    if (isAdmin()) {
+    if (isAdmin() || (state.user || {}).role === 'Tutor') {
       try { const n = await api('/notifications'); unread = n.unreadCount; } catch (e) {}
     }
 
@@ -554,7 +558,7 @@
         <div class="topbar">
           <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
           <div class="topbar-right">
-            ${admin ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
+            ${(admin || u.role === 'Tutor') ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
             <span class="who"><span class="avatar" style="background:${avBg};color:${avFg}">${initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></span>
             <button class="logout" id="logout-btn">Cerrar sesión</button>
           </div>
@@ -1468,7 +1472,7 @@
   async function renderNotificaciones() {
     const { notifications } = await api('/notifications');
     qs('.main').innerHTML = `
-      <div class="page-head"><div><h2>Notificaciones</h2><div class="sub">Cambios en cuentas administrativas.</div></div></div>
+      <div class="page-head"><div><h2>Notificaciones</h2><div class="sub">Actividad y cambios recientes relacionados con tu cuenta.</div></div></div>
       <div class="notif-list">
         ${notifications.length ? notifications.map((n) => `
           <div class="notif-item ${n.read ? '' : 'unread'}">
