@@ -13,9 +13,15 @@ function normalizeTipo(v) {
 }
 
 // ---- listado (cualquier usuario autenticado la puede consultar, p.ej. para formularios) ----
+function withRating(inst, db) {
+  const ratings = db.ratings.filter((r) => r.institucionId === inst.id);
+  const promedio = ratings.length ? ratings.reduce((s, r) => s + r.estrellas, 0) / ratings.length : null;
+  return { ...inst, calificacionPromedio: promedio, totalCalificaciones: ratings.length };
+}
+
 router.get('/', (req, res) => {
   const db = req.db;
-  const { q, provincia, estado } = req.query;
+  const { q, provincia, estado, calificacionMin } = req.query;
   let list = db.institutions.slice();
   if (q) {
     const qq = q.toLowerCase();
@@ -24,7 +30,12 @@ router.get('/', (req, res) => {
   if (provincia && provincia !== 'Todas') list = list.filter((i) => i.provincia === provincia);
   if (estado && estado !== 'Todos') list = list.filter((i) => (i.estado || 'Activo') === estado);
   list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
-  res.json({ total: db.institutions.length, institutions: list });
+  let withRatings = list.map((i) => withRating(i, db));
+  if (calificacionMin && calificacionMin !== 'Cualquiera') {
+    const min = Number(calificacionMin);
+    withRatings = withRatings.filter((i) => i.calificacionPromedio !== null && i.calificacionPromedio >= min);
+  }
+  res.json({ total: db.institutions.length, institutions: withRatings });
 });
 
 // ---- administración de instituciones (solo Administrador/Soporte) ----

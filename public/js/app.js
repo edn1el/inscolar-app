@@ -506,6 +506,10 @@
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
+    if (['calificar', 'reportar'].includes(section) && (state.user || {}).role !== 'Tutor') {
+      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      return;
+    }
     if (section === 'inscripciones' && !canSeeInscripciones) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
@@ -533,7 +537,11 @@
       else if (section === 'usuarios') await renderUsuarios(query);
       else if (section === 'instituciones' && segs[1] === 'nueva') await renderInstitucionForm(null);
       else if (section === 'instituciones' && segs[2] === 'editar') await renderInstitucionForm(segs[1]);
+      else if (section === 'instituciones' && segs[2] === 'calificaciones') await renderCalificacionesList(segs[1]);
+      else if (section === 'instituciones' && segs[2] === 'reportes') await renderReportesList(segs[1]);
       else if (section === 'instituciones') await renderInstituciones(query);
+      else if (section === 'calificar' && segs[1]) await renderCalificarForm(segs[1]);
+      else if (section === 'reportar' && segs[1]) await renderReportarForm(segs[1]);
       else if (section === 'inscripciones' && segs[1] === 'estudiante-nuevo') await renderEstudianteForm();
       else if (section === 'inscripciones' && segs[1] === 'nueva') await renderInscripcionForm();
       else if (section === 'inscripciones' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteInscripcion(segs[2]);
@@ -937,14 +945,21 @@
   }
 
   // ---------------- Instituciones ----------------
+  function calificacionLabel(promedio, total) {
+    if (promedio === null || promedio === undefined || !total) return '<span class="help">Sin calificar</span>';
+    return `★ ${promedio.toFixed(1)} <span class="help">(${total})</span>`;
+  }
+
   async function renderInstituciones(query) {
     const params = new URLSearchParams();
     if (query.q) params.set('q', query.q);
     if (query.provincia) params.set('provincia', query.provincia);
     if (query.estado) params.set('estado', query.estado);
+    if (query.calificacionMin) params.set('calificacionMin', query.calificacionMin);
     const { total, institutions } = await api('/institutions?' + params.toString());
     const provinciasFiltro = ['Todas', ...PROVINCIAS];
     const estados = ['Todos', 'Activo', 'Inactivo'];
+    const calificaciones = ['Cualquiera', '4', '3'];
 
     qs('.main').innerHTML = `
       <div class="page-head"><div><h2>Instituciones</h2><div class="sub">Centros educativos registrados en el sistema.</div></div></div>
@@ -952,11 +967,12 @@
         <input id="f-q" placeholder="Buscar por nombre o distrito..." value="${escapeHtml(query.q || '')}">
         <select id="f-provincia">${provinciasFiltro.map((p) => `<option ${query.provincia === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select>
         <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        <select id="f-calificacion">${calificaciones.map((c) => `<option value="${c}" ${(query.calificacionMin || 'Cualquiera') === c ? 'selected' : ''}>${c === 'Cualquiera' ? 'Cualquier calificación' : c + '+ estrellas'}</option>`).join('')}</select>
         <button class="btn btn-primary spacer" style="width:auto; padding:10px 18px;" data-nav="#/app/instituciones/nueva">Nueva institución</button>
       </div>
       <div class="table-card">
         <table>
-          <thead><tr><th>Institución</th><th>Provincia</th><th>Distrito</th><th>Tipo</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Institución</th><th>Provincia</th><th>Distrito</th><th>Tipo</th><th>Calificación</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>
             ${institutions.map((inst) => {
               const ts = INST_TIPO_STYLE[inst.tipo] || { bg: '#eee', fg: '#333' };
@@ -966,10 +982,13 @@
                 <td>${escapeHtml(inst.provincia)}</td>
                 <td>${escapeHtml(inst.distrito)}</td>
                 <td><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
+                <td>${calificacionLabel(inst.calificacionPromedio, inst.totalCalificaciones)}</td>
                 <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${inst.estado || 'Activo'}</span></td>
                 <td><span class="actions-cell">
                   <button class="neutral" data-edit="${inst.id}">Modificar</button>
                   <button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>
+                  <button class="neutral" data-ver-calificaciones="${inst.id}">Calificaciones</button>
+                  <button class="neutral" data-ver-reportes="${inst.id}">Reportes</button>
                 </span></td>
               </tr>`;
             }).join('')}
@@ -985,17 +1004,152 @@
       if (qs('#f-q').value) p.set('q', qs('#f-q').value);
       if (qs('#f-provincia').value !== 'Todas') p.set('provincia', qs('#f-provincia').value);
       if (qs('#f-estado').value !== 'Todos') p.set('estado', qs('#f-estado').value);
+      if (qs('#f-calificacion').value !== 'Cualquiera') p.set('calificacionMin', qs('#f-calificacion').value);
       navigate('#/app/instituciones?' + p.toString());
     }
     qs('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
     qs('#f-provincia').addEventListener('change', applyFilters);
     qs('#f-estado').addEventListener('change', applyFilters);
+    qs('#f-calificacion').addEventListener('change', applyFilters);
+    qsa('[data-ver-calificaciones]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verCalificaciones + '/calificaciones')));
+    qsa('[data-ver-reportes]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verReportes + '/reportes')));
 
     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.edit + '/editar')));
     qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
       await api('/institutions/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
       renderInstituciones(query);
     }));
+  }
+
+  async function institucionNombre(id) {
+    try {
+      const { institutions } = await api('/institutions');
+      const inst = institutions.find((i) => i.id === id);
+      return inst ? inst.nombre : 'Institución';
+    } catch (e) { return 'Institución'; }
+  }
+
+  async function renderCalificacionesList(institucionId) {
+    const [nombre, { ratings, total, promedio }] = await Promise.all([
+      institucionNombre(institucionId),
+      api('/institutions/' + institucionId + '/ratings'),
+    ]);
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      <div class="page-head"><div><h2>Calificaciones — ${escapeHtml(nombre)}</h2><div class="sub">${total ? `Promedio: ★ ${promedio.toFixed(1)} de ${total} calificación${total === 1 ? '' : 'es'}.` : 'Todavía no tiene calificaciones.'}</div></div></div>
+      <div class="notif-list">
+        ${ratings.length ? ratings.map((r) => `
+          <div class="notif-item">
+            <div>
+              <div class="t1">★ ${r.estrellas} · ${escapeHtml(r.tutorNombre)}</div>
+              ${r.comentario ? `<div class="t2">${escapeHtml(r.comentario)}</div>` : ''}
+              <div class="t3">${fmtDate(r.createdAt)}${r.updatedAt ? ' · editada' : ''}</div>
+            </div>
+          </div>
+        `).join('') : '<div class="empty-state">No hay calificaciones todavía.</div>'}
+      </div>
+    `;
+    bindShellEvents();
+  }
+
+  async function renderReportesList(institucionId) {
+    const [nombre, { reports, total }] = await Promise.all([
+      institucionNombre(institucionId),
+      api('/institutions/' + institucionId + '/reports'),
+    ]);
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      <div class="page-head"><div><h2>Reportes — ${escapeHtml(nombre)}</h2><div class="sub">${total} reporte${total === 1 ? '' : 's'} registrado${total === 1 ? '' : 's'}.</div></div></div>
+      <div class="notif-list">
+        ${reports.length ? reports.map((rp) => `
+          <div class="notif-item">
+            <div>
+              <div class="t1">${escapeHtml(rp.motivo)} · ${escapeHtml(rp.tutorNombre)}</div>
+              <div class="t2">${escapeHtml(rp.descripcion)}</div>
+              <div class="t3">${fmtDate(rp.createdAt)} · ${escapeHtml(rp.estado)}</div>
+            </div>
+          </div>
+        `).join('') : '<div class="empty-state">No hay reportes todavía.</div>'}
+      </div>
+    `;
+    bindShellEvents();
+  }
+
+  async function renderCalificarForm(institucionId) {
+    const [nombre, { ratings }] = await Promise.all([
+      institucionNombre(institucionId),
+      api('/institutions/' + institucionId + '/ratings'),
+    ]);
+    const mine = ratings[0] || null;
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver</button>
+      <div class="page-head"><h2>Calificar — ${escapeHtml(nombre)}</h2></div>
+      <div class="chart-card" style="max-width:520px;">
+        <div id="err"></div>
+        <form id="rating-form">
+          <div class="field"><label>Calificación</label>
+            <select name="estrellas">
+              ${[5, 4, 3, 2, 1].map((n) => `<option value="${n}" ${mine && mine.estrellas === n ? 'selected' : ''}>${n} estrella${n === 1 ? '' : 's'}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field"><label>Comentario (opcional)</label><textarea name="comentario" rows="4" maxlength="500">${escapeHtml(mine ? mine.comentario || '' : '')}</textarea></div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">${mine ? 'Actualizar calificación' : 'Enviar calificación'}</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    bindShellEvents();
+    qs('#rating-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      qs('#err').innerHTML = '';
+      try {
+        await api('/institutions/' + institucionId + '/ratings', { method: 'POST', body: Object.fromEntries(fd.entries()) });
+        toast('Gracias por tu calificación.', 'ok');
+        navigate('#/app/inscripciones');
+      } catch (err) {
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+      }
+    });
+  }
+
+  async function renderReportarForm(institucionId) {
+    const [nombre, { motivos }] = await Promise.all([
+      institucionNombre(institucionId),
+      api('/institutions/' + institucionId + '/reports'),
+    ]);
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver</button>
+      <div class="page-head"><h2>Reportar — ${escapeHtml(nombre)}</h2></div>
+      <div class="chart-card" style="max-width:520px;">
+        <div id="err"></div>
+        <form id="report-form">
+          <div class="field"><label>Motivo</label>
+            <select name="motivo">${motivos.map((m) => `<option>${escapeHtml(m)}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Descripción</label><textarea name="descripcion" rows="4" maxlength="800" required></textarea></div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Enviar reporte</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    bindShellEvents();
+    qs('#report-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      qs('#err').innerHTML = '';
+      try {
+        await api('/institutions/' + institucionId + '/reports', { method: 'POST', body: Object.fromEntries(fd.entries()) });
+        toast('Reporte enviado.', 'ok');
+        navigate('#/app/inscripciones');
+      } catch (err) {
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+      }
+    });
   }
 
   async function renderInstitucionForm(id) {
@@ -1089,7 +1243,8 @@
     }
 
     const estados = ['Todos', 'Pendiente', 'Aprobada', 'Rechazada'];
-    const colCount = 6 + (tutor ? 0 : 1) + (admin ? 1 : 0);
+    const showInstCol = admin || tutor;
+    const colCount = 6 + (tutor ? 0 : 1) + (showInstCol ? 1 : 0);
 
     qs('.main').innerHTML = `
       <div class="page-head">
@@ -1103,14 +1258,14 @@
       </div>
       <div class="table-card">
         <table>
-          <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${admin ? '<th>Institución</th>' : ''}<th>Grado</th><th>Ciclo</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${showInstCol ? '<th>Institución</th>' : ''}<th>Grado</th><th>Ciclo</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
           <tbody>
             ${enrollments.length ? enrollments.map((e) => {
               const estadoColor = e.estado === 'Aprobada' ? '#2e9e5b' : e.estado === 'Rechazada' ? '#c23b3b' : '#c98a1b';
               return `<tr>
                 <td>${escapeHtml(e.estudianteNombre)}</td>
                 ${tutor ? '' : `<td>${escapeHtml(e.tutorNombre)}</td>`}
-                ${admin ? `<td>${escapeHtml(e.institucionNombre)}</td>` : ''}
+                ${showInstCol ? `<td>${escapeHtml(e.institucionNombre)}</td>` : ''}
                 <td>${escapeHtml(e.gradoSolicitado)}</td>
                 <td>${escapeHtml(e.cicloEscolar)}</td>
                 <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}</td>
@@ -1118,6 +1273,7 @@
                 <td><span class="actions-cell">
                   ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
                   ${!tutor && e.estado === 'Pendiente' ? `<button class="ok" data-approve="${e.id}">Aprobar</button><button class="danger" data-reject="${e.id}">Rechazar</button>` : ''}
+                  ${tutor && e.estado === 'Aprobada' ? `<button class="neutral" data-nav="#/app/calificar/${e.institucionId}">Calificar</button><button class="neutral" data-nav="#/app/reportar/${e.institucionId}">Reportar</button>` : ''}
                   <button class="neutral" data-comprobante="${e.id}">Comprobante</button>
                 </span></td>
               </tr>`;
@@ -1262,7 +1418,8 @@
     }
 
     const estados = ['Todos', 'Pendiente', 'Confirmada', 'Cancelada'];
-    const colCount = 5 + (tutor ? 0 : 1) + (admin ? 1 : 0);
+    const showInstColCitas = admin || tutor;
+    const colCount = 5 + (tutor ? 0 : 1) + (showInstColCitas ? 1 : 0);
 
     qs('.main').innerHTML = `
       <div class="page-head">
@@ -1275,7 +1432,7 @@
       </div>
       <div class="table-card">
         <table>
-          <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${admin ? '<th>Institución</th>' : ''}<th>Motivo</th><th>Fecha y hora</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${showInstColCitas ? '<th>Institución</th>' : ''}<th>Motivo</th><th>Fecha y hora</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>
             ${appointments.length ? appointments.map((a) => {
               const estadoColor = a.estado === 'Confirmada' ? '#2e9e5b' : a.estado === 'Cancelada' ? '#c23b3b' : '#c98a1b';
@@ -1284,12 +1441,13 @@
               return `<tr>
                 <td>${escapeHtml(a.estudianteNombre || 'General')}</td>
                 ${tutor ? '' : `<td>${escapeHtml(a.tutorNombre)}</td>`}
-                ${admin ? `<td>${escapeHtml(a.institucionNombre)}</td>` : ''}
+                ${showInstColCitas ? `<td>${escapeHtml(a.institucionNombre)}</td>` : ''}
                 <td>${escapeHtml(a.motivo)}</td>
                 <td>${fmtDate(when)}${adjusted ? `<div class="help">Solicitada: ${fmtDate(a.fechaHoraSolicitada)}</div>` : ''}</td>
                 <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${a.estado}</span>${a.estado === 'Cancelada' && a.motivoCancelacion ? `<div class="help">${escapeHtml(a.motivoCancelacion)}</div>` : ''}</td>
                 <td><span class="actions-cell">
                   ${!tutor && a.estado === 'Pendiente' ? `<button class="ok" data-confirm="${a.id}">Confirmar</button>` : ''}
+                  ${tutor && a.estado === 'Confirmada' ? `<button class="neutral" data-nav="#/app/calificar/${a.institucionId}">Calificar</button><button class="neutral" data-nav="#/app/reportar/${a.institucionId}">Reportar</button>` : ''}
                   ${a.estado !== 'Cancelada' ? `<button class="danger" data-cancel="${a.id}">Cancelar</button>` : ''}
                   <button class="neutral" data-comprobante="${a.id}">Comprobante</button>
                 </span></td>

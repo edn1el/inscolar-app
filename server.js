@@ -16,6 +16,7 @@ const institutionRoutes = require('./routes/institutions');
 const enrollmentRoutes = require('./routes/enrollments');
 const appointmentRoutes = require('./routes/appointments');
 const miscRoutes = require('./routes/misc');
+const ratingRoutes = require('./routes/ratings');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -36,6 +37,7 @@ app.use('/api/institutions', institutionRoutes);
 app.use('/api', enrollmentRoutes);
 app.use('/api', appointmentRoutes);
 app.use('/api', miscRoutes);
+app.use('/api', ratingRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
