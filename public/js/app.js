@@ -957,16 +957,19 @@
     if (query.provincia) params.set('provincia', query.provincia);
     if (query.estado) params.set('estado', query.estado);
     if (query.calificacionMin) params.set('calificacionMin', query.calificacionMin);
-    const { total, institutions } = await api('/institutions?' + params.toString());
+    if (query.municipio) params.set('municipio', query.municipio);
+    const { total, institutions, municipios } = await api('/institutions?' + params.toString());
     const provinciasFiltro = ['Todas', ...PROVINCIAS];
     const estados = ['Todos', 'Activo', 'Inactivo'];
     const calificaciones = ['Cualquiera', '4', '3'];
+    const municipiosFiltro = ['Todos', ...(municipios || [])];
 
     qs('.main').innerHTML = `
       <div class="page-head"><div><h2>Instituciones</h2><div class="sub">Centros educativos registrados en el sistema.</div></div></div>
       <div class="filters">
         <input id="f-q" placeholder="Buscar por nombre o distrito..." value="${escapeHtml(query.q || '')}">
         <select id="f-provincia">${provinciasFiltro.map((p) => `<option ${query.provincia === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select>
+        <select id="f-municipio">${municipiosFiltro.map((m) => `<option ${(query.municipio || 'Todos') === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select>
         <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
         <select id="f-calificacion">${calificaciones.map((c) => `<option value="${c}" ${(query.calificacionMin || 'Cualquiera') === c ? 'selected' : ''}>${c === 'Cualquiera' ? 'Cualquier calificación' : c + '+ estrellas'}</option>`).join('')}</select>
         <button class="btn btn-primary spacer" style="width:auto; padding:10px 18px;" data-nav="#/app/instituciones/nueva">Nueva institución</button>
@@ -981,7 +984,7 @@
               return `<tr>
                 <td><div class="user-cell"><span class="av" style="background:#e1ecf7;color:#2a5c96">${ICONS.building}</span><span><div class="name">${escapeHtml(inst.nombre)}</div><div class="mail">${escapeHtml(inst.direccion || 'Sin dirección registrada')}</div></span></div></td>
                 <td>${escapeHtml(inst.provincia)}</td>
-                <td>${escapeHtml(inst.distrito)}</td>
+                <td>${escapeHtml(inst.distrito)}${inst.municipio ? ' · ' + escapeHtml(inst.municipio) : ''}</td>
                 <td><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
                 <td>${calificacionLabel(inst.calificacionPromedio, inst.totalCalificaciones)}</td>
                 <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${inst.estado || 'Activo'}</span></td>
@@ -1004,12 +1007,14 @@
       const p = new URLSearchParams();
       if (qs('#f-q').value) p.set('q', qs('#f-q').value);
       if (qs('#f-provincia').value !== 'Todas') p.set('provincia', qs('#f-provincia').value);
+      if (qs('#f-municipio').value !== 'Todos') p.set('municipio', qs('#f-municipio').value);
       if (qs('#f-estado').value !== 'Todos') p.set('estado', qs('#f-estado').value);
       if (qs('#f-calificacion').value !== 'Cualquiera') p.set('calificacionMin', qs('#f-calificacion').value);
       navigate('#/app/instituciones?' + p.toString());
     }
     qs('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
     qs('#f-provincia').addEventListener('change', applyFilters);
+    qs('#f-municipio').addEventListener('change', applyFilters);
     qs('#f-estado').addEventListener('change', applyFilters);
     qs('#f-calificacion').addEventListener('change', applyFilters);
     qsa('[data-ver-calificaciones]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verCalificaciones + '/calificaciones')));
@@ -1173,6 +1178,7 @@
             </div>
             <div class="field"><label>Distrito educativo</label><input type="text" name="distrito" placeholder="00-00" value="${escapeHtml(editing ? editing.distrito : '')}" required></div>
           </div>
+          <div class="field"><label>Municipio</label><input type="text" name="municipio" value="${escapeHtml(editing ? editing.municipio || '' : '')}" placeholder="Opcional"></div>
           <div class="field"><label>Tipo</label>
             <select name="tipo">
               <option value="Público" ${editing && editing.tipo === 'Público' ? 'selected' : ''}>Público</option>

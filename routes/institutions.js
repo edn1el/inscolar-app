@@ -21,7 +21,8 @@ function withRating(inst, db) {
 
 router.get('/', (req, res) => {
   const db = req.db;
-  const { q, provincia, estado, calificacionMin } = req.query;
+  const { q, provincia, estado, calificacionMin, municipio } = req.query;
+  const municipios = Array.from(new Set(db.institutions.map((i) => i.municipio).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
   let list = db.institutions.slice();
   if (q) {
     const qq = q.toLowerCase();
@@ -29,19 +30,20 @@ router.get('/', (req, res) => {
   }
   if (provincia && provincia !== 'Todas') list = list.filter((i) => i.provincia === provincia);
   if (estado && estado !== 'Todos') list = list.filter((i) => (i.estado || 'Activo') === estado);
+  if (municipio && municipio !== 'Todos') list = list.filter((i) => i.municipio === municipio);
   list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   let withRatings = list.map((i) => withRating(i, db));
   if (calificacionMin && calificacionMin !== 'Cualquiera') {
     const min = Number(calificacionMin);
     withRatings = withRatings.filter((i) => i.calificacionPromedio !== null && i.calificacionPromedio >= min);
   }
-  res.json({ total: db.institutions.length, institutions: withRatings });
+  res.json({ total: db.institutions.length, institutions: withRatings, municipios });
 });
 
 // ---- administración de instituciones (solo Administrador/Soporte) ----
 router.post('/', requireAdmin, (req, res) => {
   const db = req.db;
-  const { nombre, provincia, distrito, tipo, direccion, telefono } = req.body || {};
+  const { nombre, provincia, distrito, tipo, direccion, telefono, municipio } = req.body || {};
   const errors = [];
   if (!nombre || nombre.trim().length < 3) errors.push('El nombre de la institución es obligatorio.');
   if (!provincia) errors.push('Selecciona la provincia.');
@@ -60,6 +62,7 @@ router.post('/', requireAdmin, (req, res) => {
     tipo: normalizeTipo(tipo),
     direccion: (direccion || '').trim(),
     telefono: telefono ? formatPhoneDO(telefono) : '',
+    municipio: (municipio || '').trim(),
     estado: 'Activo',
     createdAt: new Date().toISOString(),
   };
@@ -73,7 +76,7 @@ router.put('/:id', requireAdmin, (req, res) => {
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
 
-  const { nombre, provincia, distrito, tipo, direccion, telefono } = req.body || {};
+  const { nombre, provincia, distrito, tipo, direccion, telefono, municipio } = req.body || {};
   const errors = [];
   if (nombre !== undefined && nombre.trim().length < 3) errors.push('El nombre de la institución es obligatorio.');
   if (distrito !== undefined && distrito && !DISTRITO_RE.test(distrito)) errors.push('El distrito educativo debe tener el formato 00-00.');
@@ -89,6 +92,7 @@ router.put('/:id', requireAdmin, (req, res) => {
   if (tipo) institution.tipo = normalizeTipo(tipo);
   if (direccion !== undefined) institution.direccion = direccion.trim();
   if (telefono !== undefined) institution.telefono = telefono ? formatPhoneDO(telefono) : '';
+  if (municipio !== undefined) institution.municipio = municipio.trim();
   save(db);
   res.json({ institution });
 });
