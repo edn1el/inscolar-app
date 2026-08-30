@@ -68,20 +68,20 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 
 | HU | Título | Estado |
 |----|--------|--------|
-| HU034 | Agregar periodo de inscripción de una institución | ❌ |
-| HU035 | Agregar periodo de envío de documentos en un ciclo de inscripción | ❌ |
-| HU036 | Agregar periodo para agendar citas en un ciclo de inscripción | ❌ |
-| HU037 | Modificar periodo de inscripción de una institución | ❌ |
-| HU038 | Modificar periodo de envío de documentos | ❌ |
-| HU039 | Modificar periodo para agendar citas | ❌ |
-| HU040 | Eliminar periodo de inscripción | ❌ |
-| HU041 | Eliminar periodo de envío de documentos | ❌ |
-| HU042 | Eliminar periodo para agendar citas | ❌ |
-| HU043 | Agregar límite de citas para un periodo | ❌ |
-| HU044 | Agregar lista de documentos requeridos para inscripción | ❌ |
-| HU045 | Modificar lista de documentos requeridos | ❌ |
+| HU034 | Agregar periodo de inscripción de una institución | ✅ (2026-08-30, Fase 6) |
+| HU035 | Agregar periodo de envío de documentos en un ciclo de inscripción | ✅ (2026-08-30, Fase 6) |
+| HU036 | Agregar periodo para agendar citas en un ciclo de inscripción | ✅ (2026-08-30, Fase 6) |
+| HU037 | Modificar periodo de inscripción de una institución | ✅ (2026-08-30, Fase 6) |
+| HU038 | Modificar periodo de envío de documentos | ✅ (2026-08-30, Fase 6) |
+| HU039 | Modificar periodo para agendar citas | ✅ (2026-08-30, Fase 6) |
+| HU040 | Eliminar periodo de inscripción | ✅ (2026-08-30, Fase 6) |
+| HU041 | Eliminar periodo de envío de documentos | ✅ (2026-08-30, Fase 6) |
+| HU042 | Eliminar periodo para agendar citas | ✅ (2026-08-30, Fase 6) |
+| HU043 | Agregar límite de citas para un periodo | ✅ (2026-08-30, Fase 6) |
+| HU044 | Agregar lista de documentos requeridos para inscripción | ✅ (2026-08-30, Fase 6) |
+| HU045 | Modificar lista de documentos requeridos | ✅ (2026-08-30, Fase 6) |
 
-**Módulo completo sin empezar.** Hoy el "ciclo escolar" es solo un dropdown de texto libre, no hay periodos configurables ni límites.
+**Módulo completo (2026-08-30).** Cada institución puede configurar, por ciclo escolar, un periodo de inscripción, un periodo de envío de documentos, un periodo para agendar citas (con límite opcional de citas) y una lista de documentos requeridos — todo desde el botón "Periodos" en el listado de Instituciones. Sin ninguna configuración para una institución/ciclo, el sistema sigue funcionando exactamente igual que antes (sin restricciones), así que no rompe nada existente. Las ventanas se validan contra el momento en que se hace la acción (enviar la solicitud, subir el documento, agendar la cita), no contra la fecha del evento en sí. Verificado con Playwright (20/20 pruebas).
 
 ## 5. Inscripciones y documentos
 
@@ -163,7 +163,7 @@ Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden 
 3. **Fase 3 — Documentos de inscripción**: subir/aceptar/rechazar (HU047-049, habilita HU085-088). **✅ Completada 2026-08-29** — verificada con Playwright real (subida de PDF, rechazo de tipo de archivo no permitido, aceptar/rechazar desde el rol de personal de institución con notificación al tutor, y control de acceso por sesión). HU085-088 (indicadores de documentos en Analíticas) quedan para la Fase 7.
 4. **Fase 4 — Filtros adicionales de instituciones**: por municipio (HU025) — el filtro por calificación (HU024) ya se completó en la Fase 2. **✅ Completada 2026-08-29** — se agregó el campo municipio (opcional) al formulario de instituciones, un filtro dinámico en el listado (construido a partir de los municipios ya registrados, sin lista fija) y se muestra junto al distrito en la tabla. Verificado con Playwright (8/8 pruebas: creación, filtro dinámico, precarga en edición, sin regresiones).
 5. **Fase 5 — Módulo de Auditoría/Logs** (HU096-132): el bloque más grande — bitácora de eventos + pantalla para el rol Auditoría. **✅ Completada 2026-08-30** (núcleo funcional; ver nota en la sección 9 sobre lo que queda pendiente para periodos/correos de las Fases 6 y 8). Verificado con Playwright (18/18 pruebas).
-6. **Fase 6 — Periodos y configuración** (HU034-045).
+6. **Fase 6 — Periodos y configuración** (HU034-045). **✅ Completada 2026-08-30** — verificado con Playwright (20/20 pruebas).
 7. **Fase 7 — Analíticas restantes** (HU070-072, HU080-095): se van completando a medida que las fases anteriores generan los datos que necesitan.
 8. **Fase 8 — Notificaciones por correo real + preferencias** (HU062, HU066).
 9. **Fase 9 — Manual de instrucciones y menú de configuración** (HU133, HU065).
