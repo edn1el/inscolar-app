@@ -6,6 +6,7 @@ const { save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
 const { notifyUser } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
+const { findPeriod, withinRange } = require('../lib/periods');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -85,6 +86,11 @@ router.post('/enrollments/:id/documents', (req, res, next) => {
   if (enrollment.tutorId !== u.id) {
     if (req.file) fs.unlink(req.file.path, () => {});
     return res.status(403).json({ error: 'Solo el tutor de esta solicitud puede subir documentos.' });
+  }
+  const period = findPeriod(db, enrollment.institucionId, enrollment.cicloEscolar);
+  if (period && !withinRange(period.documentos)) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return res.status(400).json({ errors: [`El periodo para el envío de documentos del ciclo ${enrollment.cicloEscolar} ya no está abierto.`] });
   }
   if (!req.file) {
     return res.status(400).json({ errors: ['Selecciona un archivo PDF, JPG o PNG de hasta 5 MB.'] });

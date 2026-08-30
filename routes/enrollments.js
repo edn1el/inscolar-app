@@ -3,6 +3,7 @@ const { load, save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
 const { notifyUser } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
+const { findPeriod, withinRange } = require('../lib/periods');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -98,6 +99,12 @@ router.post('/enrollments', (req, res) => {
     e.studentId === student.id && e.institucionId === institucion.id && e.cicloEscolar === cicloEscolar && e.estado !== 'Rechazada'
   )) {
     errors.push('Ya existe una solicitud activa para este estudiante en esa institución y ciclo.');
+  }
+  if (institucion && cicloEscolar) {
+    const period = findPeriod(db, institucion.id, cicloEscolar);
+    if (period && !withinRange(period.inscripcion)) {
+      errors.push(`El periodo de inscripción del ciclo ${cicloEscolar} para esta institución no está abierto actualmente.`);
+    }
   }
   if (errors.length) return res.status(400).json({ errors });
 

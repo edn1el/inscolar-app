@@ -19,6 +19,7 @@ const miscRoutes = require('./routes/misc');
 const ratingRoutes = require('./routes/ratings');
 const documentRoutes = require('./routes/documents');
 const auditRoutes = require('./routes/audit');
+const periodRoutes = require('./routes/periods');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,6 +43,7 @@ app.use('/api', miscRoutes);
 app.use('/api', ratingRoutes);
 app.use('/api', documentRoutes);
 app.use('/api', auditRoutes);
+app.use('/api', periodRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));
 

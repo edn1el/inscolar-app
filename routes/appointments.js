@@ -3,6 +3,7 @@ const { load, save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
 const { notifyUser } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
+const { citasPeriodStatus } = require('../lib/periods');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -59,6 +60,23 @@ router.post('/appointments', (req, res) => {
   if (studentId) {
     student = db.students.find((s) => s.id === studentId && s.tutorId === u.id);
     if (!student) errors.push('El estudiante seleccionado no es válido.');
+  }
+  let activePeriod = null;
+  if (institucion) {
+    const { hasConfig, active } = citasPeriodStatus(db, institucion.id);
+    if (hasConfig && !active) {
+      errors.push('No hay un periodo habilitado para agendar citas en esta institución actualmente.');
+    } else if (active) {
+      activePeriod = active;
+      const limite = active.citas.limiteCitas;
+      if (limite) {
+        const count = db.appointments.filter((a) =>
+          a.institucionId === institucion.id && a.estado !== 'Cancelada' &&
+          new Date(a.createdAt) >= new Date(active.citas.desde) && new Date(a.createdAt) <= new Date(new Date(active.citas.hasta).setHours(23, 59, 59, 999))
+        ).length;
+        if (count >= limite) errors.push(`Se alcanzó el límite de citas (${limite}) para el periodo actual de esta institución.`);
+      }
+    }
   }
   if (errors.length) return res.status(400).json({ errors });
 

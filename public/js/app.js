@@ -545,6 +545,9 @@
       else if (section === 'instituciones' && segs[2] === 'editar') await renderInstitucionForm(segs[1]);
       else if (section === 'instituciones' && segs[2] === 'calificaciones') await renderCalificacionesList(segs[1]);
       else if (section === 'instituciones' && segs[2] === 'reportes') await renderReportesList(segs[1]);
+      else if (section === 'instituciones' && segs[2] === 'periodos' && segs[3] === 'nueva') await renderPeriodoNuevoForm(segs[1]);
+      else if (section === 'instituciones' && segs[2] === 'periodos' && segs[4] === 'editar') await renderPeriodoForm(segs[1], segs[3]);
+      else if (section === 'instituciones' && segs[2] === 'periodos') await renderPeriodosList(segs[1]);
       else if (section === 'instituciones') await renderInstituciones(query);
       else if (section === 'calificar' && segs[1]) await renderCalificarForm(segs[1]);
       else if (section === 'reportar' && segs[1]) await renderReportarForm(segs[1]);
@@ -1004,6 +1007,7 @@
                   <button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>
                   <button class="neutral" data-ver-calificaciones="${inst.id}">Calificaciones</button>
                   <button class="neutral" data-ver-reportes="${inst.id}">Reportes</button>
+                  <button class="neutral" data-ver-periodos="${inst.id}">Periodos</button>
                 </span></td>
               </tr>`;
             }).join('')}
@@ -1030,6 +1034,7 @@
     qs('#f-calificacion').addEventListener('change', applyFilters);
     qsa('[data-ver-calificaciones]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verCalificaciones + '/calificaciones')));
     qsa('[data-ver-reportes]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verReportes + '/reportes')));
+    qsa('[data-ver-periodos]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verPeriodos + '/periodos')));
 
     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.edit + '/editar')));
     qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
@@ -1439,7 +1444,12 @@
     const isOwnerTutor = u.role === 'Tutor' && enrollment.tutorId === u.id;
     const canDecide = isAdmin() || (u.role === 'Personal de institución' && u.institucionId === enrollment.institucionId);
 
-    const { documents } = await api('/enrollments/' + enrollmentId + '/documents');
+    const [{ documents }, periodsRes] = await Promise.all([
+      api('/enrollments/' + enrollmentId + '/documents'),
+      api('/institutions/' + enrollment.institucionId + '/periods?cicloEscolar=' + encodeURIComponent(enrollment.cicloEscolar)),
+    ]);
+    const configurados = periodsRes.periods[0] && periodsRes.periods[0].documentosRequeridos;
+    const tiposParaSubir = configurados && configurados.length ? configurados : TIPOS_DOCUMENTO;
 
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
@@ -1449,7 +1459,7 @@
           <div id="doc-err"></div>
           <form id="doc-form">
             <div class="field"><label>Tipo de documento</label>
-              <select name="tipoDocumento">${TIPOS_DOCUMENTO.map((t) => `<option>${escapeHtml(t)}</option>`).join('')}</select>
+              <select name="tipoDocumento">${tiposParaSubir.map((t) => `<option>${escapeHtml(t)}</option>`).join('')}</select>
             </div>
             <div class="field"><label>Archivo (PDF, JPG o PNG, máx. 5 MB)</label><input type="file" name="archivo" accept=".pdf,.jpg,.jpeg,.png" required></div>
             <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Subir documento</button>
@@ -1505,6 +1515,181 @@
         renderDocumentosInscripcion(enrollmentId);
       } catch (err) { toast(err.message, 'err'); }
     }));
+  }
+
+  // ---------------- Periodos de ciclo escolar ----------------
+  function fmtDateShort(iso) {
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+  function rangeLabel(range) {
+    if (!range || !range.desde || !range.hasta) return 'No configurado';
+    return fmtDateShort(range.desde) + ' \u2013 ' + fmtDateShort(range.hasta);
+  }
+
+  async function renderPeriodosList(institucionId) {
+    const [nombre, { periods }] = await Promise.all([
+      institucionNombre(institucionId),
+      api('/institutions/' + institucionId + '/periods'),
+    ]);
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      <div class="page-head"><div><h2>Periodos \u2014 ${escapeHtml(nombre)}</h2><div class="sub">Ventanas de inscripci\u00f3n, env\u00edo de documentos y citas por ciclo escolar.</div></div>
+        <button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/instituciones/${institucionId}/periodos/nueva">Nuevo ciclo</button>
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>Ciclo</th><th>Inscripci\u00f3n</th><th>Documentos</th><th>Citas</th><th>Documentos requeridos</th><th>Acciones</th></tr></thead>
+          <tbody>
+            ${periods.length ? periods.map((p) => `<tr>
+              <td>${escapeHtml(p.cicloEscolar)}</td>
+              <td>${rangeLabel(p.inscripcion)}</td>
+              <td>${rangeLabel(p.documentos)}</td>
+              <td>${p.citas ? `${rangeLabel(p.citas)}${p.citas.limiteCitas ? ' \u00b7 m\u00e1x. ' + p.citas.limiteCitas : ''}` : 'No configurado'}</td>
+              <td>${p.documentosRequeridos && p.documentosRequeridos.length ? p.documentosRequeridos.length + ' tipo(s)' : 'Lista por defecto'}</td>
+              <td><span class="actions-cell">
+                <button class="neutral" data-editar-periodo="${p.id}">Configurar</button>
+                <button class="danger" data-eliminar-periodo="${p.id}">Eliminar</button>
+              </span></td>
+            </tr>`).join('') : `<tr><td colspan="6"><div class="empty-state">No hay ciclos configurados todav\u00eda. Sin un ciclo configurado no se aplican restricciones de fecha.</div></td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    `;
+    bindShellEvents();
+    qsa('[data-editar-periodo]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + institucionId + '/periodos/' + b.dataset.editarPeriodo + '/editar')));
+    qsa('[data-eliminar-periodo]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('\u00bfEliminar por completo la configuraci\u00f3n de este ciclo? Esta acci\u00f3n no se puede deshacer.')) return;
+      try {
+        await api('/institutions/' + institucionId + '/periods/' + b.dataset.eliminarPeriodo, { method: 'DELETE' });
+        toast('Configuraci\u00f3n eliminada.', 'ok');
+        renderPeriodosList(institucionId);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
+  }
+
+  async function renderPeriodoNuevoForm(institucionId) {
+    const nombre = await institucionNombre(institucionId);
+    const ciclos = cicloOptions();
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/instituciones/${institucionId}/periodos">${ICONS.back} Volver a periodos</button>
+      <div class="page-head"><h2>Nuevo ciclo \u2014 ${escapeHtml(nombre)}</h2></div>
+      <div class="chart-card" style="max-width:420px;">
+        <div id="err"></div>
+        <form id="period-new-form">
+          <div class="field"><label>Ciclo escolar</label>
+            <select name="cicloEscolar">${ciclos.map((c) => `<option>${c}</option>`).join('')}</select>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Crear</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/instituciones/${institucionId}/periodos">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    bindShellEvents();
+    qs('#period-new-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      qs('#err').innerHTML = '';
+      try {
+        const { period } = await api('/institutions/' + institucionId + '/periods', { method: 'POST', body: Object.fromEntries(fd.entries()) });
+        toast('Ciclo creado. Ahora configura sus periodos.', 'ok');
+        navigate('#/app/instituciones/' + institucionId + '/periodos/' + period.id + '/editar');
+      } catch (err) {
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+      }
+    });
+  }
+
+  async function renderPeriodoForm(institucionId, periodId) {
+    const [nombre, { periods, tiposDocumentoDisponibles }] = await Promise.all([
+      institucionNombre(institucionId),
+      api('/institutions/' + institucionId + '/periods'),
+    ]);
+    const period = periods.find((p) => p.id === periodId);
+    if (!period) {
+      qs('.main').innerHTML = '<div class="empty-state">No se encontr\u00f3 esa configuraci\u00f3n de periodo.</div>';
+      return;
+    }
+    const toInput = (iso) => iso ? new Date(iso).toISOString().slice(0, 10) : '';
+
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="#/app/instituciones/${institucionId}/periodos">${ICONS.back} Volver a periodos</button>
+      <div class="page-head"><h2>Configurar ciclo ${escapeHtml(period.cicloEscolar)} \u2014 ${escapeHtml(nombre)}</h2></div>
+      <div id="err"></div>
+      <form id="period-form">
+        <div class="chart-card" style="max-width:640px; margin-bottom:16px;">
+          <h3>Periodo de inscripci\u00f3n</h3>
+          <div class="two-col">
+            <div class="field"><label>Desde</label><input type="date" name="ins-desde" value="${toInput(period.inscripcion && period.inscripcion.desde)}"></div>
+            <div class="field"><label>Hasta</label><input type="date" name="ins-hasta" value="${toInput(period.inscripcion && period.inscripcion.hasta)}"></div>
+          </div>
+          <div class="help">Deja ambas fechas vac\u00edas para no aplicar restricci\u00f3n.</div>
+          ${period.inscripcion ? `<button type="button" class="danger" style="width:auto; padding:8px 14px; margin-top:8px;" data-quitar="inscripcion">Quitar este periodo</button>` : ''}
+        </div>
+        <div class="chart-card" style="max-width:640px; margin-bottom:16px;">
+          <h3>Periodo de env\u00edo de documentos</h3>
+          <div class="two-col">
+            <div class="field"><label>Desde</label><input type="date" name="doc-desde" value="${toInput(period.documentos && period.documentos.desde)}"></div>
+            <div class="field"><label>Hasta</label><input type="date" name="doc-hasta" value="${toInput(period.documentos && period.documentos.hasta)}"></div>
+          </div>
+          ${period.documentos ? `<button type="button" class="danger" style="width:auto; padding:8px 14px; margin-top:8px;" data-quitar="documentos">Quitar este periodo</button>` : ''}
+        </div>
+        <div class="chart-card" style="max-width:640px; margin-bottom:16px;">
+          <h3>Periodo para agendar citas</h3>
+          <div class="two-col">
+            <div class="field"><label>Desde</label><input type="date" name="cit-desde" value="${toInput(period.citas && period.citas.desde)}"></div>
+            <div class="field"><label>Hasta</label><input type="date" name="cit-hasta" value="${toInput(period.citas && period.citas.hasta)}"></div>
+          </div>
+          <div class="field"><label>L\u00edmite de citas en este periodo (opcional)</label><input type="number" min="1" name="cit-limite" value="${period.citas && period.citas.limiteCitas ? period.citas.limiteCitas : ''}"></div>
+          ${period.citas ? `<button type="button" class="danger" style="width:auto; padding:8px 14px; margin-top:8px;" data-quitar="citas">Quitar este periodo</button>` : ''}
+        </div>
+        <div class="chart-card" style="max-width:640px; margin-bottom:16px;">
+          <h3>Documentos requeridos para inscripci\u00f3n</h3>
+          <div class="help">Si no seleccionas ninguno, se usa la lista por defecto al subir documentos.</div>
+          ${tiposDocumentoDisponibles.map((t) => `
+            <label style="display:flex; align-items:center; gap:8px; margin:6px 0;">
+              <input type="checkbox" name="doc-req" value="${escapeHtml(t)}" ${period.documentosRequeridos && period.documentosRequeridos.includes(t) ? 'checked' : ''}>
+              ${escapeHtml(t)}
+            </label>
+          `).join('')}
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Guardar cambios</button>
+          <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/instituciones/${institucionId}/periodos">Cancelar</button>
+        </div>
+      </form>
+    `;
+    bindShellEvents();
+
+    qsa('[data-quitar]').forEach((b) => b.addEventListener('click', async () => {
+      try {
+        await api('/institutions/' + institucionId + '/periods/' + periodId + '/' + b.dataset.quitar, { method: 'DELETE' });
+        toast('Periodo eliminado.', 'ok');
+        renderPeriodoForm(institucionId, periodId);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
+
+    qs('#period-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      qs('#err').innerHTML = '';
+      const fd = new FormData(e.target);
+      const v = (k) => fd.get(k) || '';
+      const body = {
+        inscripcion: { desde: v('ins-desde'), hasta: v('ins-hasta') },
+        documentos: { desde: v('doc-desde'), hasta: v('doc-hasta') },
+        citas: { desde: v('cit-desde'), hasta: v('cit-hasta'), limiteCitas: v('cit-limite') },
+        documentosRequeridos: fd.getAll('doc-req'),
+      };
+      try {
+        await api('/institutions/' + institucionId + '/periods/' + periodId, { method: 'PUT', body });
+        toast('Configuraci\u00f3n guardada.', 'ok');
+        navigate('#/app/instituciones/' + institucionId + '/periodos');
+      } catch (err) {
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+      }
+    });
   }
 
   // ---------------- Citas ----------------
