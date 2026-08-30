@@ -2,6 +2,7 @@ const express = require('express');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
 const { notifyUser } = require('../lib/notify');
+const { logEvent } = require('../lib/audit');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -77,6 +78,7 @@ router.post('/appointments', (req, res) => {
     decidedBy: null,
   };
   db.appointments.push(appointment);
+  logEvent(db, { actor: u, accion: 'Cita creada', entidad: 'Cita', entidadId: appointment.id, detalle: `${institucion.nombre} · ${motivo}` });
   save(db);
   res.json({ appointment: publicAppointment(appointment, db) });
 });
@@ -103,6 +105,7 @@ router.post('/appointments/:id/confirmar', (req, res) => {
   appointment.fechaHoraConfirmada = finalWhen;
   appointment.decidedAt = new Date().toISOString();
   appointment.decidedBy = u.id;
+  logEvent(db, { actor: u, accion: 'Cita confirmada', entidad: 'Cita', entidadId: appointment.id, detalle: '' });
 
   const tutorConfirm = db.users.find((t) => t.id === appointment.tutorId);
   if (tutorConfirm) {
@@ -140,6 +143,7 @@ router.post('/appointments/:id/cancelar', (req, res) => {
   appointment.motivoCancelacion = (motivo || '').trim();
   appointment.decidedAt = new Date().toISOString();
   appointment.decidedBy = u.id;
+  logEvent(db, { actor: u, accion: 'Cita cancelada', entidad: 'Cita', entidadId: appointment.id, detalle: appointment.motivoCancelacion });
 
   // Si fue el propio tutor quien cancelo, no hace falta notificarlo de su propia accion.
   if (!isOwner) {

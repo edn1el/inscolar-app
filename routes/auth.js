@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { load, save, nextId } = require('../lib/db');
 const { isEmail, passwordRules, isCedula, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
+const { logEvent } = require('../lib/audit');
 
 const router = express.Router();
 
@@ -77,9 +78,13 @@ router.post('/login', (req, res) => {
   const { email, password } = req.body || {};
   const user = findByEmail(db, email);
   if (!user || !bcrypt.compareSync(password || '', user.passwordHash)) {
+    logEvent(db, { actor: user || null, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: user ? user.id : null, detalle: `Intento con: ${(email || '').trim()}` });
+    save(db);
     return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
   }
   if (user.estado === 'Inactivo') {
+    logEvent(db, { actor: user, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: user.id, detalle: 'Cuenta desactivada' });
+    save(db);
     return res.status(403).json({ error: 'Esta cuenta está desactivada. Contacta a un administrador.' });
   }
 
@@ -106,6 +111,7 @@ router.post('/login', (req, res) => {
 
   req.session.userId = user.id;
   user.lastAccess = new Date().toISOString();
+  logEvent(db, { actor: user, accion: 'Inicio de sesión exitoso', entidad: 'Usuario', entidadId: user.id });
   save(db);
   res.json({ status: 'ok', user: publicUser(user) });
 });
@@ -116,12 +122,16 @@ router.post('/mfa/verify', (req, res) => {
   if (!userId || req.session.pendingPurpose !== 'mfa') return res.status(400).json({ error: 'No hay una verificación pendiente.' });
   const { code } = req.body || {};
   const entry = db.mfaCodes.find((c) => c.userId === userId);
+  const pendingUser = db.users.find((u) => u.id === userId);
   if (!entry || entry.code !== String(code || '') || new Date(entry.expiresAt) < new Date()) {
+    logEvent(db, { actor: pendingUser || null, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: pendingUser ? pendingUser.id : null, detalle: 'Código de verificación inválido o expirado' });
+    save(db);
     return res.status(400).json({ error: 'Código inválido o expirado.' });
   }
   db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== userId);
   const user = db.users.find((u) => u.id === userId);
   user.lastAccess = new Date().toISOString();
+  logEvent(db, { actor: user, accion: 'Inicio de sesión exitoso', entidad: 'Usuario', entidadId: user.id, detalle: 'Con verificación en dos pasos' });
   save(db);
   req.session.userId = userId;
   delete req.session.pendingUserId;
@@ -274,6 +284,12 @@ router.get('/me', (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
+  const db = load();
+  const user = db.users.find((u) => u.id === req.session.userId);
+  if (user) {
+    logEvent(db, { actor: user, accion: 'Cierre de sesión', entidad: 'Usuario', entidadId: user.id });
+    save(db);
+  }
   req.session.destroy(() => res.json({ status: 'ok' }));
 });
 

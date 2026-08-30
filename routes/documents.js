@@ -5,6 +5,7 @@ const multer = require('multer');
 const { save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
 const { notifyUser } = require('../lib/notify');
+const { logEvent } = require('../lib/audit');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -107,6 +108,7 @@ router.post('/enrollments/:id/documents', (req, res, next) => {
     decidedBy: null,
   };
   db.documents.push(document);
+  logEvent(db, { actor: u, accion: 'Documento subido', entidad: 'Documento', entidadId: document.id, detalle: `${document.tipoDocumento} — ${document.nombreArchivo}` });
   save(db);
   res.json({ document: publicDocument(document) });
 });
@@ -148,6 +150,7 @@ router.post('/documents/:id/decidir', (req, res) => {
   document.motivoRechazo = estado === 'Rechazado' ? motivo.trim() : '';
   document.decidedAt = new Date().toISOString();
   document.decidedBy = u.id;
+  logEvent(db, { actor: u, accion: estado === 'Aceptado' ? 'Documento aceptado' : 'Documento rechazado', entidad: 'Documento', entidadId: document.id, detalle: estado === 'Rechazado' ? document.motivoRechazo : document.tipoDocumento });
 
   const tutor = db.users.find((t) => t.id === document.tutorId);
   if (tutor) {

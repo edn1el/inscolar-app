@@ -2,6 +2,7 @@ const express = require('express');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdmin } = require('../lib/middleware');
 const { isPhoneDigits, formatPhoneDO } = require('../lib/validate');
+const { logEvent } = require('../lib/audit');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -67,6 +68,7 @@ router.post('/', requireAdmin, (req, res) => {
     createdAt: new Date().toISOString(),
   };
   db.institutions.push(institution);
+  logEvent(db, { actor: req.currentUser, accion: 'Institución creada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre });
   save(db);
   res.json({ institution });
 });
@@ -93,6 +95,7 @@ router.put('/:id', requireAdmin, (req, res) => {
   if (direccion !== undefined) institution.direccion = direccion.trim();
   if (telefono !== undefined) institution.telefono = telefono ? formatPhoneDO(telefono) : '';
   if (municipio !== undefined) institution.municipio = municipio.trim();
+  logEvent(db, { actor: req.currentUser, accion: 'Institución modificada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre });
   save(db);
   res.json({ institution });
 });
@@ -102,6 +105,7 @@ router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
   institution.estado = (institution.estado || 'Activo') === 'Activo' ? 'Inactivo' : 'Activo';
+  logEvent(db, { actor: req.currentUser, accion: institution.estado === 'Activo' ? 'Institución activada' : 'Institución desactivada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre });
   save(db);
   res.json({ institution });
 });

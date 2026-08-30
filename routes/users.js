@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdmin } = require('../lib/middleware');
 const { notifyAdmins } = require('../lib/notify');
+const { logEvent } = require('../lib/audit');
 const { isEmail, passwordRules, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 
 const router = express.Router();
@@ -151,6 +152,7 @@ router.post('/', requireAdmin, (req, res) => {
     lastAccess: null,
   };
   db.users.push(user);
+  logEvent(db, { actor: req.currentUser, accion: 'Usuario creado', entidad: 'Usuario', entidadId: user.id, detalle: `${user.nombre} (${user.role})` });
   save(db);
   res.json({ user: publicUser(user, db), devTempPassword: tempPassword });
 });
@@ -175,6 +177,8 @@ router.put('/:id', requireAdmin, (req, res) => {
   if (email) user.email = email.trim().toLowerCase();
   if (role) user.role = role;
   if (institucionId !== undefined) user.institucionId = role === 'Personal de institución' ? institucionId : null;
+  const camposEditados = [nombre && 'nombre', email && 'correo', roleChanged && 'rol', institucionId !== undefined && 'institución'].filter(Boolean);
+  logEvent(db, { actor: req.currentUser, accion: 'Usuario modificado', entidad: 'Usuario', entidadId: user.id, detalle: camposEditados.length ? `Campos: ${camposEditados.join(', ')}` : '' });
   save(db);
 
   if (roleChanged && (wasAdmin || user.role === 'Administrador')) {
@@ -190,6 +194,7 @@ router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
   const prev = user.estado;
   user.estado = prev === 'Activo' ? 'Inactivo' : 'Activo';
+  logEvent(db, { actor: req.currentUser, accion: user.estado === 'Activo' ? 'Usuario activado' : 'Usuario desactivado', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
   save(db);
   if (user.role === 'Administrador') {
     notifyAdmins(db, { affectedUser: user, campo: 'Estado', anterior: prev, nuevo: user.estado, actor: req.currentUser });
@@ -206,6 +211,7 @@ router.post('/:id/reset-password', requireAdmin, (req, res) => {
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(tempPassword, 10);
   user.mustChangePassword = true;
+  logEvent(db, { actor: req.currentUser, accion: 'Contraseña de usuario restablecida', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
   save(db);
   if (user.role === 'Administrador') {
     notifyAdmins(db, { affectedUser: user, campo: 'Contraseña restablecida', actor: req.currentUser });

@@ -1,6 +1,7 @@
 const express = require('express');
 const { save } = require('../lib/db');
 const { requireAuth, requireAdmin } = require('../lib/middleware');
+const { logEvent } = require('../lib/audit');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -29,7 +30,13 @@ router.post('/notifications/:id/read', (req, res) => {
   if (n) {
     const canMark = n.recipientId ? n.recipientId === u.id : isAdminRole;
     if (!canMark) return res.status(403).json({ error: 'No tienes permiso para modificar esta notificación.' });
+    const wasUnread = !n.read;
     n.read = true;
+    // Las notificaciones "broadcast" (sin recipientId) avisan de cambios en cuentas de Administrador:
+    // se consideran importantes para la bitácora de auditoría.
+    if (wasUnread && !n.recipientId) {
+      logEvent(db, { actor: u, accion: 'Notificación importante leída', entidad: 'Notificación', entidadId: n.id, detalle: `${n.campo} · ${n.userNombre}` });
+    }
     save(db);
   }
   res.json({ status: 'ok' });

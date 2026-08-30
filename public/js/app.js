@@ -493,6 +493,8 @@
   const ADMIN_ROLES = ['Administrador', 'Soporte'];
 
   function isAdmin() { return state.user && ADMIN_ROLES.includes(state.user.role); }
+  const AUDIT_ROLES = ['Administrador', 'Auditoría'];
+  function canSeeAuditoria() { return state.user && AUDIT_ROLES.includes(state.user.role); }
 
 
   async function viewApp(segs, query) {
@@ -515,6 +517,10 @@
       return;
     }
     if (section === 'citas' && !canSeeInscripciones) {
+      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      return;
+    }
+    if (section === 'auditoria' && !canSeeAuditoria()) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -552,6 +558,7 @@
       else if (section === 'citas') await renderCitas(query);
       else if (section === 'notificaciones') await renderNotificaciones();
       else if (section === 'analiticas') await renderAnaliticas();
+      else if (section === 'auditoria') await renderAuditoria(query);
       else qs('.main').innerHTML = '<div class="empty-state">Sección no encontrada.</div>';
     } catch (err) {
       qs('.main').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
@@ -581,10 +588,14 @@
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
             <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">Citas</button>
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">Analíticas</button>
+            <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">Auditoría</button>
             ` : (u.role === 'Tutor' || u.role === 'Personal de institución') ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
             <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">Citas</button>
+            ` : (u.role === 'Auditoría') ? `
+            <div class="sec-label">Módulos</div>
+            <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">Auditoría</button>
             ` : ''}
             <div class="sec-label">Mi cuenta</div>
             <button class="nav-item ${activeSection === 'perfil' ? 'active' : ''}" data-nav="#/app/perfil">Mi perfil</button>
@@ -1870,5 +1881,60 @@
     bindShellEvents();
     requestAnimationFrame(() => { setTimeout(() => qsa('.bar-fill').forEach((el) => { el.style.width = el.dataset.w + '%'; }), 60); });
     bindProvinceMapEvents();
+  }
+
+  // ---------------- Auditoria ----------------
+  async function renderAuditoria(query) {
+    const params = new URLSearchParams();
+    if (query.q) params.set('q', query.q);
+    if (query.accion) params.set('accion', query.accion);
+    if (query.actorId) params.set('actorId', query.actorId);
+    if (query.desde) params.set('desde', query.desde);
+    if (query.hasta) params.set('hasta', query.hasta);
+    const { total, logs, truncated, acciones, actores } = await api('/logs?' + params.toString());
+    const accionesFiltro = ['Todas', ...acciones];
+    const actoresFiltro = [{ id: 'Todos', nombre: 'Todos los usuarios' }, ...actores];
+
+    qs('.main').innerHTML = `
+      <div class="page-head"><div><h2>Auditoría</h2><div class="sub">Bitácora de acciones registradas en el sistema.</div></div></div>
+      <div class="filters">
+        <input id="f-q" placeholder="Buscar por usuario o detalle..." value="${escapeHtml(query.q || '')}">
+        <select id="f-accion">${accionesFiltro.map((a) => `<option ${(query.accion || 'Todas') === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</select>
+        <select id="f-actor">${actoresFiltro.map((a) => `<option value="${a.id}" ${(query.actorId || 'Todos') === a.id ? 'selected' : ''}>${escapeHtml(a.nombre)}</option>`).join('')}</select>
+        <input type="date" id="f-desde" value="${escapeHtml(query.desde || '')}" title="Desde">
+        <input type="date" id="f-hasta" value="${escapeHtml(query.hasta || '')}" title="Hasta">
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Detalle</th></tr></thead>
+          <tbody>
+            ${logs.length ? logs.map((l) => `<tr>
+                <td>${fmtDate(l.fecha)}</td>
+                <td>${escapeHtml(l.actorNombre || 'Sistema')}</td>
+                <td>${escapeHtml(l.actorRole || '—')}</td>
+                <td>${escapeHtml(l.accion)}</td>
+                <td>${escapeHtml(l.detalle || '')}</td>
+              </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state">No hay registros que coincidan con los filtros.</div></td></tr>`}
+          </tbody>
+        </table>
+        <div class="table-footer"><span>Mostrando ${logs.length} de ${total} registros${truncated ? ' (limitado a los más recientes)' : ''}</span></div>
+      </div>
+    `;
+    bindShellEvents();
+
+    function applyFilters() {
+      const p = new URLSearchParams();
+      if (qs('#f-q').value) p.set('q', qs('#f-q').value);
+      if (qs('#f-accion').value !== 'Todas') p.set('accion', qs('#f-accion').value);
+      if (qs('#f-actor').value !== 'Todos') p.set('actorId', qs('#f-actor').value);
+      if (qs('#f-desde').value) p.set('desde', qs('#f-desde').value);
+      if (qs('#f-hasta').value) p.set('hasta', qs('#f-hasta').value);
+      navigate('#/app/auditoria?' + p.toString());
+    }
+    qs('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
+    qs('#f-accion').addEventListener('change', applyFilters);
+    qs('#f-actor').addEventListener('change', applyFilters);
+    qs('#f-desde').addEventListener('change', applyFilters);
+    qs('#f-hasta').addEventListener('change', applyFilters);
   }
 })();
