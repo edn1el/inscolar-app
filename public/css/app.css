@@ -161,6 +161,23 @@ button.link:hover{ color:var(--garnet-deep); }
 .kpi-label{ font-size:.82rem; color:var(--ink-soft); margin-top:6px; }
 .kpi-delta{ font-size:.74rem; color:var(--green); margin-top:8px; font-weight:600; }
 
+/* HU065: menu de configuracion */
+.settings-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(230px,1fr)); gap:16px; margin-bottom:26px; }
+.settings-card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; cursor:pointer; transition: transform .25s ease, box-shadow .25s ease; }
+.settings-card:hover{ transform: translateY(-3px); box-shadow:0 18px 34px -22px rgba(28,16,19,.22); }
+.settings-card h3{ font-family:'Fraunces',serif; font-weight:600; font-size:1.02rem; margin:10px 0 6px; }
+.settings-card p{ font-size:.83rem; color:var(--ink-soft); line-height:1.5; }
+
+/* HU133: manual de instrucciones */
+.manual-item{ border-bottom:1px solid var(--border); padding:14px 2px; }
+.manual-item:last-child{ border-bottom:none; }
+.manual-item summary{ cursor:pointer; font-weight:600; font-family:'Fraunces',serif; font-size:.98rem; }
+.manual-item[open] summary{ margin-bottom:10px; }
+.manual-item p{ font-size:.86rem; color:var(--ink-soft); line-height:1.6; margin-bottom:6px; }
+.manual-item ol, .manual-item ul{ padding-left:20px; margin-top:6px; }
+.manual-item li{ font-size:.86rem; color:var(--ink-soft); line-height:1.7; }
+.manual-item a{ color:var(--garnet); }
+
 /* Charts */
 .chart-row{ display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-bottom:26px; }
 .chart-card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; }

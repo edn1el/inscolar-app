@@ -538,6 +538,8 @@
       if (section === 'perfil' && segs[1] === 'editar') await renderPerfilEditar();
       else if (section === 'perfil') await renderPerfil();
       else if (section === 'seguridad') await renderSeguridad();
+      else if (section === 'configuracion') await renderConfiguracion();
+      else if (section === 'manual') await renderManual();
       else if (section === 'usuarios' && segs[1] === 'nuevo') await renderUsuarioForm(null);
       else if (section === 'usuarios' && segs[2] === 'editar') await renderUsuarioForm(segs[1]);
       else if (section === 'usuarios') await renderUsuarios(query);
@@ -603,6 +605,8 @@
             <div class="sec-label">Mi cuenta</div>
             <button class="nav-item ${activeSection === 'perfil' ? 'active' : ''}" data-nav="#/app/perfil">Mi perfil</button>
             <button class="nav-item ${activeSection === 'seguridad' ? 'active' : ''}" data-nav="#/app/seguridad">Seguridad</button>
+            <button class="nav-item ${activeSection === 'configuracion' ? 'active' : ''}" data-nav="#/app/configuracion">Configuración</button>
+            <button class="nav-item ${activeSection === 'manual' ? 'active' : ''}" data-nav="#/app/manual">Manual de instrucciones</button>
             <div class="sidebar-footer">v0.4 · Ambiente de pruebas</div>
           </div>
           <div class="main">${innerMain}</div>
@@ -851,6 +855,146 @@
         toast(err.message || 'No se pudo actualizar la preferencia.', 'err');
       }
     });
+  }
+
+  // ---------------- HU065 menu de configuracion ----------------
+  async function renderConfiguracion() {
+    const admin = isAdmin();
+    const cards = [
+      { href: '#/app/perfil', icon: ICONS.users, title: 'Mi perfil', desc: 'Consulta y edita tus datos personales.' },
+      { href: '#/app/seguridad', icon: ICONS.shield, title: 'Seguridad y notificaciones', desc: 'Contraseña, verificación en dos pasos (MFA) y preferencias de correo.' },
+      { href: '#/app/manual', icon: ICONS.check, title: 'Manual de instrucciones', desc: 'Guía paso a paso de las funciones del sistema según tu rol.' },
+    ];
+    if (admin) {
+      cards.push({ href: '#/app/usuarios', icon: ICONS.users, title: 'Usuarios', desc: 'Crear, activar/desactivar y modificar cuentas del sistema.' });
+      cards.push({ href: '#/app/instituciones', icon: ICONS.building, title: 'Instituciones', desc: 'Administrar instituciones y los ciclos/periodos de inscripción de cada una.' });
+    }
+    if (canSeeAuditoria()) {
+      cards.push({ href: '#/app/auditoria', icon: ICONS.bell, title: 'Auditoría', desc: 'Bitácora de eventos del sistema.' });
+    }
+    qs('.main').innerHTML = `
+      <div class="page-head"><div><h2>Configuración</h2><div class="sub">Accesos rápidos a los ajustes de tu cuenta${admin ? ' y del sistema' : ''}.</div></div></div>
+      <div class="settings-grid">
+        ${cards.map((c) => `
+          <div class="settings-card" data-nav="${c.href}">
+            <div class="kpi-icon">${c.icon}</div>
+            <h3>${escapeHtml(c.title)}</h3>
+            <p>${escapeHtml(c.desc)}</p>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    bindShellEvents();
+  }
+
+  // ---------------- HU133 manual de instrucciones ----------------
+  async function renderManual() {
+    const role = (state.user || {}).role;
+    const secciones = [];
+
+    secciones.push({
+      titulo: 'Primeros pasos',
+      abierto: true,
+      html: `
+        <p>Inicia sesión con tu correo y contraseña. Si tu cuenta tiene la verificación en dos pasos (MFA) activada, se te pedirá además un código de 6 dígitos.</p>
+        <ul>
+          <li>¿Olvidaste tu contraseña? Usa el enlace "¿Olvidaste tu contraseña?" en la pantalla de inicio de sesión.</li>
+          <li>Puedes cambiar tu contraseña y activar/desactivar el MFA desde <a href="#/app/seguridad">Seguridad</a>.</li>
+          <li>Desde <a href="#/app/seguridad">Seguridad</a> también puedes activar o desactivar el envío de notificaciones por correo electrónico.</li>
+          <li>Tus datos personales se editan desde <a href="#/app/perfil">Mi perfil</a>.</li>
+        </ul>
+      `,
+    });
+
+    if (role === 'Tutor') {
+      secciones.push({
+        titulo: 'Inscribir a un estudiante',
+        html: `
+          <ol>
+            <li>Ve a <a href="#/app/inscripciones">Inscripciones</a> y, si es la primera vez, agrega primero al estudiante.</li>
+            <li>Presiona "Nueva inscripción", elige la institución y el ciclo escolar, y confirma.</li>
+            <li>Sube los documentos solicitados desde el botón "Documentos" de la inscripción.</li>
+            <li>El estado (Pendiente, Aprobada o Rechazada) se actualiza en la misma lista, y recibirás una notificación (y un correo, si lo tienes activado) cuando la institución decida.</li>
+          </ol>
+        `,
+      });
+      secciones.push({
+        titulo: 'Agendar una cita',
+        html: `
+          <p>Desde <a href="#/app/citas">Citas</a> puedes solicitar una cita con una institución eligiendo fecha y hora disponibles. La institución confirmará o cancelará la cita, y se te notificará el cambio.</p>
+        `,
+      });
+      secciones.push({
+        titulo: 'Calificar y reportar una institución',
+        html: `
+          <p>Una vez tengas una inscripción aprobada o una cita confirmada con una institución, podrás calificarla (1 a 5 estrellas) o reportar un problema desde los botones que aparecen junto a esa inscripción o cita.</p>
+        `,
+      });
+    }
+
+    if (role === 'Personal de institución') {
+      secciones.push({
+        titulo: 'Decidir solicitudes de inscripción',
+        html: `
+          <p>En <a href="#/app/inscripciones">Inscripciones</a> verás las solicitudes dirigidas a tu institución. Revisa los documentos adjuntos y aprueba o rechaza indicando un motivo cuando corresponda.</p>
+        `,
+      });
+      secciones.push({
+        titulo: 'Gestionar citas',
+        html: `
+          <p>En <a href="#/app/citas">Citas</a> puedes confirmar o cancelar las citas solicitadas por los tutores para tu institución.</p>
+        `,
+      });
+      secciones.push({
+        titulo: 'Configurar ciclos y periodos de inscripción',
+        html: `
+          <p>Desde la ficha de tu institución (menú Instituciones) puedes definir los periodos habilitados para cada ciclo escolar, con sus fechas de inicio y cierre. Mientras no definas un periodo, las inscripciones se aceptan sin restricción de fecha.</p>
+        `,
+      });
+    }
+
+    if (['Administrador', 'Soporte'].includes(role)) {
+      secciones.push({
+        titulo: 'Gestión de usuarios',
+        html: `
+          <p>Desde <a href="#/app/usuarios">Usuarios</a> puedes crear cuentas de Administrador, Soporte, Personal de institución y Auditoría, activarlas/desactivarlas, editarlas y restablecer su contraseña. Los cambios en cuentas de Administrador generan una notificación al resto del equipo administrativo.</p>
+        `,
+      });
+      secciones.push({
+        titulo: 'Gestión de instituciones',
+        html: `
+          <p>Desde <a href="#/app/instituciones">Instituciones</a> puedes agregar instituciones, editarlas, activarlas/desactivarlas y configurar sus ciclos y periodos de inscripción.</p>
+        `,
+      });
+      secciones.push({
+        titulo: 'Analíticas',
+        html: `
+          <p><a href="#/app/analiticas">Analíticas</a> resume el uso del sistema: usuarios, instituciones, inscripciones, citas, calificaciones, reportes, recuperación de contraseña y correos enviados.</p>
+        `,
+      });
+    }
+
+    if (canSeeAuditoria()) {
+      secciones.push({
+        titulo: 'Bitácora de auditoría',
+        html: `
+          <p>En <a href="#/app/auditoria">Auditoría</a> se registran los eventos importantes del sistema (inicios de sesión, cambios de usuarios/instituciones, decisiones sobre inscripciones y citas, etc.). Puedes filtrar por tipo de acción, por texto y por rango de fechas.</p>
+        `,
+      });
+    }
+
+    qs('.main').innerHTML = `
+      <div class="page-head"><div><h2>Manual de instrucciones</h2><div class="sub">Guía rápida de las funciones disponibles para tu rol (${escapeHtml(role || '')}).</div></div></div>
+      <div class="chart-card">
+        ${secciones.map((s, i) => `
+          <details class="manual-item" ${s.abierto ? 'open' : ''}>
+            <summary>${escapeHtml(s.titulo)}</summary>
+            ${s.html}
+          </details>
+        `).join('')}
+      </div>
+    `;
+    bindShellEvents();
   }
 
   // ---------------- HU013/14 listado de usuarios ----------------
