@@ -26,8 +26,8 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU011 | Visualizar perfil de usuario | ✅ |
 | HU012 | Editar perfil de usuario | ✅ |
 | HU018 | Cerrar sesión | ✅ |
-| HU065 | Mostrar menú de configuración | ❌ |
-| HU133 | Mostrar manual de instrucciones | ❌ |
+| HU065 | Mostrar menú de configuración | ✅ (2026-09-01, Fase 9) |
+| HU133 | Mostrar manual de instrucciones | ✅ (2026-09-01, Fase 9) |
 
 ## 2. Gestión de usuarios (Admin/Soporte)
 
@@ -171,7 +171,7 @@ Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden 
 6. **Fase 6 — Periodos y configuración** (HU034-045). **✅ Completada 2026-08-30** — verificado con Playwright (20/20 pruebas).
 7. **Fase 7 — Analíticas restantes** (HU070-072, HU080-095): se van completando a medida que las fases anteriores generan los datos que necesitan. **✅ Completada 2026-09-01** — verificado con Playwright (24/24 pruebas de esta fase; 44/44 contando la re-verificación de las Fases 4-6). HU094 quedó completado del todo en la Fase 8.
 8. **Fase 8 — Notificaciones por correo real + preferencias** (HU062, HU066). **✅ Completada 2026-09-01** — nuevo `lib/mailer.js` (SMTP real si está configurado, o simulado con constancia en `db.emailLog` si no), preferencia por usuario `notifyByEmail` (por defecto activada) con endpoint `PUT /users/me/notification-prefs` y tarjeta en Seguridad, envío disparado desde `notifyUser`/`notifyAdmins`, y visibilidad para administradores vía `GET /emails` y la sección "Correos enviados recientemente" en Analíticas. Verificado con Playwright: 22/22 pruebas, incluyendo que desactivar la preferencia efectivamente suprime el correo sin afectar la notificación interna.
-9. **Fase 9 — Manual de instrucciones y menú de configuración** (HU133, HU065).
+9. **Fase 9 — Manual de instrucciones y menú de configuración** (HU133, HU065). **✅ Completada 2026-09-01** — nueva sección "Configuración" en el menú lateral (accesos directos a perfil, seguridad, manual y, para Admin/Soporte, a los módulos del sistema) y nueva sección "Manual de instrucciones" con guía en acordeón, general más específica por rol. Verificado con Playwright: 27/27 pruebas, incluyendo que cada rol ve solo lo que le corresponde.
 10. **Fase 10 — Filtro de instituciones por ubicación del dispositivo** (geolocalización).
 
 Cada fase se implementa, se prueba con Playwright de verdad (no solo revisión de código), y se hace commit por separado en la rama `fix/busqueda-y-alto-contraste` (o una rama nueva si Ed lo prefiere).
