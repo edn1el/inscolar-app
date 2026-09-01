@@ -1130,6 +1130,8 @@
     return `★ ${promedio.toFixed(1)} <span class="help">(${total})</span>`;
   }
 
+  const RADIOS_KM = ['Cualquier distancia', '10', '25', '50', '100'];
+
   async function renderInstituciones(query) {
     const params = new URLSearchParams();
     if (query.q) params.set('q', query.q);
@@ -1137,6 +1139,12 @@
     if (query.estado) params.set('estado', query.estado);
     if (query.calificacionMin) params.set('calificacionMin', query.calificacionMin);
     if (query.municipio) params.set('municipio', query.municipio);
+    const geoActiva = !!(query.lat && query.lng);
+    if (geoActiva) {
+      params.set('lat', query.lat);
+      params.set('lng', query.lng);
+      if (query.radioKm) params.set('radioKm', query.radioKm);
+    }
     const { total, institutions, municipios } = await api('/institutions?' + params.toString());
     const provinciasFiltro = ['Todas', ...PROVINCIAS];
     const estados = ['Todos', 'Activo', 'Inactivo'];
@@ -1151,11 +1159,17 @@
         <select id="f-municipio">${municipiosFiltro.map((m) => `<option ${(query.municipio || 'Todos') === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select>
         <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
         <select id="f-calificacion">${calificaciones.map((c) => `<option value="${c}" ${(query.calificacionMin || 'Cualquiera') === c ? 'selected' : ''}>${c === 'Cualquiera' ? 'Cualquier calificación' : c + '+ estrellas'}</option>`).join('')}</select>
+        <button class="btn btn-secondary" id="f-geo-btn" type="button" style="width:auto; padding:10px 14px;">${ICONS.building} ${geoActiva ? 'Actualizar mi ubicación' : 'Cerca de mí'}</button>
+        ${geoActiva ? `
+          <select id="f-radio">${RADIOS_KM.map((r) => `<option value="${r === 'Cualquier distancia' ? '' : r}" ${(query.radioKm || '') === (r === 'Cualquier distancia' ? '' : r) ? 'selected' : ''}>${r === 'Cualquier distancia' ? r : 'Hasta ' + r + ' km'}</option>`).join('')}</select>
+          <button class="btn btn-ghost" id="f-geo-clear" type="button" style="width:auto; padding:10px 14px;">Quitar ubicación</button>
+        ` : ''}
         <button class="btn btn-primary spacer" style="width:auto; padding:10px 18px;" data-nav="#/app/instituciones/nueva">Nueva institución</button>
       </div>
+      ${geoActiva ? '<p class="help" style="margin:-6px 0 16px;">Ordenado por cercanía a tu ubicación actual (HU021).</p>' : ''}
       <div class="table-card">
         <table>
-          <thead><tr><th>Institución</th><th>Provincia</th><th>Distrito</th><th>Tipo</th><th>Calificación</th><th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Institución</th><th>Provincia</th><th>Distrito</th><th>Tipo</th><th>Calificación</th>${geoActiva ? '<th>Distancia</th>' : ''}<th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>
             ${institutions.map((inst) => {
               const ts = INST_TIPO_STYLE[inst.tipo] || { bg: '#eee', fg: '#333' };
@@ -1166,6 +1180,7 @@
                 <td>${escapeHtml(inst.distrito)}${inst.municipio ? ' · ' + escapeHtml(inst.municipio) : ''}</td>
                 <td><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
                 <td>${calificacionLabel(inst.calificacionPromedio, inst.totalCalificaciones)}</td>
+                ${geoActiva ? `<td>${inst.distanciaKm !== null && inst.distanciaKm !== undefined ? inst.distanciaKm + ' km' : '—'}</td>` : ''}
                 <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${inst.estado || 'Activo'}</span></td>
                 <td><span class="actions-cell">
                   <button class="neutral" data-edit="${inst.id}">Modificar</button>
@@ -1178,25 +1193,33 @@
             }).join('')}
           </tbody>
         </table>
-        <div class="table-footer"><span>Mostrando ${institutions.length} de ${total} instituciones</span></div>
+        <div class="table-footer"><span>Mostrando ${institutions.length} de ${total} instituciones${geoActiva ? ' (dentro del filtro de ubicación)' : ''}</span></div>
       </div>
     `;
     bindShellEvents();
 
-    function applyFilters() {
+    function applyFilters(extra) {
       const p = new URLSearchParams();
       if (qs('#f-q').value) p.set('q', qs('#f-q').value);
       if (qs('#f-provincia').value !== 'Todas') p.set('provincia', qs('#f-provincia').value);
       if (qs('#f-municipio').value !== 'Todos') p.set('municipio', qs('#f-municipio').value);
       if (qs('#f-estado').value !== 'Todos') p.set('estado', qs('#f-estado').value);
       if (qs('#f-calificacion').value !== 'Cualquiera') p.set('calificacionMin', qs('#f-calificacion').value);
+      if (geoActiva && !(extra && extra.clearGeo)) {
+        p.set('lat', query.lat);
+        p.set('lng', query.lng);
+        const radioSel = qs('#f-radio');
+        const radioVal = extra && extra.radioKm !== undefined ? extra.radioKm : (radioSel ? radioSel.value : '');
+        if (radioVal) p.set('radioKm', radioVal);
+      }
+      if (extra && extra.lat !== undefined) { p.set('lat', extra.lat); p.set('lng', extra.lng); }
       navigate('#/app/instituciones?' + p.toString());
     }
     qs('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
-    qs('#f-provincia').addEventListener('change', applyFilters);
-    qs('#f-municipio').addEventListener('change', applyFilters);
-    qs('#f-estado').addEventListener('change', applyFilters);
-    qs('#f-calificacion').addEventListener('change', applyFilters);
+    qs('#f-provincia').addEventListener('change', () => applyFilters());
+    qs('#f-municipio').addEventListener('change', () => applyFilters());
+    qs('#f-estado').addEventListener('change', () => applyFilters());
+    qs('#f-calificacion').addEventListener('change', () => applyFilters());
     qsa('[data-ver-calificaciones]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verCalificaciones + '/calificaciones')));
     qsa('[data-ver-reportes]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verReportes + '/reportes')));
     qsa('[data-ver-periodos]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verPeriodos + '/periodos')));
@@ -1206,6 +1229,35 @@
       await api('/institutions/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
       renderInstituciones(query);
     }));
+
+    // HU021: usar la ubicación actual del dispositivo para filtrar/ordenar por cercanía.
+    const geoBtn = qs('#f-geo-btn');
+    geoBtn && geoBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        toast('Tu navegador no permite obtener la ubicación del dispositivo.', 'err');
+        return;
+      }
+      geoBtn.disabled = true;
+      geoBtn.textContent = 'Obteniendo ubicación…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          applyFilters({ lat: String(pos.coords.latitude), lng: String(pos.coords.longitude) });
+        },
+        (err) => {
+          geoBtn.disabled = false;
+          geoBtn.textContent = geoActiva ? 'Actualizar mi ubicación' : 'Cerca de mí';
+          const msg = err && err.code === 1
+            ? 'No se pudo usar tu ubicación: el permiso fue denegado.'
+            : 'No se pudo obtener tu ubicación actual. Inténtalo de nuevo.';
+          toast(msg, 'err');
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+      );
+    });
+    const radioSelect = qs('#f-radio');
+    radioSelect && radioSelect.addEventListener('change', () => applyFilters({ radioKm: radioSelect.value }));
+    const geoClearBtn = qs('#f-geo-clear');
+    geoClearBtn && geoClearBtn.addEventListener('click', () => applyFilters({ clearGeo: true }));
   }
 
   async function institucionNombre(id) {

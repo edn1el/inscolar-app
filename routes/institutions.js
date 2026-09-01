@@ -3,6 +3,7 @@ const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdmin } = require('../lib/middleware');
 const { isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 const { logEvent } = require('../lib/audit');
+const { haversineKm } = require('../lib/geo');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -22,7 +23,7 @@ function withRating(inst, db) {
 
 router.get('/', (req, res) => {
   const db = req.db;
-  const { q, provincia, estado, calificacionMin, municipio } = req.query;
+  const { q, provincia, estado, calificacionMin, municipio, lat, lng, radioKm } = req.query;
   const municipios = Array.from(new Set(db.institutions.map((i) => i.municipio).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
   let list = db.institutions.slice();
   if (q) {
@@ -38,6 +39,28 @@ router.get('/', (req, res) => {
     const min = Number(calificacionMin);
     withRatings = withRatings.filter((i) => i.calificacionPromedio !== null && i.calificacionPromedio >= min);
   }
+
+  // HU021: filtrar/ordenar por la ubicación actual del dispositivo (enviada por el navegador).
+  const userLat = Number(lat);
+  const userLng = Number(lng);
+  if (lat !== undefined && lng !== undefined && !isNaN(userLat) && !isNaN(userLng)) {
+    withRatings = withRatings.map((i) => ({
+      ...i,
+      distanciaKm: typeof i.lat === 'number' && typeof i.lng === 'number'
+        ? Math.round(haversineKm(userLat, userLng, i.lat, i.lng) * 10) / 10
+        : null,
+    }));
+    const radio = Number(radioKm);
+    if (radioKm && !isNaN(radio) && radio > 0) {
+      withRatings = withRatings.filter((i) => i.distanciaKm !== null && i.distanciaKm <= radio);
+    }
+    withRatings.sort((a, b) => {
+      if (a.distanciaKm === null) return 1;
+      if (b.distanciaKm === null) return -1;
+      return a.distanciaKm - b.distanciaKm;
+    });
+  }
+
   res.json({ total: db.institutions.length, institutions: withRatings, municipios });
 });
 
