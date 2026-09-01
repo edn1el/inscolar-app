@@ -133,12 +133,15 @@ Actualizado 2026-08-29: el panel de notificaciones ahora tambien notifica al tut
 | HU073 | Analíticas de instituciones | ✅ |
 | HU074 | Indicador de cantidad de instituciones | ✅ |
 | HU075 | Gráfico de instituciones por provincia | ✅ (el mapa interactivo) |
-| HU076-HU079 | Indicadores/gráficos de calificaciones y reportes de instituciones | ❌ (depende de la Sección 3) |
-| HU080-HU084 | Analíticas de solicitudes de inscripción (total, aceptadas, rechazadas, pendientes) | ❌ |
-| HU085-HU088 | Analíticas de documentos (total, aprobados, rechazados, pendientes) | ❌ (depende de la Sección 5) |
-| HU089-HU093 | Analíticas de citas (total, por institución, aceptadas, rechazadas, pendientes) | ❌ |
-| HU094 | Indicador de total de correos enviados | ❌ |
-| HU095 | Indicador de total de notificaciones leídas | ❌ |
+| HU070 | Gráfico de usuarios registrados por año | ✅ (2026-09-01, Fase 7) |
+| HU071 | Indicador de tasa de recuperación de contraseña | ✅ (2026-09-01, Fase 7) |
+| HU072 | Gráfico de distribución geográfica de usuarios | ✅ (2026-09-01, Fase 7 — solo cubre Personal de institución, el único rol con ubicación propia) |
+| HU076-HU079 | Indicadores/gráficos de calificaciones y reportes de instituciones | ✅ (2026-09-01, Fase 7) |
+| HU080-HU084 | Analíticas de solicitudes de inscripción (total, aceptadas, rechazadas, pendientes) | ✅ (2026-09-01, Fase 7) |
+| HU085-HU088 | Analíticas de documentos (total, aprobados, rechazados, pendientes) | ✅ (2026-09-01, Fase 7) |
+| HU089-HU093 | Analíticas de citas (total, por institución, aceptadas, rechazadas, pendientes) | ✅ (2026-09-01, Fase 7) |
+| HU094 | Indicador de total de correos enviados | 🟡 (2026-09-01, Fase 7 — indicador presente mostrando 0; el envío real de correo se implementa en la Fase 8) |
+| HU095 | Indicador de total de notificaciones leídas | ✅ (2026-09-01, Fase 7) |
 
 ## 9. Auditoría / Logs del sistema
 
@@ -164,7 +167,7 @@ Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden 
 4. **Fase 4 — Filtros adicionales de instituciones**: por municipio (HU025) — el filtro por calificación (HU024) ya se completó en la Fase 2. **✅ Completada 2026-08-29** — se agregó el campo municipio (opcional) al formulario de instituciones, un filtro dinámico en el listado (construido a partir de los municipios ya registrados, sin lista fija) y se muestra junto al distrito en la tabla. Verificado con Playwright (8/8 pruebas: creación, filtro dinámico, precarga en edición, sin regresiones).
 5. **Fase 5 — Módulo de Auditoría/Logs** (HU096-132): el bloque más grande — bitácora de eventos + pantalla para el rol Auditoría. **✅ Completada 2026-08-30** (núcleo funcional; ver nota en la sección 9 sobre lo que queda pendiente para periodos/correos de las Fases 6 y 8). Verificado con Playwright (18/18 pruebas).
 6. **Fase 6 — Periodos y configuración** (HU034-045). **✅ Completada 2026-08-30** — verificado con Playwright (20/20 pruebas).
-7. **Fase 7 — Analíticas restantes** (HU070-072, HU080-095): se van completando a medida que las fases anteriores generan los datos que necesitan.
+7. **Fase 7 — Analíticas restantes** (HU070-072, HU080-095): se van completando a medida que las fases anteriores generan los datos que necesitan. **✅ Completada 2026-09-01** — verificado con Playwright (24/24 pruebas de esta fase; 44/44 contando la re-verificación de las Fases 4-6). HU094 (correos enviados) queda parcial: el indicador existe pero muestra 0 porque el envío real de correo es de la Fase 8.
 8. **Fase 8 — Notificaciones por correo real + preferencias** (HU062, HU066).
 9. **Fase 9 — Manual de instrucciones y menú de configuración** (HU133, HU065).
 10. **Fase 10 — Filtro de instituciones por ubicación del dispositivo** (geolocalización).
