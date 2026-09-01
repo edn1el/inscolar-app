@@ -501,7 +501,8 @@
     const section = segs[0] || 'perfil';
     const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes((state.user || {}).role);
     const esCalendarioInstitucion = section === 'instituciones' && segs[2] === 'calendario';
-    if (['usuarios', 'instituciones', 'analiticas'].includes(section) && !isAdmin() && !esCalendarioInstitucion) {
+    const esDetalleInstitucion = section === 'instituciones' && segs[2] === 'detalle';
+    if (['usuarios', 'instituciones', 'analiticas'].includes(section) && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -552,6 +553,7 @@
       else if (section === 'instituciones' && segs[2] === 'periodos' && segs[4] === 'editar') await renderPeriodoForm(segs[1], segs[3]);
       else if (section === 'instituciones' && segs[2] === 'periodos') await renderPeriodosList(segs[1]);
       else if (section === 'instituciones' && segs[2] === 'calendario') await renderCalendarioInstitucion(segs[1], query);
+      else if (section === 'instituciones' && segs[2] === 'detalle') await renderInstitucionDetalle(segs[1]);
       else if (section === 'instituciones') await renderInstituciones(query);
       else if (section === 'calificar' && segs[1]) await renderCalificarForm(segs[1]);
       else if (section === 'reportar' && segs[1]) await renderReportarForm(segs[1]);
@@ -1189,6 +1191,7 @@
                 <td><span class="actions-cell">
                   <button class="neutral" data-edit="${inst.id}">Modificar</button>
                   <button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>
+                  <button class="neutral" data-ver-detalle="${inst.id}">Detalle</button>
                   <button class="neutral" data-ver-calificaciones="${inst.id}">Calificaciones</button>
                   <button class="neutral" data-ver-reportes="${inst.id}">Reportes</button>
                   <button class="neutral" data-ver-periodos="${inst.id}">Periodos</button>
@@ -1229,6 +1232,7 @@
     qsa('[data-ver-reportes]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verReportes + '/reportes')));
     qsa('[data-ver-periodos]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verPeriodos + '/periodos')));
     qsa('[data-ver-calendario]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verCalendario + '/calendario')));
+    qsa('[data-ver-detalle]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verDetalle + '/detalle')));
 
     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.edit + '/editar')));
     qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
@@ -1264,6 +1268,46 @@
     radioSelect && radioSelect.addEventListener('change', () => applyFilters({ radioKm: radioSelect.value }));
     const geoClearBtn = qs('#f-geo-clear');
     geoClearBtn && geoClearBtn.addEventListener('click', () => applyFilters({ clearGeo: true }));
+  }
+
+  // HU026: vista de detalle de una institución.
+  async function renderInstitucionDetalle(institucionId) {
+    const { institution } = await api('/institutions/' + institucionId);
+    const ts = INST_TIPO_STYLE[institution.tipo] || { bg: '#eee', fg: '#333' };
+    const active = (institution.estado || 'Activo') === 'Activo';
+    const backHref = isAdmin() ? '#/app/instituciones' : (state.user.role === 'Tutor' ? '#/app/citas' : '#/app/citas');
+
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
+      <div class="page-head">
+        <div><h2>${escapeHtml(institution.nombre)}</h2><div class="sub">Detalle de la institución.</div></div>
+        <span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${institution.estado || 'Activo'}</span>
+      </div>
+      <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
+        <div class="chart-card">
+          <h3>Información general</h3>
+          <div class="two-col">
+            <div><div class="help">Tipo</div><div><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(institution.tipo)}</span></div></div>
+            <div><div class="help">Distrito educativo</div><div>${escapeHtml(institution.distrito)}</div></div>
+            <div><div class="help">Provincia</div><div>${escapeHtml(institution.provincia)}</div></div>
+            <div><div class="help">Municipio</div><div>${escapeHtml(institution.municipio || 'No registrado')}</div></div>
+            <div><div class="help">Dirección</div><div>${escapeHtml(institution.direccion || 'No registrada')}</div></div>
+            <div><div class="help">Teléfono</div><div>${escapeHtml(institution.telefono || 'No registrado')}</div></div>
+          </div>
+        </div>
+        <div class="chart-card">
+          <h3>Calificación y actividad</h3>
+          <p style="font-size:1.3rem; margin-bottom:6px;">${calificacionLabel(institution.calificacionPromedio, institution.totalCalificaciones)}</p>
+          <p class="help" style="margin-bottom:18px;">Basado en ${institution.totalCalificaciones} calificación${institution.totalCalificaciones === 1 ? '' : 'es'}.</p>
+          <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/calificaciones">Ver calificaciones</button>
+            <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/reportes">Ver reportes</button>
+            <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/calendario">Ver calendario</button>
+          </div>
+        </div>
+      </div>
+    `;
+    bindShellEvents();
   }
 
   const DIAS_SEMANA_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];

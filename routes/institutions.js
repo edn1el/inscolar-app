@@ -64,6 +64,14 @@ router.get('/', (req, res) => {
   res.json({ total: db.institutions.length, institutions: withRatings, municipios });
 });
 
+// HU026: vista de detalle de una institución (cualquier usuario autenticado la puede consultar).
+router.get('/:id', (req, res) => {
+  const db = req.db;
+  const institution = db.institutions.find((i) => i.id === req.params.id);
+  if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
+  res.json({ institution: withRating(institution, db) });
+});
+
 // ---- administración de instituciones (solo Administrador/Soporte) ----
 router.post('/', requireAdmin, (req, res) => {
   const db = req.db;
