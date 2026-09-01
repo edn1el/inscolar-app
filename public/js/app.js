@@ -787,6 +787,14 @@
             : `<div id="mfa-flow"><button class="btn btn-primary" style="width:auto; padding:10px 18px;" id="mfa-start">Activar MFA</button></div>`
           }
         </div>
+        <div class="chart-card">
+          <h3>Preferencias de notificaciones</h3>
+          <p class="help" style="margin-bottom:16px;">Recibe un correo electrónico cada vez que haya una actualización importante en tu cuenta, tus solicitudes o tus citas.</p>
+          <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+            <input type="checkbox" id="notif-email-toggle" ${state.user && state.user.notifyByEmail !== false ? 'checked' : ''}>
+            Recibir notificaciones por correo electrónico
+          </label>
+        </div>
       </div>
     `;
     bindShellEvents();
@@ -829,6 +837,19 @@
           qs('#mfa-confirm-err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
         }
       });
+    });
+
+    const notifToggle = qs('#notif-email-toggle');
+    notifToggle && notifToggle.addEventListener('change', async () => {
+      const checked = notifToggle.checked;
+      try {
+        const data = await api('/users/me/notification-prefs', { method: 'PUT', body: { notifyByEmail: checked } });
+        state.user = data.user;
+        toast(checked ? 'Notificaciones por correo activadas.' : 'Notificaciones por correo desactivadas.', 'ok');
+      } catch (err) {
+        notifToggle.checked = !checked;
+        toast(err.message || 'No se pudo actualizar la preferencia.', 'err');
+      }
     });
   }
 
@@ -2039,6 +2060,7 @@
 
   async function renderAnaliticas() {
     const s = await api('/analytics/summary');
+    const emailsData = isAdmin() ? await api('/emails') : { emails: [] };
     const maxRol = Math.max(1, ...s.porRol.map((r) => r.count));
 
     qs('.main').innerHTML = `
@@ -2067,6 +2089,11 @@
           <h3>Actividad reciente</h3>
           ${s.actividadReciente.length ? s.actividadReciente.map((n) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(n.createdAt)}</span><span style="flex:1;">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)} — por ${escapeHtml(n.actorNombre)}</span></div>`).join('') : '<div class="help">Sin actividad reciente.</div>'}
         </div>
+        <div class="chart-card">
+          <h3>Correos enviados recientemente</h3>
+          <p class="help" style="margin-bottom:12px;">HU062: incluye envíos reales por SMTP (si está configurado) y simulados.</p>
+          ${emailsData.emails.length ? emailsData.emails.slice(0, 8).map((e) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(e.sentAt)}</span><span style="flex:1;">${escapeHtml(e.subject)} → ${escapeHtml(e.to)} <span style="color:var(--ink-soft);font-size:.76rem;">(${escapeHtml(e.via)})</span></span></div>`).join('') : '<div class="help">Sin correos registrados todavía.</div>'}
+        </div>
       </div>
 
       <div class="kpi-row">
@@ -2074,7 +2101,7 @@
         <div class="kpi-card"><div class="kpi-icon">${ICONS.check}</div><div class="kpi-num">${s.documentos.total}</div><div class="kpi-label">Documentos recibidos</div><div class="kpi-delta">${s.documentos.pendientes} pendientes</div></div>
         <div class="kpi-card"><div class="kpi-icon">${ICONS.users}</div><div class="kpi-num">${s.citas.total}</div><div class="kpi-label">Citas agendadas</div><div class="kpi-delta">${s.citas.pendientes} pendientes</div></div>
         <div class="kpi-card"><div class="kpi-icon">${ICONS.shield}</div><div class="kpi-num">${s.promedioCalificaciones !== null ? '★ ' + s.promedioCalificaciones : '—'}</div><div class="kpi-label">Calificación promedio</div><div class="kpi-delta">${s.totalCalificaciones} calificaciones · ${s.totalReportes} reportes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.bell}</div><div class="kpi-num">${s.notificacionesLeidas}/${s.totalNotificaciones}</div><div class="kpi-label">Notificaciones leídas</div><div class="kpi-delta">${s.totalCorreosEnviados} correos enviados (fase futura)</div></div>
+        <div class="kpi-card"><div class="kpi-icon">${ICONS.bell}</div><div class="kpi-num">${s.notificacionesLeidas}/${s.totalNotificaciones}</div><div class="kpi-label">Notificaciones leídas</div><div class="kpi-delta">${s.totalCorreosEnviados} correos enviados</div></div>
         <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.tasaRecuperacion}%</div><div class="kpi-label">Tasa de recuperación de contraseña</div><div class="kpi-delta">${s.totalResetsUsados} de ${s.totalResetsGenerados} solicitudes</div></div>
       </div>
 

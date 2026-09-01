@@ -103,6 +103,16 @@ router.post('/me/mfa/disable', (req, res) => {
   res.json({ enabled: false });
 });
 
+// HU066: preferencias del propio usuario para notificaciones por correo.
+router.put('/me/notification-prefs', (req, res) => {
+  const db = req.db;
+  const user = db.users.find((u) => u.id === req.currentUser.id);
+  const { notifyByEmail } = req.body || {};
+  user.notifyByEmail = notifyByEmail !== false;
+  save(db);
+  res.json({ user: publicUser(user, db) });
+});
+
 // ---- administración de usuarios ----
 router.get('/', requireAdmin, (req, res) => {
   const db = req.db;

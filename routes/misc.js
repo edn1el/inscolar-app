@@ -42,6 +42,13 @@ router.post('/notifications/:id/read', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// ---- correos (HU062/HU094): visibilidad de los envios (reales o simulados) ----
+router.get('/emails', requireAdmin, (req, res) => {
+  const db = req.db;
+  const list = db.emailLog.slice().sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
+  res.json({ total: list.length, emails: list.slice(0, 50) });
+});
+
 // ---- analíticas ----
 router.get('/analytics/summary', requireAdmin, (req, res) => {
   const db = req.db;
@@ -137,8 +144,8 @@ router.get('/analytics/summary', requireAdmin, (req, res) => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // HU094: total de correos enviados — el envío real de correo todavía no está implementado (ver Fase 8).
-  const totalCorreosEnviados = 0;
+  // HU094: total de correos enviados (reales via SMTP si esta configurado, o simulados si no) — ver lib/mailer.js.
+  const totalCorreosEnviados = db.emailLog.length;
 
   // HU095: notificaciones leídas
   const totalNotificaciones = db.notifications.length;
