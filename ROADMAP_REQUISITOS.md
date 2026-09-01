@@ -55,7 +55,7 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU023 | Filtrar instituciones por provincia | ✅ (arreglado 2026-08-29 — bug de espacios en la URL) |
 | HU024 | Filtrar instituciones por calificación | ✅ (2026-08-29, Fase 2) |
 | HU025 | Filtrar instituciones por municipio | ✅ (2026-08-29, Fase 4) |
-| HU026 | Visualizar detalles sobre una institución | 🟡 (se ve en la lista/edición, no hay una pantalla de "detalle" dedicada) |
+| HU026 | Visualizar detalles sobre una institución | ✅ (2026-09-01, Fase 11 — pantalla de detalle dedicada) |
 | HU027 | Calificar una institución | ✅ (2026-08-29, Fase 2) |
 | HU028 | Listar calificaciones dadas a una institución | ✅ (2026-08-29, Fase 2) |
 | HU029 | Reportar una institución | ✅ (2026-08-29, Fase 2) |
@@ -93,7 +93,7 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU049 | Aceptar un documento entregado | ✅ (2026-08-29, Fase 3) |
 | HU056 | Listar solicitudes de inscripción | ✅ |
 | HU057 | Rechazar una solicitud de inscripción | ✅ |
-| HU058 | Abandonar solicitud de inscripción por inactividad | ❌ |
+| HU058 | Abandonar solicitud de inscripción por inactividad | ✅ (2026-09-01, Fase 11 — 30 días sin decisión) |
 | HU059 | Aceptar una solicitud de inscripción | ✅ |
 | HU060 | Notificar de cambios de estatus de una solicitud de inscripción | ✅ (2026-08-29, Fase 1) |
 
@@ -105,9 +105,9 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 | HU051 | Cancelar cita | ✅ |
 | HU052 | Listar citas agendadas | ✅ |
 | HU053 | Aceptar una cita | ✅ |
-| HU054 | Rechazar una cita | 🟡 (existe cancelar con motivo, no un "rechazar" separado de "cancelar") |
+| HU054 | Rechazar una cita | ✅ (2026-09-01, Fase 11 — acción explícita, distinta de cancelar) |
 | HU055 | Notificar sobre cambios en el estado de una cita | ✅ (2026-08-29, Fase 1) |
-| HU061 | Mostrar calendario de una institución | ❌ |
+| HU061 | Mostrar calendario de una institución | ✅ (2026-09-01, Fase 11) |
 
 ## 7. Notificaciones
 
@@ -170,6 +170,8 @@ Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden 
 8. **Fase 8 — Notificaciones por correo real + preferencias** (HU062, HU066). **✅ Completada 2026-09-01** — nuevo `lib/mailer.js` (SMTP real si está configurado, o simulado con constancia en `db.emailLog` si no), preferencia por usuario `notifyByEmail` (por defecto activada) con endpoint `PUT /users/me/notification-prefs` y tarjeta en Seguridad, envío disparado desde `notifyUser`/`notifyAdmins`, y visibilidad para administradores vía `GET /emails` y la sección "Correos enviados recientemente" en Analíticas. Verificado con Playwright: 22/22 pruebas, incluyendo que desactivar la preferencia efectivamente suprime el correo sin afectar la notificación interna.
 9. **Fase 9 — Manual de instrucciones y menú de configuración** (HU133, HU065). **✅ Completada 2026-09-01** — nueva sección "Configuración" en el menú lateral (accesos directos a perfil, seguridad, manual y, para Admin/Soporte, a los módulos del sistema) y nueva sección "Manual de instrucciones" con guía en acordeón, general más específica por rol. Verificado con Playwright: 27/27 pruebas, incluyendo que cada rol ve solo lo que le corresponde.
 10. **Fase 10 — Filtro de instituciones por ubicación del dispositivo** (geolocalización, HU021). **✅ Completada 2026-09-01** — nuevo `lib/geo.js` con coordenadas aproximadas por provincia (el prototipo no tiene direcciones geocodificadas por institución) y distancia por fórmula de Haversine; `GET /institutions` acepta `lat`/`lng`/`radioKm` y devuelve `distanciaKm` ordenado por cercanía; en la pantalla de Instituciones, botón "Cerca de mí" que usa `navigator.geolocation`, selector de radio y columna de distancia, con manejo de permiso denegado. Verificado con Playwright: 22/22 pruebas.
-11. **Fase 11 — Vencimiento/abandono de inscripciones, rechazo explícito de citas, vista de detalle y calendario de institución** (HU058, HU054, HU061, HU026). Cierra los últimos huecos detectados en la comparación con Azure DevOps.
+11. **Fase 11 — Vencimiento/abandono de inscripciones, rechazo explícito de citas, vista de detalle y calendario de institución** (HU058, HU054, HU061, HU026). **✅ Completada 2026-09-01** — nuevo estado "Abandonada" para inscripciones (barrido perezoso a los 30 días sin respuesta, notifica al tutor y libera el cupo para reintentar), nueva acción "Rechazar" para citas Pendientes (distinta de "Cancelar", con su propio estado "Rechazada"), nuevo `GET /institutions/:id/calendar` con vista mensual (detalle completo solo para el personal de esa institución y Administración) y nuevo `GET /institutions/:id` con una pantalla de detalle dedicada. Probado con Playwright: 33/33 + 10/10 verificaciones nuevas, más 102/102 de regresión sobre pantallas existentes sin romper nada.
+
+**Con la Fase 11, las 134 Historias de Usuario activas del backlog de Azure DevOps quedan cubiertas en el prototipo — ✅ o 🟡 con nota explicando el alcance — sin ningún ❌ pendiente**, salvo matices de diseño ya documentados en cada sección (por ejemplo, HU096-HU132 cubre el núcleo funcional del módulo de Auditoría en vez de instrumentar las 37 historias una por una literalmente).
 
 Cada fase se implementa, se prueba con Playwright de verdad (no solo revisión de código), y se hace commit por separado en la rama `fix/busqueda-y-alto-contraste` (o una rama nueva si Ed lo prefiere).
