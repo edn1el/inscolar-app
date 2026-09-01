@@ -2031,6 +2031,12 @@
   }
 
   // ---------------- Analíticas ----------------
+  function barRows(list, labelFn, valueFn, emptyMsg) {
+    if (!list || !list.length) return `<div class="help">${emptyMsg || 'Sin datos todavía.'}</div>`;
+    const max = Math.max(1, ...list.map(valueFn));
+    return list.map((item) => `<div class="bar-row"><span class="bar-label">${escapeHtml(labelFn(item))}</span><span class="bar-track"><span class="bar-fill" data-w="${(valueFn(item) / max) * 100}"></span></span><span class="bar-value">${valueFn(item)}</span></div>`).join('');
+  }
+
   async function renderAnaliticas() {
     const s = await api('/analytics/summary');
     const maxRol = Math.max(1, ...s.porRol.map((r) => r.count));
@@ -2060,6 +2066,72 @@
         <div class="chart-card">
           <h3>Actividad reciente</h3>
           ${s.actividadReciente.length ? s.actividadReciente.map((n) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(n.createdAt)}</span><span style="flex:1;">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)} — por ${escapeHtml(n.actorNombre)}</span></div>`).join('') : '<div class="help">Sin actividad reciente.</div>'}
+        </div>
+      </div>
+
+      <div class="kpi-row">
+        <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.inscripciones.total}</div><div class="kpi-label">Solicitudes de inscripción</div><div class="kpi-delta">${s.inscripciones.pendientes} pendientes</div></div>
+        <div class="kpi-card"><div class="kpi-icon">${ICONS.check}</div><div class="kpi-num">${s.documentos.total}</div><div class="kpi-label">Documentos recibidos</div><div class="kpi-delta">${s.documentos.pendientes} pendientes</div></div>
+        <div class="kpi-card"><div class="kpi-icon">${ICONS.users}</div><div class="kpi-num">${s.citas.total}</div><div class="kpi-label">Citas agendadas</div><div class="kpi-delta">${s.citas.pendientes} pendientes</div></div>
+        <div class="kpi-card"><div class="kpi-icon">${ICONS.shield}</div><div class="kpi-num">${s.promedioCalificaciones !== null ? '★ ' + s.promedioCalificaciones : '—'}</div><div class="kpi-label">Calificación promedio</div><div class="kpi-delta">${s.totalCalificaciones} calificaciones · ${s.totalReportes} reportes</div></div>
+        <div class="kpi-card"><div class="kpi-icon">${ICONS.bell}</div><div class="kpi-num">${s.notificacionesLeidas}/${s.totalNotificaciones}</div><div class="kpi-label">Notificaciones leídas</div><div class="kpi-delta">${s.totalCorreosEnviados} correos enviados (fase futura)</div></div>
+        <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.tasaRecuperacion}%</div><div class="kpi-label">Tasa de recuperación de contraseña</div><div class="kpi-delta">${s.totalResetsUsados} de ${s.totalResetsGenerados} solicitudes</div></div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-card">
+          <h3>Inscripciones por estado</h3>
+          ${barRows([
+            { label: 'Aprobadas', count: s.inscripciones.aprobadas },
+            { label: 'Rechazadas', count: s.inscripciones.rechazadas },
+            { label: 'Pendientes', count: s.inscripciones.pendientes },
+          ], (i) => i.label, (i) => i.count, 'Sin solicitudes de inscripción todavía.')}
+        </div>
+        <div class="chart-card">
+          <h3>Documentos por estado</h3>
+          ${barRows([
+            { label: 'Aceptados', count: s.documentos.aceptados },
+            { label: 'Rechazados', count: s.documentos.rechazados },
+            { label: 'Pendientes', count: s.documentos.pendientes },
+          ], (i) => i.label, (i) => i.count, 'Sin documentos subidos todavía.')}
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-card">
+          <h3>Citas por estado</h3>
+          ${barRows([
+            { label: 'Confirmadas', count: s.citas.confirmadas },
+            { label: 'Canceladas', count: s.citas.canceladas },
+            { label: 'Pendientes', count: s.citas.pendientes },
+          ], (i) => i.label, (i) => i.count, 'Sin citas agendadas todavía.')}
+        </div>
+        <div class="chart-card">
+          <h3>Citas por institución (top 5)</h3>
+          ${barRows(s.citasPorInstitucion, (i) => i.nombre, (i) => i.count, 'Sin citas agendadas todavía.')}
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-card">
+          <h3>Usuarios registrados por año</h3>
+          ${barRows(s.porAnio, (i) => String(i.anio), (i) => i.count, 'Sin datos todavía.')}
+        </div>
+        <div class="chart-card">
+          <h3>Distribución geográfica de usuarios</h3>
+          <div class="help">Solo el personal de institución tiene una provincia asociada (vía su institución).</div>
+          ${barRows(s.usuariosPorProvincia, (i) => i.provincia, (i) => i.count, 'Sin personal de institución vinculado a una provincia todavía.')}
+        </div>
+      </div>
+
+      <div class="chart-row">
+        <div class="chart-card">
+          <h3>Instituciones mejor calificadas</h3>
+          ${barRows(s.institucionesMejorCalificadas, (i) => `${i.nombre} (★${i.promedio})`, (i) => i.total, 'Sin calificaciones todavía.')}
+        </div>
+        <div class="chart-card">
+          <h3>Reportes por motivo</h3>
+          ${barRows(s.reportesPorMotivo, (i) => i.motivo, (i) => i.count, 'Sin reportes todavía.')}
         </div>
       </div>
     `;

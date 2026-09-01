@@ -60,6 +60,90 @@ router.get('/analytics/summary', requireAdmin, (req, res) => {
   const tutores = users.filter((u) => u.role === 'Tutor').length;
   const mfaActivo = users.filter((u) => u.mfaEnabled).length;
 
+  // HU070: usuarios registrados por año
+  const porAnio = {};
+  for (const u of users) {
+    const y = new Date(u.createdAt).getFullYear();
+    porAnio[y] = (porAnio[y] || 0) + 1;
+  }
+
+  // HU071: tasa de recuperación de contraseña (sobre los tokens de reseteo vigentes en este momento;
+  // se sobrescriben por usuario en cada nueva solicitud, asi que es una foto del estado actual, no un historico acumulado)
+  const totalResets = db.resetTokens.length;
+  const resetsUsados = db.resetTokens.filter((t) => t.used).length;
+  const tasaRecuperacion = totalResets ? Math.round((resetsUsados / totalResets) * 100) : 0;
+
+  // HU072: distribución geográfica de usuarios. El único rol con una ubicación propia es
+  // "Personal de institución" (vía la institución a la que está vinculado); los demás roles
+  // no tienen una provincia asociada en el modelo de datos actual.
+  const usuariosPorProvincia = {};
+  for (const u of users) {
+    if (u.role !== 'Personal de institución' || !u.institucionId) continue;
+    const inst = db.institutions.find((i) => i.id === u.institucionId);
+    if (!inst) continue;
+    usuariosPorProvincia[inst.provincia] = (usuariosPorProvincia[inst.provincia] || 0) + 1;
+  }
+
+  // HU076-HU079: calificaciones y reportes de instituciones
+  const totalCalificaciones = db.ratings.length;
+  const promedioCalificaciones = totalCalificaciones
+    ? Math.round((db.ratings.reduce((sum, r) => sum + r.estrellas, 0) / totalCalificaciones) * 10) / 10
+    : null;
+  const totalReportes = db.reports.length;
+  const reportesPorMotivo = {};
+  for (const r of db.reports) reportesPorMotivo[r.motivo] = (reportesPorMotivo[r.motivo] || 0) + 1;
+  const institucionesMejorCalificadas = db.institutions
+    .map((inst) => {
+      const ratings = db.ratings.filter((r) => r.institucionId === inst.id);
+      if (!ratings.length) return null;
+      const promedio = ratings.reduce((sum, r) => sum + r.estrellas, 0) / ratings.length;
+      return { nombre: inst.nombre, promedio: Math.round(promedio * 10) / 10, total: ratings.length };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.promedio - a.promedio)
+    .slice(0, 5);
+
+  // HU080-HU084: solicitudes de inscripción
+  const inscripciones = {
+    total: db.enrollments.length,
+    aprobadas: db.enrollments.filter((e) => e.estado === 'Aprobada').length,
+    rechazadas: db.enrollments.filter((e) => e.estado === 'Rechazada').length,
+    pendientes: db.enrollments.filter((e) => e.estado === 'Pendiente').length,
+  };
+
+  // HU085-HU088: documentos
+  const documentos = {
+    total: db.documents.length,
+    aceptados: db.documents.filter((d) => d.estado === 'Aceptado').length,
+    rechazados: db.documents.filter((d) => d.estado === 'Rechazado').length,
+    pendientes: db.documents.filter((d) => d.estado === 'Pendiente').length,
+  };
+
+  // HU089-HU093: citas
+  const citas = {
+    total: db.appointments.length,
+    confirmadas: db.appointments.filter((a) => a.estado === 'Confirmada').length,
+    canceladas: db.appointments.filter((a) => a.estado === 'Cancelada').length,
+    pendientes: db.appointments.filter((a) => a.estado === 'Pendiente').length,
+  };
+  const citasPorInstitucionMap = {};
+  for (const a of db.appointments) {
+    const inst = db.institutions.find((i) => i.id === a.institucionId);
+    const nombre = inst ? inst.nombre : a.institucionId;
+    citasPorInstitucionMap[nombre] = (citasPorInstitucionMap[nombre] || 0) + 1;
+  }
+  const citasPorInstitucion = Object.entries(citasPorInstitucionMap)
+    .map(([nombre, count]) => ({ nombre, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // HU094: total de correos enviados — el envío real de correo todavía no está implementado (ver Fase 8).
+  const totalCorreosEnviados = 0;
+
+  // HU095: notificaciones leídas
+  const totalNotificaciones = db.notifications.length;
+  const notificacionesLeidas = db.notifications.filter((n) => n.read).length;
+
   res.json({
     totalUsuarios: users.length,
     activos,
@@ -72,6 +156,29 @@ router.get('/analytics/summary', requireAdmin, (req, res) => {
     porProvincia: Object.entries(porProvincia)
       .map(([provincia, count]) => ({ provincia, count }))
       .sort((a, b) => b.count - a.count),
+    porAnio: Object.entries(porAnio)
+      .map(([anio, count]) => ({ anio: Number(anio), count }))
+      .sort((a, b) => a.anio - b.anio),
+    tasaRecuperacion,
+    totalResetsGenerados: totalResets,
+    totalResetsUsados: resetsUsados,
+    usuariosPorProvincia: Object.entries(usuariosPorProvincia)
+      .map(([provincia, count]) => ({ provincia, count }))
+      .sort((a, b) => b.count - a.count),
+    totalCalificaciones,
+    promedioCalificaciones,
+    totalReportes,
+    reportesPorMotivo: Object.entries(reportesPorMotivo)
+      .map(([motivo, count]) => ({ motivo, count }))
+      .sort((a, b) => b.count - a.count),
+    institucionesMejorCalificadas,
+    inscripciones,
+    documentos,
+    citas,
+    citasPorInstitucion,
+    totalCorreosEnviados,
+    totalNotificaciones,
+    notificacionesLeidas,
     actividadReciente: db.notifications
       .slice()
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
