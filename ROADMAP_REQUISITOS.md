@@ -113,12 +113,14 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 
 | HU | Título | Estado |
 |----|--------|--------|
-| HU062 | Recibir notificaciones por correo electrónico | ❌ |
+| HU062 | Recibir notificaciones por correo electrónico | ✅ (2026-09-01, Fase 8) |
 | HU063 | Presentar notificaciones de cambio de estatus del proceso de inscripción por la interfaz web | ✅ (2026-08-29, Fase 1) |
 | HU064 | Presentar notificaciones de cambios en el estado de una cita por la interfaz web | ✅ (2026-08-29, Fase 1) |
-| HU066 | Configurar preferencias para notificaciones por correo | ❌ |
+| HU066 | Configurar preferencias para notificaciones por correo | ✅ (2026-09-01, Fase 8) |
 
-Actualizado 2026-08-29: el panel de notificaciones ahora tambien notifica al tutor cuando su inscripcion es aprobada/rechazada o su cita es confirmada/cancelada por la institucion (Fase 1 completada). Sigue faltando el correo real (HU062) y las preferencias (HU066).
+Actualizado 2026-08-29: el panel de notificaciones ahora tambien notifica al tutor cuando su inscripcion es aprobada/rechazada o su cita es confirmada/cancelada por la institucion (Fase 1 completada).
+
+Actualizado 2026-09-01 (Fase 8): cada notificacion (interna) ahora tambien intenta enviar un correo real (via SMTP si esta configurado, o simulado con constancia en el sistema si no) al destinatario o a cada Administrador/Soporte activo, respetando la preferencia de cada usuario (HU066, activada por defecto). Verificado que desactivar la preferencia suprime el correo sin afectar la notificacion interna.
 
 ## 8. Analíticas
 
@@ -140,7 +142,7 @@ Actualizado 2026-08-29: el panel de notificaciones ahora tambien notifica al tut
 | HU080-HU084 | Analíticas de solicitudes de inscripción (total, aceptadas, rechazadas, pendientes) | ✅ (2026-09-01, Fase 7) |
 | HU085-HU088 | Analíticas de documentos (total, aprobados, rechazados, pendientes) | ✅ (2026-09-01, Fase 7) |
 | HU089-HU093 | Analíticas de citas (total, por institución, aceptadas, rechazadas, pendientes) | ✅ (2026-09-01, Fase 7) |
-| HU094 | Indicador de total de correos enviados | 🟡 (2026-09-01, Fase 7 — indicador presente mostrando 0; el envío real de correo se implementa en la Fase 8) |
+| HU094 | Indicador de total de correos enviados | ✅ (2026-09-01, Fase 8 — el indicador ahora refleja el conteo real de db.emailLog, con una lista de correos recientes visible para administradores en Analíticas) |
 | HU095 | Indicador de total de notificaciones leídas | ✅ (2026-09-01, Fase 7) |
 
 ## 9. Auditoría / Logs del sistema
@@ -153,7 +155,7 @@ Este es el bloque más grande (37 historias) y el más "todo o nada": es esencia
 
 **Estado tras la Fase 5 (2026-08-30):** se implementó el núcleo funcional del módulo — no las 37 historias literalmente una por una, pero sí lo que las agrupa: `lib/audit.js` registra eventos (`logEvent`) en una nueva colección `db.logs`; se instrumentaron los flujos reales de creación/edición/activación/desactivación de usuarios e instituciones, inicio/cierre de sesión e intentos fallidos, creación/aprobación/rechazo/cancelación de inscripciones, creación/confirmación/cancelación de citas, subida/aceptación/rechazo de documentos, y lectura de notificaciones importantes de cuentas de Administrador; y se agregó `GET /api/logs` + la pantalla "Auditoría" (menú, tabla, filtros por fecha/acción/usuario/texto) visible para los roles Administrador y Auditoría. Verificado con Playwright (18/18 pruebas), incluyendo que otros roles no pueden ver la pantalla ni la API.
 
-Lo que falta para considerar el bloque 100% cerrado: registrar cambios en **periodos** (todavía no existen — depende de la Fase 6) y **envío de correos** (todavía no hay envío real — depende de la Fase 8); esos dos se completan automáticamente cuando se instrumenten esas fases. Además, la cuenta de prueba de Auditoría (`p.lluberes@inscolar.do`) sigue marcada **Inactiva** en los datos reales — Ed decide si la activa para probar la pantalla él mismo.
+Actualizado 2026-09-01 (Fase 8): el envío de correos (HU062/HU094) ya está implementado — ver `lib/mailer.js`. La cuenta de prueba de Auditoría (`p.lluberes@inscolar.do`) sigue marcada **Inactiva** en los datos reales — Ed decide si la activa para probar la pantalla él mismo.
 
 ---
 
@@ -167,8 +169,8 @@ Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden 
 4. **Fase 4 — Filtros adicionales de instituciones**: por municipio (HU025) — el filtro por calificación (HU024) ya se completó en la Fase 2. **✅ Completada 2026-08-29** — se agregó el campo municipio (opcional) al formulario de instituciones, un filtro dinámico en el listado (construido a partir de los municipios ya registrados, sin lista fija) y se muestra junto al distrito en la tabla. Verificado con Playwright (8/8 pruebas: creación, filtro dinámico, precarga en edición, sin regresiones).
 5. **Fase 5 — Módulo de Auditoría/Logs** (HU096-132): el bloque más grande — bitácora de eventos + pantalla para el rol Auditoría. **✅ Completada 2026-08-30** (núcleo funcional; ver nota en la sección 9 sobre lo que queda pendiente para periodos/correos de las Fases 6 y 8). Verificado con Playwright (18/18 pruebas).
 6. **Fase 6 — Periodos y configuración** (HU034-045). **✅ Completada 2026-08-30** — verificado con Playwright (20/20 pruebas).
-7. **Fase 7 — Analíticas restantes** (HU070-072, HU080-095): se van completando a medida que las fases anteriores generan los datos que necesitan. **✅ Completada 2026-09-01** — verificado con Playwright (24/24 pruebas de esta fase; 44/44 contando la re-verificación de las Fases 4-6). HU094 (correos enviados) queda parcial: el indicador existe pero muestra 0 porque el envío real de correo es de la Fase 8.
-8. **Fase 8 — Notificaciones por correo real + preferencias** (HU062, HU066).
+7. **Fase 7 — Analíticas restantes** (HU070-072, HU080-095): se van completando a medida que las fases anteriores generan los datos que necesitan. **✅ Completada 2026-09-01** — verificado con Playwright (24/24 pruebas de esta fase; 44/44 contando la re-verificación de las Fases 4-6). HU094 quedó completado del todo en la Fase 8.
+8. **Fase 8 — Notificaciones por correo real + preferencias** (HU062, HU066). **✅ Completada 2026-09-01** — nuevo `lib/mailer.js` (SMTP real si está configurado, o simulado con constancia en `db.emailLog` si no), preferencia por usuario `notifyByEmail` (por defecto activada) con endpoint `PUT /users/me/notification-prefs` y tarjeta en Seguridad, envío disparado desde `notifyUser`/`notifyAdmins`, y visibilidad para administradores vía `GET /emails` y la sección "Correos enviados recientemente" en Analíticas. Verificado con Playwright: 22/22 pruebas, incluyendo que desactivar la preferencia efectivamente suprime el correo sin afectar la notificación interna.
 9. **Fase 9 — Manual de instrucciones y menú de configuración** (HU133, HU065).
 10. **Fase 10 — Filtro de instituciones por ubicación del dispositivo** (geolocalización).
 
