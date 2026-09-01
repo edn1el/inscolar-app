@@ -50,7 +50,7 @@ Este documento es la referencia persistente entre sesiones para saber qué falta
 |----|--------|--------|
 | HU019 | Agregar una institución | ✅ |
 | HU020 | Listar instituciones | ✅ |
-| HU021 (filtro ubicación) | Filtrar instituciones por ubicación actual del dispositivo | ❌ |
+| HU021 (filtro ubicación) | Filtrar instituciones por ubicación actual del dispositivo | ✅ (2026-09-01, Fase 10) |
 | HU020/HU022 | Filtrar instituciones por nombre | ✅ |
 | HU023 | Filtrar instituciones por provincia | ✅ (arreglado 2026-08-29 — bug de espacios en la URL) |
 | HU024 | Filtrar instituciones por calificación | ✅ (2026-08-29, Fase 2) |
@@ -129,15 +129,12 @@ Actualizado 2026-09-01 (Fase 8): cada notificacion (interna) ahora tambien inten
 | HU067 | Mostrar dashboard de analíticas | ✅ |
 | HU068 | Mostrar analíticas de usuarios | ✅ |
 | HU069 | Gráfico de usuarios registrados por rol | ✅ |
-| HU070 | Gráfico de usuarios registrados por año | ❌ |
-| HU071 | Indicador de tasa de recuperación de contraseña | ❌ |
-| HU072 | Gráfico de distribución geográfica de usuarios | ❌ |
-| HU073 | Analíticas de instituciones | ✅ |
-| HU074 | Indicador de cantidad de instituciones | ✅ |
-| HU075 | Gráfico de instituciones por provincia | ✅ (el mapa interactivo) |
 | HU070 | Gráfico de usuarios registrados por año | ✅ (2026-09-01, Fase 7) |
 | HU071 | Indicador de tasa de recuperación de contraseña | ✅ (2026-09-01, Fase 7) |
 | HU072 | Gráfico de distribución geográfica de usuarios | ✅ (2026-09-01, Fase 7 — solo cubre Personal de institución, el único rol con ubicación propia) |
+| HU073 | Analíticas de instituciones | ✅ |
+| HU074 | Indicador de cantidad de instituciones | ✅ |
+| HU075 | Gráfico de instituciones por provincia | ✅ (el mapa interactivo) |
 | HU076-HU079 | Indicadores/gráficos de calificaciones y reportes de instituciones | ✅ (2026-09-01, Fase 7) |
 | HU080-HU084 | Analíticas de solicitudes de inscripción (total, aceptadas, rechazadas, pendientes) | ✅ (2026-09-01, Fase 7) |
 | HU085-HU088 | Analíticas de documentos (total, aprobados, rechazados, pendientes) | ✅ (2026-09-01, Fase 7) |
@@ -172,6 +169,7 @@ Ed pidió: "todo, pero que salga bien", en sesiones separadas está bien. Orden 
 7. **Fase 7 — Analíticas restantes** (HU070-072, HU080-095): se van completando a medida que las fases anteriores generan los datos que necesitan. **✅ Completada 2026-09-01** — verificado con Playwright (24/24 pruebas de esta fase; 44/44 contando la re-verificación de las Fases 4-6). HU094 quedó completado del todo en la Fase 8.
 8. **Fase 8 — Notificaciones por correo real + preferencias** (HU062, HU066). **✅ Completada 2026-09-01** — nuevo `lib/mailer.js` (SMTP real si está configurado, o simulado con constancia en `db.emailLog` si no), preferencia por usuario `notifyByEmail` (por defecto activada) con endpoint `PUT /users/me/notification-prefs` y tarjeta en Seguridad, envío disparado desde `notifyUser`/`notifyAdmins`, y visibilidad para administradores vía `GET /emails` y la sección "Correos enviados recientemente" en Analíticas. Verificado con Playwright: 22/22 pruebas, incluyendo que desactivar la preferencia efectivamente suprime el correo sin afectar la notificación interna.
 9. **Fase 9 — Manual de instrucciones y menú de configuración** (HU133, HU065). **✅ Completada 2026-09-01** — nueva sección "Configuración" en el menú lateral (accesos directos a perfil, seguridad, manual y, para Admin/Soporte, a los módulos del sistema) y nueva sección "Manual de instrucciones" con guía en acordeón, general más específica por rol. Verificado con Playwright: 27/27 pruebas, incluyendo que cada rol ve solo lo que le corresponde.
-10. **Fase 10 — Filtro de instituciones por ubicación del dispositivo** (geolocalización).
+10. **Fase 10 — Filtro de instituciones por ubicación del dispositivo** (geolocalización, HU021). **✅ Completada 2026-09-01** — nuevo `lib/geo.js` con coordenadas aproximadas por provincia (el prototipo no tiene direcciones geocodificadas por institución) y distancia por fórmula de Haversine; `GET /institutions` acepta `lat`/`lng`/`radioKm` y devuelve `distanciaKm` ordenado por cercanía; en la pantalla de Instituciones, botón "Cerca de mí" que usa `navigator.geolocation`, selector de radio y columna de distancia, con manejo de permiso denegado. Verificado con Playwright: 22/22 pruebas.
+11. **Fase 11 — Vencimiento/abandono de inscripciones, rechazo explícito de citas, vista de detalle y calendario de institución** (HU058, HU054, HU061, HU026). Cierra los últimos huecos detectados en la comparación con Azure DevOps.
 
 Cada fase se implementa, se prueba con Playwright de verdad (no solo revisión de código), y se hace commit por separado en la rama `fix/busqueda-y-alto-contraste` (o una rama nueva si Ed lo prefiere).
