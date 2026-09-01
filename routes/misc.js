@@ -116,6 +116,7 @@ router.get('/analytics/summary', requireAdmin, (req, res) => {
     aprobadas: db.enrollments.filter((e) => e.estado === 'Aprobada').length,
     rechazadas: db.enrollments.filter((e) => e.estado === 'Rechazada').length,
     pendientes: db.enrollments.filter((e) => e.estado === 'Pendiente').length,
+    abandonadas: db.enrollments.filter((e) => e.estado === 'Abandonada').length,
   };
 
   // HU085-HU088: documentos
@@ -132,6 +133,7 @@ router.get('/analytics/summary', requireAdmin, (req, res) => {
     confirmadas: db.appointments.filter((a) => a.estado === 'Confirmada').length,
     canceladas: db.appointments.filter((a) => a.estado === 'Cancelada').length,
     pendientes: db.appointments.filter((a) => a.estado === 'Pendiente').length,
+    rechazadas: db.appointments.filter((a) => a.estado === 'Rechazada').length,
   };
   const citasPorInstitucionMap = {};
   for (const a of db.appointments) {

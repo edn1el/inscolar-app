@@ -133,4 +133,56 @@ router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
   res.json({ institution });
 });
 
+// HU061: mostrar el calendario de citas de una institución (cualquier usuario autenticado
+// lo puede consultar; el personal de esa institución y Administración ven el detalle
+// completo, los demás roles ven solo cuántas citas hay cada día).
+const CALENDAR_DETAIL_ROLES = ['Administrador', 'Soporte'];
+router.get('/:id/calendar', (req, res) => {
+  const db = req.db;
+  const institution = db.institutions.find((i) => i.id === req.params.id);
+  if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
+
+  const u = req.currentUser;
+  const detalle = CALENDAR_DETAIL_ROLES.includes(u.role) || (u.role === 'Personal de institución' && u.institucionId === institution.id);
+
+  const { mes } = req.query;
+  const now = new Date();
+  let year = now.getUTCFullYear();
+  let month = now.getUTCMonth() + 1; // 1-12
+  if (mes && /^\d{4}-\d{2}$/.test(mes)) {
+    const [y, m] = mes.split('-').map(Number);
+    if (m >= 1 && m <= 12) { year = y; month = m; }
+  }
+  const start = new Date(Date.UTC(year, month - 1, 1));
+  const end = new Date(Date.UTC(year, month, 1)); // exclusivo
+
+  const dias = {};
+  for (const a of db.appointments) {
+    if (a.institucionId !== institution.id) continue;
+    const when = new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada);
+    if (when < start || when >= end) continue;
+    const key = when.toISOString().slice(0, 10);
+    if (!dias[key]) dias[key] = [];
+    const entry = { id: a.id, hora: when.toISOString(), estado: a.estado };
+    if (detalle) {
+      const tutorUser = db.users.find((t) => t.id === a.tutorId);
+      const student = a.studentId ? db.students.find((s) => s.id === a.studentId) : null;
+      entry.motivo = a.motivo;
+      entry.tutorNombre = tutorUser ? tutorUser.nombre : '—';
+      entry.estudianteNombre = student ? student.nombre : null;
+    }
+    dias[key].push(entry);
+  }
+  for (const key of Object.keys(dias)) {
+    dias[key].sort((a, b) => new Date(a.hora) - new Date(b.hora));
+  }
+
+  res.json({
+    institucion: { id: institution.id, nombre: institution.nombre },
+    mes: `${year}-${String(month).padStart(2, '0')}`,
+    detalle,
+    dias,
+  });
+});
+
 module.exports = router;

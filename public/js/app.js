@@ -500,7 +500,8 @@
   async function viewApp(segs, query) {
     const section = segs[0] || 'perfil';
     const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes((state.user || {}).role);
-    if (['usuarios', 'instituciones', 'analiticas'].includes(section) && !isAdmin()) {
+    const esCalendarioInstitucion = section === 'instituciones' && segs[2] === 'calendario';
+    if (['usuarios', 'instituciones', 'analiticas'].includes(section) && !isAdmin() && !esCalendarioInstitucion) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -550,6 +551,7 @@
       else if (section === 'instituciones' && segs[2] === 'periodos' && segs[3] === 'nueva') await renderPeriodoNuevoForm(segs[1]);
       else if (section === 'instituciones' && segs[2] === 'periodos' && segs[4] === 'editar') await renderPeriodoForm(segs[1], segs[3]);
       else if (section === 'instituciones' && segs[2] === 'periodos') await renderPeriodosList(segs[1]);
+      else if (section === 'instituciones' && segs[2] === 'calendario') await renderCalendarioInstitucion(segs[1], query);
       else if (section === 'instituciones') await renderInstituciones(query);
       else if (section === 'calificar' && segs[1]) await renderCalificarForm(segs[1]);
       else if (section === 'reportar' && segs[1]) await renderReportarForm(segs[1]);
@@ -915,13 +917,15 @@
             <li>Presiona "Nueva inscripción", elige la institución y el ciclo escolar, y confirma.</li>
             <li>Sube los documentos solicitados desde el botón "Documentos" de la inscripción.</li>
             <li>El estado (Pendiente, Aprobada o Rechazada) se actualiza en la misma lista, y recibirás una notificación (y un correo, si lo tienes activado) cuando la institución decida.</li>
+            <li>Si una institución no responde una solicitud Pendiente durante 30 días, el sistema la marca automáticamente como "Abandonada" para que puedas intentar en otra institución.</li>
           </ol>
         `,
       });
       secciones.push({
         titulo: 'Agendar una cita',
         html: `
-          <p>Desde <a href="#/app/citas">Citas</a> puedes solicitar una cita con una institución eligiendo fecha y hora disponibles. La institución confirmará o cancelará la cita, y se te notificará el cambio.</p>
+          <p>Desde <a href="#/app/citas">Citas</a> puedes solicitar una cita con una institución eligiendo fecha y hora disponibles. Antes de elegir la fecha, puedes revisar el enlace "Ver calendario de citas de esta institución" en el formulario para ver qué días ya tienen citas agendadas.</p>
+          <p>La institución puede confirmar la cita, rechazarla (si todavía está Pendiente) o cancelarla (si ya estaba Confirmada); en cualquier caso, se te notificará el cambio.</p>
         `,
       });
       secciones.push({
@@ -936,13 +940,13 @@
       secciones.push({
         titulo: 'Decidir solicitudes de inscripción',
         html: `
-          <p>En <a href="#/app/inscripciones">Inscripciones</a> verás las solicitudes dirigidas a tu institución. Revisa los documentos adjuntos y aprueba o rechaza indicando un motivo cuando corresponda.</p>
+          <p>En <a href="#/app/inscripciones">Inscripciones</a> verás las solicitudes dirigidas a tu institución. Revisa los documentos adjuntos y aprueba o rechaza indicando un motivo cuando corresponda. Una solicitud Pendiente que nadie decide durante 30 días se marca automáticamente como "Abandonada".</p>
         `,
       });
       secciones.push({
         titulo: 'Gestionar citas',
         html: `
-          <p>En <a href="#/app/citas">Citas</a> puedes confirmar o cancelar las citas solicitadas por los tutores para tu institución.</p>
+          <p>En <a href="#/app/citas">Citas</a> puedes confirmar una cita Pendiente, rechazarla (indicando un motivo) o cancelar una cita ya Confirmada. También puedes consultar el <a href="${(state.user || {}).institucionId ? `#/app/instituciones/${state.user.institucionId}/calendario` : '#/app/citas'}">calendario de tu institución</a> para ver todas las citas agendadas por día.</p>
         `,
       });
       secciones.push({
@@ -1188,6 +1192,7 @@
                   <button class="neutral" data-ver-calificaciones="${inst.id}">Calificaciones</button>
                   <button class="neutral" data-ver-reportes="${inst.id}">Reportes</button>
                   <button class="neutral" data-ver-periodos="${inst.id}">Periodos</button>
+                  <button class="neutral" data-ver-calendario="${inst.id}">Calendario</button>
                 </span></td>
               </tr>`;
             }).join('')}
@@ -1223,6 +1228,7 @@
     qsa('[data-ver-calificaciones]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verCalificaciones + '/calificaciones')));
     qsa('[data-ver-reportes]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verReportes + '/reportes')));
     qsa('[data-ver-periodos]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verPeriodos + '/periodos')));
+    qsa('[data-ver-calendario]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verCalendario + '/calendario')));
 
     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.edit + '/editar')));
     qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
@@ -1258,6 +1264,75 @@
     radioSelect && radioSelect.addEventListener('change', () => applyFilters({ radioKm: radioSelect.value }));
     const geoClearBtn = qs('#f-geo-clear');
     geoClearBtn && geoClearBtn.addEventListener('click', () => applyFilters({ clearGeo: true }));
+  }
+
+  const DIAS_SEMANA_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const MESES_NOMBRE = [
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+  ];
+
+  // HU061: calendario mensual de citas de una institución.
+  async function renderCalendarioInstitucion(institucionId, query) {
+    const params = query.mes ? '?mes=' + encodeURIComponent(query.mes) : '';
+    const { institucion, mes, detalle, dias } = await api('/institutions/' + institucionId + '/calendar' + params);
+    const [year, month] = mes.split('-').map(Number); // month: 1-12
+    const backHref = isAdmin() ? '#/app/instituciones' : '#/app/citas';
+
+    // Calcular la cuadricula del mes (semanas de lunes a domingo).
+    const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const firstWeekday = (firstOfMonth.getUTCDay() + 6) % 7; // 0=lunes .. 6=domingo
+    const cells = [];
+    for (let i = 0; i < firstWeekday; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const estadoColorCal = (estado) => estado === 'Confirmada' ? '#2e9e5b' : estado === 'Cancelada' ? '#c23b3b' : estado === 'Rechazada' ? '#8a2f2f' : '#c98a1b';
+
+    function keyFor(d) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    function prevMes() {
+      const m = month === 1 ? 12 : month - 1;
+      const y = month === 1 ? year - 1 : year;
+      return `${y}-${String(m).padStart(2, '0')}`;
+    }
+    function nextMes() {
+      const m = month === 12 ? 1 : month + 1;
+      const y = month === 12 ? year + 1 : year;
+      return `${y}-${String(m).padStart(2, '0')}`;
+    }
+
+    qs('.main').innerHTML = `
+      <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
+      <div class="page-head">
+        <div><h2>Calendario — ${escapeHtml(institucion.nombre)}</h2><div class="sub">${detalle ? 'Citas agendadas en esta institución.' : 'Cantidad de citas agendadas por día.'}</div></div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-ghost" style="width:auto; padding:9px 16px;" id="cal-prev">${ICONS.back} ${MESES_NOMBRE[(month - 2 + 12) % 12]}</button>
+          <button class="btn btn-ghost" style="width:auto; padding:9px 16px;" id="cal-next">${MESES_NOMBRE[month % 12]} →</button>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3 style="text-transform:capitalize;">${MESES_NOMBRE[month - 1]} ${year}</h3>
+        <div class="calendar-grid">
+          ${DIAS_SEMANA_CORTO.map((d) => `<div class="calendar-weekday">${d}</div>`).join('')}
+          ${cells.map((d) => {
+            if (!d) return '<div class="calendar-cell other-month"></div>';
+            const items = dias[keyFor(d)] || [];
+            const shown = items.slice(0, 3);
+            return `<div class="calendar-cell">
+              <div class="calendar-daynum">${d}</div>
+              ${shown.map((it) => `<div class="calendar-item"><span class="calendar-dot" style="background:${estadoColorCal(it.estado)}"></span>${new Date(it.hora).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}${detalle ? ' · ' + escapeHtml(it.tutorNombre) : ''}</div>`).join('')}
+              ${items.length > 3 ? `<div class="help">+${items.length - 3} más</div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+    bindShellEvents();
+    qs('#cal-prev').addEventListener('click', () => navigate(`#/app/instituciones/${institucionId}/calendario?mes=${prevMes()}`));
+    qs('#cal-next').addEventListener('click', () => navigate(`#/app/instituciones/${institucionId}/calendario?mes=${nextMes()}`));
   }
 
   async function institucionNombre(id) {
@@ -1482,7 +1557,7 @@
       institucionesOptions = ires.institutions;
     }
 
-    const estados = ['Todos', 'Pendiente', 'Aprobada', 'Rechazada'];
+    const estados = ['Todos', 'Pendiente', 'Aprobada', 'Rechazada', 'Abandonada'];
     const showInstCol = admin || tutor;
     const colCount = 6 + (tutor ? 0 : 1) + (showInstCol ? 1 : 0);
 
@@ -1501,14 +1576,14 @@
           <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${showInstCol ? '<th>Institución</th>' : ''}<th>Grado</th><th>Ciclo</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
           <tbody>
             ${enrollments.length ? enrollments.map((e) => {
-              const estadoColor = e.estado === 'Aprobada' ? '#2e9e5b' : e.estado === 'Rechazada' ? '#c23b3b' : '#c98a1b';
+              const estadoColor = e.estado === 'Aprobada' ? '#2e9e5b' : e.estado === 'Rechazada' ? '#c23b3b' : e.estado === 'Abandonada' ? '#9aa0a6' : '#c98a1b';
               return `<tr>
                 <td>${escapeHtml(e.estudianteNombre)}</td>
                 ${tutor ? '' : `<td>${escapeHtml(e.tutorNombre)}</td>`}
                 ${showInstCol ? `<td>${escapeHtml(e.institucionNombre)}</td>` : ''}
                 <td>${escapeHtml(e.gradoSolicitado)}</td>
                 <td>${escapeHtml(e.cicloEscolar)}</td>
-                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}</td>
+                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}${e.estado === 'Abandonada' ? '<div class="help">Sin respuesta durante 30 días.</div>' : ''}</td>
                 <td>${fmtDate(e.createdAt)}</td>
                 <td><span class="actions-cell">
                   ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
@@ -1927,7 +2002,7 @@
       institucionesOptions = ires.institutions;
     }
 
-    const estados = ['Todos', 'Pendiente', 'Confirmada', 'Cancelada'];
+    const estados = ['Todos', 'Pendiente', 'Confirmada', 'Rechazada', 'Cancelada'];
     const showInstColCitas = admin || tutor;
     const colCount = 5 + (tutor ? 0 : 1) + (showInstColCitas ? 1 : 0);
 
@@ -1945,7 +2020,7 @@
           <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${showInstColCitas ? '<th>Institución</th>' : ''}<th>Motivo</th><th>Fecha y hora</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>
             ${appointments.length ? appointments.map((a) => {
-              const estadoColor = a.estado === 'Confirmada' ? '#2e9e5b' : a.estado === 'Cancelada' ? '#c23b3b' : '#c98a1b';
+              const estadoColor = a.estado === 'Confirmada' ? '#2e9e5b' : a.estado === 'Cancelada' ? '#c23b3b' : a.estado === 'Rechazada' ? '#8a2f2f' : '#c98a1b';
               const when = a.fechaHoraConfirmada || a.fechaHoraSolicitada;
               const adjusted = a.fechaHoraConfirmada && a.fechaHoraConfirmada !== a.fechaHoraSolicitada;
               return `<tr>
@@ -1954,11 +2029,11 @@
                 ${showInstColCitas ? `<td>${escapeHtml(a.institucionNombre)}</td>` : ''}
                 <td>${escapeHtml(a.motivo)}</td>
                 <td>${fmtDate(when)}${adjusted ? `<div class="help">Solicitada: ${fmtDate(a.fechaHoraSolicitada)}</div>` : ''}</td>
-                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${a.estado}</span>${a.estado === 'Cancelada' && a.motivoCancelacion ? `<div class="help">${escapeHtml(a.motivoCancelacion)}</div>` : ''}</td>
+                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${a.estado}</span>${a.estado === 'Cancelada' && a.motivoCancelacion ? `<div class="help">${escapeHtml(a.motivoCancelacion)}</div>` : ''}${a.estado === 'Rechazada' && a.motivoRechazo ? `<div class="help">${escapeHtml(a.motivoRechazo)}</div>` : ''}</td>
                 <td><span class="actions-cell">
-                  ${!tutor && a.estado === 'Pendiente' ? `<button class="ok" data-confirm="${a.id}">Confirmar</button>` : ''}
+                  ${!tutor && a.estado === 'Pendiente' ? `<button class="ok" data-confirm="${a.id}">Confirmar</button><button class="danger" data-reject="${a.id}">Rechazar</button>` : ''}
                   ${tutor && a.estado === 'Confirmada' ? `<button class="neutral" data-nav="#/app/calificar/${a.institucionId}">Calificar</button><button class="neutral" data-nav="#/app/reportar/${a.institucionId}">Reportar</button>` : ''}
-                  ${a.estado !== 'Cancelada' ? `<button class="danger" data-cancel="${a.id}">Cancelar</button>` : ''}
+                  ${(tutor && (a.estado === 'Pendiente' || a.estado === 'Confirmada')) || (!tutor && a.estado === 'Confirmada') ? `<button class="danger" data-cancel="${a.id}">Cancelar</button>` : ''}
                   <button class="neutral" data-comprobante="${a.id}">Comprobante</button>
                 </span></td>
               </tr>`;
@@ -2001,6 +2076,15 @@
         renderCitas(query);
       } catch (err) { toast(err.message, 'err'); }
     }));
+    qsa('[data-reject]').forEach((b) => b.addEventListener('click', async () => {
+      const motivo = prompt('Motivo del rechazo:');
+      if (!motivo || !motivo.trim()) return;
+      try {
+        await api('/appointments/' + b.dataset.reject + '/rechazar', { method: 'POST', body: { motivo } });
+        toast('Cita rechazada.', 'ok');
+        renderCitas(query);
+      } catch (err) { toast(err.message, 'err'); }
+    }));
   }
 
   async function renderCitaForm() {
@@ -2015,6 +2099,7 @@
         <form id="cita-form">
           <div class="field"><label>Institución</label>
             <select name="institucionId">${activas.map((i) => `<option value="${i.id}">${escapeHtml(i.nombre)} — ${escapeHtml(i.provincia)}</option>`).join('')}</select>
+            <a href="#" id="cita-ver-calendario" class="help" style="display:inline-block; margin-top:6px;">Ver calendario de citas de esta institución</a>
           </div>
           <div class="field"><label>Estudiante (opcional)</label>
             <select name="studentId">
@@ -2035,6 +2120,13 @@
       </div>
     `;
     bindShellEvents();
+    const calLink = qs('#cita-ver-calendario');
+    const institSelect = qs('select[name="institucionId"]');
+    function updateCalLink() {
+      if (calLink && institSelect && institSelect.value) calLink.setAttribute('href', '#/app/instituciones/' + institSelect.value + '/calendario');
+    }
+    updateCalLink();
+    institSelect && institSelect.addEventListener('change', updateCalLink);
     qs('#cita-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);

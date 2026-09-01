@@ -91,6 +91,7 @@ router.post('/appointments', (req, res) => {
     fechaHoraConfirmada: null,
     estado: 'Pendiente',
     motivoCancelacion: '',
+    motivoRechazo: '',
     createdAt: new Date().toISOString(),
     decidedAt: null,
     decidedBy: null,
@@ -141,6 +142,44 @@ router.post('/appointments/:id/confirmar', (req, res) => {
   res.json({ appointment: publicAppointment(appointment, db) });
 });
 
+// HU054: rechazar una cita Pendiente (distinto de cancelar, que tambien aplica a una
+// cita ya Confirmada). Solo el personal de la institucion o Administracion puede rechazar,
+// y siempre requiere un motivo.
+router.post('/appointments/:id/rechazar', (req, res) => {
+  const db = req.db;
+  const u = req.currentUser;
+  const appointment = db.appointments.find((a) => a.id === req.params.id);
+  if (!appointment) return res.status(404).json({ error: 'Cita no encontrada.' });
+
+  const canDecide = STAFF_ROLES.includes(u.role) || (u.role === 'Personal de institución' && u.institucionId === appointment.institucionId);
+  if (!canDecide) return res.status(403).json({ error: 'No tienes permiso para rechazar esta cita.' });
+  if (appointment.estado !== 'Pendiente') return res.status(400).json({ error: 'Solo se puede rechazar una cita pendiente.' });
+
+  const { motivo } = req.body || {};
+  if (!motivo || !motivo.trim()) return res.status(400).json({ error: 'Indica el motivo del rechazo.' });
+
+  appointment.estado = 'Rechazada';
+  appointment.motivoRechazo = motivo.trim();
+  appointment.decidedAt = new Date().toISOString();
+  appointment.decidedBy = u.id;
+  logEvent(db, { actor: u, accion: 'Cita rechazada', entidad: 'Cita', entidadId: appointment.id, detalle: appointment.motivoRechazo });
+
+  const tutorReject = db.users.find((t) => t.id === appointment.tutorId);
+  if (tutorReject) {
+    notifyUser(db, {
+      recipient: tutorReject,
+      campo: 'Estado de cita',
+      anterior: 'Pendiente',
+      nuevo: 'Rechazada',
+      actor: u,
+      userNombre: tutorReject.nombre,
+    });
+  }
+
+  save(db);
+  res.json({ appointment: publicAppointment(appointment, db) });
+});
+
 router.post('/appointments/:id/cancelar', (req, res) => {
   const db = req.db;
   const u = req.currentUser;
@@ -151,7 +190,9 @@ router.post('/appointments/:id/cancelar', (req, res) => {
   const isStaffOfInst = u.role === 'Personal de institución' && u.institucionId === appointment.institucionId;
   const canCancel = isOwner || isStaffOfInst || STAFF_ROLES.includes(u.role);
   if (!canCancel) return res.status(403).json({ error: 'No tienes permiso para cancelar esta cita.' });
-  if (appointment.estado === 'Cancelada') return res.status(400).json({ error: 'Esta cita ya está cancelada.' });
+  if (appointment.estado === 'Cancelada' || appointment.estado === 'Rechazada') {
+    return res.status(400).json({ error: 'Esta cita ya fue decidida y no se puede cancelar.' });
+  }
 
   const { motivo } = req.body || {};
   if (!isOwner && (!motivo || !motivo.trim())) return res.status(400).json({ error: 'Indica el motivo de la cancelación.' });

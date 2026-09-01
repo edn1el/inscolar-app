@@ -168,6 +168,15 @@ button.link:hover{ color:var(--garnet-deep); }
 .settings-card h3{ font-family:'Fraunces',serif; font-weight:600; font-size:1.02rem; margin:10px 0 6px; }
 .settings-card p{ font-size:.83rem; color:var(--ink-soft); line-height:1.5; }
 
+/* HU061: calendario de institucion */
+.calendar-grid{ display:grid; grid-template-columns:repeat(7, 1fr); gap:8px; margin-top:6px; }
+.calendar-weekday{ font-size:.72rem; color:var(--ink-soft); text-align:center; font-weight:600; text-transform:uppercase; letter-spacing:.04em; padding-bottom:4px; }
+.calendar-cell{ background:var(--bg); border:1px solid var(--border); border-radius:10px; min-height:92px; padding:8px; font-size:.74rem; }
+.calendar-cell.other-month{ background:transparent; border-color:transparent; }
+.calendar-daynum{ font-weight:600; margin-bottom:6px; font-family:'Fraunces',serif; }
+.calendar-item{ display:flex; align-items:center; gap:5px; margin-bottom:3px; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.calendar-dot{ width:6px; height:6px; border-radius:50%; flex:none; }
+
 /* HU133: manual de instrucciones */
 .manual-item{ border-bottom:1px solid var(--border); padding:14px 2px; }
 .manual-item:last-child{ border-bottom:none; }

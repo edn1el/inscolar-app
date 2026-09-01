@@ -15,6 +15,39 @@ const GRADOS = [
 ];
 const CICLO_RE = /^\d{4}-\d{4}$/;
 const STAFF_ROLES = ['Administrador', 'Soporte'];
+const DIAS_INACTIVIDAD_ABANDONO = 30;
+
+// HU058: si una solicitud de inscripcion lleva mas de DIAS_INACTIVIDAD_ABANDONO dias
+// en estado Pendiente sin que la institucion la decida, se marca automaticamente como
+// Abandonada. Este prototipo no tiene un proceso en segundo plano, asi que el barrido
+// se hace de forma perezosa cada vez que alguien lista las inscripciones.
+function sweepAbandonedEnrollments(db) {
+  const now = Date.now();
+  const limiteMs = DIAS_INACTIVIDAD_ABANDONO * 24 * 60 * 60 * 1000;
+  let changed = false;
+  for (const e of db.enrollments) {
+    if (e.estado === 'Pendiente' && now - new Date(e.createdAt).getTime() > limiteMs) {
+      e.estado = 'Abandonada';
+      e.decidedAt = new Date().toISOString();
+      e.decidedBy = null;
+      logEvent(db, { actor: null, accion: 'Inscripción abandonada por inactividad', entidad: 'Inscripción', entidadId: e.id, detalle: `Ciclo ${e.cicloEscolar} · ${DIAS_INACTIVIDAD_ABANDONO} días sin respuesta` });
+      const tutor = db.users.find((t) => t.id === e.tutorId);
+      if (tutor) {
+        const student = db.students.find((s) => s.id === e.studentId);
+        notifyUser(db, {
+          recipient: tutor,
+          campo: 'Estado de inscripción',
+          anterior: 'Pendiente',
+          nuevo: 'Abandonada',
+          actor: { id: null, nombre: 'Sistema' },
+          userNombre: student ? student.nombre : tutor.nombre,
+        });
+      }
+      changed = true;
+    }
+  }
+  if (changed) save(db);
+}
 
 function publicEnrollment(e, db) {
   const student = db.students.find((s) => s.id === e.studentId);
@@ -64,6 +97,7 @@ router.post('/students', (req, res) => {
 // ---- inscripciones ----
 router.get('/enrollments', (req, res) => {
   const db = req.db;
+  sweepAbandonedEnrollments(db);
   const u = req.currentUser;
   const { estado, institucionId } = req.query;
   let list = db.enrollments.slice();
@@ -83,6 +117,7 @@ router.get('/enrollments', (req, res) => {
 
 router.post('/enrollments', (req, res) => {
   const db = req.db;
+  sweepAbandonedEnrollments(db);
   const u = req.currentUser;
   if (u.role !== 'Tutor') return res.status(403).json({ error: 'Solo un tutor puede crear una solicitud de inscripción.' });
 
@@ -96,7 +131,8 @@ router.post('/enrollments', (req, res) => {
   if (!GRADOS.includes(gradoSolicitado)) errors.push('Selecciona un grado válido.');
   if (!cicloEscolar || !CICLO_RE.test(cicloEscolar)) errors.push('Selecciona un ciclo escolar válido.');
   if (student && institucion && db.enrollments.some((e) =>
-    e.studentId === student.id && e.institucionId === institucion.id && e.cicloEscolar === cicloEscolar && e.estado !== 'Rechazada'
+    e.studentId === student.id && e.institucionId === institucion.id && e.cicloEscolar === cicloEscolar &&
+    !['Rechazada', 'Abandonada'].includes(e.estado)
   )) {
     errors.push('Ya existe una solicitud activa para este estudiante en esa institución y ciclo.');
   }
@@ -129,6 +165,7 @@ router.post('/enrollments', (req, res) => {
 
 router.post('/enrollments/:id/decidir', (req, res) => {
   const db = req.db;
+  sweepAbandonedEnrollments(db);
   const u = req.currentUser;
   const enrollment = db.enrollments.find((e) => e.id === req.params.id);
   if (!enrollment) return res.status(404).json({ error: 'Solicitud no encontrada.' });
