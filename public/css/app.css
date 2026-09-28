@@ -124,6 +124,8 @@ button.link:hover{ color:var(--garnet-deep); }
 .notif-panel{ position:absolute; top:calc(100% + 10px); right:0; width:340px; max-height:420px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:0 24px 48px -22px rgba(28,16,19,.35); z-index:30; padding:10px; }
 .notif-panel-head{ padding:6px 8px 10px; font-weight:700; font-size:.88rem; }
 .notif-panel .notif-item{ padding:12px; border-radius:12px; margin-bottom:8px; }
+.notif-panel .notif-item{ display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+.notif-panel .notif-item .btn-small{ white-space:nowrap; flex:none; padding:6px 10px; font-size:.72rem; }
 .notif-panel .notif-item:last-of-type{ margin-bottom:0; }
 .notif-panel-empty{ padding:24px 12px; text-align:center; color:var(--ink-soft); font-size:.85rem; }
 .notif-panel-foot{ padding:10px 4px 2px; text-align:center; border-top:1px solid var(--border); margin-top:8px; }
@@ -178,12 +180,25 @@ button.link:hover{ color:var(--garnet-deep); }
 .calendar-dot{ width:6px; height:6px; border-radius:50%; flex:none; }
 
 /* HU133: manual de instrucciones */
-.manual-item{ border-bottom:1px solid var(--border); padding:14px 2px; }
+.manual-item{ border-bottom:1px solid var(--border); padding:6px 2px; }
 .manual-item:last-child{ border-bottom:none; }
-.manual-item summary{ cursor:pointer; font-weight:600; font-family:'Fraunces',serif; font-size:.98rem; }
-.manual-item[open] summary{ margin-bottom:10px; }
+.manual-item summary{
+  cursor:pointer; font-weight:700; font-family:'Fraunces',serif; font-size:.98rem;
+  list-style:none; display:flex; align-items:center; gap:12px;
+  padding:12px 10px; margin:2px 0; border-radius:12px; transition:background .16s ease;
+}
+.manual-item summary::-webkit-details-marker{ display:none; }
+.manual-item summary::before{
+  content:'\203A'; flex:none; width:26px; height:26px; border-radius:8px;
+  background:#f6dde2; color:var(--garnet-deep); display:flex; align-items:center; justify-content:center;
+  font-size:1.15rem; font-weight:800; line-height:1; transition:transform .2s ease, background .2s ease, color .2s ease;
+}
+.manual-item:hover summary{ background:var(--bg); }
+.manual-item[open] summary{ margin-bottom:2px; }
+.manual-item[open] summary::before{ transform:rotate(90deg); background:var(--garnet); color:#fff; }
+.manual-item p, .manual-item > ol, .manual-item > ul{ padding-left:38px; }
 .manual-item p{ font-size:.86rem; color:var(--ink-soft); line-height:1.6; margin-bottom:6px; }
-.manual-item ol, .manual-item ul{ padding-left:20px; margin-top:6px; }
+.manual-item ol, .manual-item ul{ margin-top:6px; }
 .manual-item li{ font-size:.86rem; color:var(--ink-soft); line-height:1.7; }
 .manual-item a{ color:var(--garnet); }
 
@@ -206,6 +221,15 @@ button.link:hover{ color:var(--garnet-deep); }
 /* Charts */
 .chart-row{ display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-bottom:26px; }
 .chart-card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; }
+.chart-card{ transition:box-shadow .25s ease; }
+.chart-card:hover{ box-shadow:0 22px 44px -28px rgba(28,16,19,.22); }
+.chart-card-accent{ position:relative; overflow:hidden; }
+.chart-card-accent .card-icon-bg{
+  position:absolute; right:-6px; bottom:-10px; width:96px; height:96px; opacity:.06;
+  color:var(--garnet); pointer-events:none;
+}
+.chart-card-accent .card-icon-bg svg{ width:100%; height:100%; }
+.chart-card-accent h3, .chart-card-accent p{ position:relative; }
 .chart-card h3{ font-family:'Fraunces',serif; font-weight:600; font-size:1.05rem; margin-bottom:16px; }
 .bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:11px; font-size:.82rem; }
 .bar-label{ width:150px; flex:none; color:var(--ink-soft); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

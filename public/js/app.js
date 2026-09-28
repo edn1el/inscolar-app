@@ -15,7 +15,9 @@
   function fmtDate(iso) {
     if (!iso) return '—';
     const d = new Date(iso);
-    return d.toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' });
+    const fecha = d.toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const hora = d.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' }).replace(/\s/g, '\u00A0');
+    return fecha + '\u00A0' + hora;
   }
   function qs(sel, el) { return (el || document).querySelector(sel); }
   function qsa(sel, el) { return Array.from((el || document).querySelectorAll(sel)); }
@@ -716,7 +718,8 @@
             <div><div class="help">TELÉFONO MÓVIL</div><div>${escapeHtml(user.telefonoMovil || 'No registrado')}</div></div>
           </div>
         </div>
-        <div class="chart-card">
+        <div class="chart-card chart-card-accent">
+          <span class="card-icon-bg">${ICONS.shield}</span>
           <h3>Seguridad de la cuenta</h3>
           <p class="help">Contraseña <a href="#/app/seguridad">Cambiar</a></p>
           <p class="help">Verificación en dos pasos: ${user.mfaEnabled ? '<strong style="color:var(--green)">Activada</strong>' : 'Desactivada'} <a href="#/app/seguridad">Configurar</a></p>
@@ -786,7 +789,8 @@
             <button class="btn btn-primary" style="width:auto; padding:11px 20px;" type="submit">Cambiar</button>
           </form>
         </div>
-        <div class="chart-card">
+        <div class="chart-card chart-card-accent">
+          <span class="card-icon-bg">${ICONS.shield}</span>
           <h3>Verificación en dos pasos (MFA)</h3>
           <p class="help" style="margin-bottom:16px;">Al iniciar sesión desde un dispositivo no reconocido, el sistema pedirá un código de verificación adicional.</p>
           ${mfa.enabled

@@ -65,7 +65,11 @@
       "createdAt": "2025-08-01T09:00:00.000Z",
       "lat": 19.433048496925032,
       "lng": -70.6818963106148,
-      "foto": null
+      "foto": {
+        "storageFile": "foto-loyola.jpg",
+        "mimeType": "image/jpeg",
+        "uploadedAt": "2026-08-01T09:00:00.000Z"
+      }
     },
     {
       "id": "i005",
@@ -353,7 +357,7 @@
       "id": "u001",
       "nombre": "María Altagracia Rosario",
       "email": "maria.rosario@inscolar.do",
-      "passwordHash": "$2a$10$RIi19vSgffqpEM9NrguupOtuj4Tw.jzigqWo/dVX1QqunpIteG1q2",
+      "passwordHash": "$2a$10$L4FpKyJxhRFdFLgh3HPZiOozbHh3MZ.ulBwzZnuNo28Q7zeeqtwJe",
       "passwordHistory": [],
       "role": "Administrador",
       "institucionId": null,
@@ -366,14 +370,13 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-11-05T13:58:00.000Z",
-      "lastAccess": "2026-09-28T01:59:09.520Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-25T09:00:00.000Z"
     },
     {
       "id": "u002",
       "nombre": "Ana Beltré Peña",
       "email": "ana.beltre@correo.do",
-      "passwordHash": "$2a$10$lxlr8e9i2bJNwoDWqShhouLBpxY2B0aoquMAAM6api78wqTG2ny6K",
+      "passwordHash": "$2a$10$cntWS1Pf5FQg2xCigqgFBO7/VK/SM.puJWe49nrPlojGKKFkn.nkK",
       "passwordHistory": [],
       "role": "Tutor",
       "institucionId": null,
@@ -386,14 +389,13 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-08-24T09:12:00.000Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-24T09:12:00.000Z"
     },
     {
       "id": "u003",
       "nombre": "José Manuel Cepeda",
       "email": "jm.cepeda@sanrafael.edu.do",
-      "passwordHash": "$2a$10$AzgCnvSofgnmRcor0rBLI.xBz11YA5kvbdgMc77eU47fLsUatzNpm",
+      "passwordHash": "$2a$10$aUoRnPVF8ILuvctUhpDPCu1mHxKmu/4qfEcn7nbXmRqe/n5G/xO76",
       "passwordHistory": [],
       "role": "Personal de institución",
       "institucionId": "i001",
@@ -406,14 +408,13 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-02-14T11:00:00.000Z",
-      "lastAccess": "2026-08-24T08:40:00.000Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-24T08:40:00.000Z"
     },
     {
       "id": "u004",
       "nombre": "Yorlenny Sánchez",
       "email": "y.sanchez@inscolar.do",
-      "passwordHash": "$2a$10$c0amg66ommcGR1GcGtlWt.nhZDInMJ.QRCQ7jK35ldNXuLZg.5Pze",
+      "passwordHash": "$2a$10$4vlAM.nMRu8/YzTn2Z/vE.ejCDWbVcArB6zyBNbBvYzVtrEiFdETq",
       "passwordHistory": [],
       "role": "Soporte",
       "institucionId": null,
@@ -426,14 +427,13 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-09-01T09:00:00.000Z",
-      "lastAccess": "2026-08-12T15:03:00.000Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-12T15:03:00.000Z"
     },
     {
       "id": "u005",
       "nombre": "Rafael Ureña Mota",
       "email": "r.urena@liceoduarte.edu.do",
-      "passwordHash": "$2a$10$qMgh46mywwC.zEzDNexISus8qalj7b4GrLpQEVlwXoGy2TvdFVdee",
+      "passwordHash": "$2a$10$TvZM77t53XlzQ1eIicFpge027IIdYo/i/KAtx2AmCld7GEjCFnjd6",
       "passwordHistory": [],
       "role": "Personal de institución",
       "institucionId": "i002",
@@ -446,14 +446,13 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-03-20T09:00:00.000Z",
-      "lastAccess": "2026-08-23T17:55:00.000Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-23T17:55:00.000Z"
     },
     {
       "id": "u006",
       "nombre": "Claribel Guzmán Ferreras",
       "email": "c.guzman@inscolar.do",
-      "passwordHash": "$2a$10$mSe2KFeNLl5vnksXhph.LeGH36pd7rBjuHPYujlE5cQJeU.xaemMC",
+      "passwordHash": "$2a$10$D1AwuiGeWEjIpx/ZAtaeyOeqq8SE23EhOKvZozy85uVfF1mh/RnJS",
       "passwordHistory": [],
       "role": "Administrador",
       "institucionId": null,
@@ -466,14 +465,13 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-02-14T09:00:00.000Z",
-      "lastAccess": "2026-08-25T08:41:00.000Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-25T08:41:00.000Z"
     },
     {
       "id": "u007",
       "nombre": "Pedro Antonio Lluberes",
       "email": "p.lluberes@inscolar.do",
-      "passwordHash": "$2a$10$nGDPa944SdCbvnZKfZvfNuIyaKFpxrx.ZlyZhsKM5Ph2ybo3L2NKe",
+      "passwordHash": "$2a$10$dogSxl8.jPi8z0pqa4pOoukEO5tR841XlYr89j.61/z2QKrWA.jA.",
       "passwordHistory": [],
       "role": "Auditoría",
       "institucionId": null,
@@ -486,14 +484,13 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-06-01T09:00:00.000Z",
-      "lastAccess": "2026-08-01T11:20:00.000Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-01T11:20:00.000Z"
     },
     {
       "id": "u008",
       "nombre": "Rosa Elena Almonte Vargas",
       "email": "rosa.almonte@correo.do",
-      "passwordHash": "$2a$10$vfpAszG7N7mzXixznNj8e.HxH2ybP2BiqG2qs9dKHlxWQS1PEzc2e",
+      "passwordHash": "$2a$10$NIWE5trm.J5CgN9eCqPHWOzs5sdtOoCSTjKUS37uCmXxB6XxxvTQW",
       "passwordHistory": [],
       "role": "Tutor",
       "institucionId": null,
@@ -506,14 +503,13 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-04-08T10:00:00.000Z",
-      "lastAccess": "2026-08-20T09:30:00.000Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-20T09:30:00.000Z"
     },
     {
       "id": "u009",
       "nombre": "Miguel Ángel Peña Reyes",
       "email": "miguel.pena@correo.do",
-      "passwordHash": "$2a$10$y6CPMRlsse8iGg8YRQKwVOoOSoRSjK5WqgQcsGemTPSR.B3gtSGSW",
+      "passwordHash": "$2a$10$9BWHNN8sqkIGh0YkeYYRh.Yot4sIFxX7cTTHIl5MKKIUNdgJ4Dsta",
       "passwordHistory": [],
       "role": "Tutor",
       "institucionId": null,
@@ -526,8 +522,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-05-15T10:00:00.000Z",
-      "lastAccess": "2026-08-22T14:10:00.000Z",
-      "notifyByEmail": true
+      "lastAccess": "2026-08-22T14:10:00.000Z"
     }
   ],
   "students": [
@@ -572,10 +567,10 @@
       "institucionId": "i001",
       "gradoSolicitado": "4to de Primaria",
       "cicloEscolar": "2026-2027",
-      "estado": "Abandonada",
+      "estado": "Pendiente",
       "motivoRechazo": "",
       "createdAt": "2026-08-20T09:00:00.000Z",
-      "decidedAt": "2026-09-28T01:59:14.627Z",
+      "decidedAt": null,
       "decidedBy": null
     },
     {
@@ -1436,83 +1431,9 @@
       "entidad": "Usuario",
       "entidadId": "u001",
       "detalle": ""
-    },
-    {
-      "id": "log033",
-      "fecha": "2026-09-28T01:55:56.985Z",
-      "actorId": "u001",
-      "actorNombre": "María Altagracia Rosario",
-      "actorRole": "Administrador",
-      "accion": "Inicio de sesión exitoso",
-      "entidad": "Usuario",
-      "entidadId": "u001",
-      "detalle": ""
-    },
-    {
-      "id": "log034",
-      "fecha": "2026-09-28T01:59:09.520Z",
-      "actorId": "u001",
-      "actorNombre": "María Altagracia Rosario",
-      "actorRole": "Administrador",
-      "accion": "Inicio de sesión exitoso",
-      "entidad": "Usuario",
-      "entidadId": "u001",
-      "detalle": ""
-    },
-    {
-      "id": "log035",
-      "fecha": "2026-09-28T01:59:14.627Z",
-      "actorId": null,
-      "actorNombre": "Sistema",
-      "actorRole": null,
-      "accion": "Inscripción abandonada por inactividad",
-      "entidad": "Inscripción",
-      "entidadId": "e001",
-      "detalle": "Ciclo 2026-2027 · 30 días sin respuesta"
-    },
-    {
-      "id": "log036",
-      "fecha": "2026-09-28T01:59:32.604Z",
-      "actorId": "u001",
-      "actorNombre": "María Altagracia Rosario",
-      "actorRole": "Administrador",
-      "accion": "Institución modificada",
-      "entidad": "Institución",
-      "entidadId": "i004",
-      "detalle": "Colegio Loyola"
-    },
-    {
-      "id": "log037",
-      "fecha": "2026-09-28T01:59:44.489Z",
-      "actorId": "u001",
-      "actorNombre": "María Altagracia Rosario",
-      "actorRole": "Administrador",
-      "accion": "Foto de institución actualizada",
-      "entidad": "Institución",
-      "entidadId": "i004",
-      "detalle": "Colegio Loyola"
-    },
-    {
-      "id": "log038",
-      "fecha": "2026-09-28T01:59:50.504Z",
-      "actorId": "u001",
-      "actorNombre": "María Altagracia Rosario",
-      "actorRole": "Administrador",
-      "accion": "Foto de institución eliminada",
-      "entidad": "Institución",
-      "entidadId": "i004",
-      "detalle": "Colegio Loyola"
     }
   ],
   "emailLog": [
-    {
-      "id": "em016",
-      "to": "ana.beltre@correo.do",
-      "subject": "Inscolar: actualización — Estado de inscripción",
-      "text": "Se registró un cambio en \"Estado de inscripción\". De \"Pendiente\" a \"Abandonada\".",
-      "sentAt": "2026-09-28T01:59:14.628Z",
-      "via": "simulado (sin SMTP configurado)"
-    },
     {
       "id": "em001",
       "to": "maria.rosario@inscolar.do",
@@ -1637,19 +1558,6 @@
   "mfaCodes": [],
   "resetTokens": [],
   "notifications": [
-    {
-      "id": "n004",
-      "recipientId": "u002",
-      "userId": "u002",
-      "userNombre": "Kelvin Beltré Peña",
-      "campo": "Estado de inscripción",
-      "anterior": "Pendiente",
-      "nuevo": "Abandonada",
-      "actorId": null,
-      "actorNombre": "Sistema",
-      "createdAt": "2026-09-28T01:59:14.627Z",
-      "read": false
-    },
     {
       "id": "n001",
       "userId": "u006",
