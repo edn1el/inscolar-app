@@ -111,6 +111,7 @@
     check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>',
     building: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 21v-4h6v4"/><path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1"/></svg>',
     shield: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/></svg>',
+    camera: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
     search: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
     bell: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
     back: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>',
@@ -579,6 +580,7 @@
   function appShellWrap(innerMain, activeSection, unread) {
     const u = state.user || {};
     const [avBg, avFg] = avatarColor(0);
+    const topbarAvatarStyle = u.foto ? `background-image:url('/api/users/${u.id}/foto?v=${encodeURIComponent(u.foto.uploadedAt)}');background-size:cover;background-position:center;` : `background:${avBg};color:${avFg}`;
     const admin = isAdmin();
     return `
       <div class="app">
@@ -586,7 +588,7 @@
           <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
           <div class="topbar-right">
             ${(admin || u.role === 'Tutor') ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
-            <span class="who"><span class="avatar" style="background:${avBg};color:${avFg}">${initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></span>
+            <span class="who"><span class="avatar" style="${topbarAvatarStyle}">${u.foto ? '' : initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></span>
             <button class="logout" id="logout-btn">Cerrar sesión</button>
           </div>
         </div>
@@ -702,15 +704,25 @@
   // ---------------- HU011/HU012 perfil ----------------
   async function renderPerfil() {
     const { user } = await api('/users/me/profile');
+    const fotoUrl = user.foto ? '/api/users/' + user.id + '/foto?v=' + encodeURIComponent(user.foto.uploadedAt) : null;
     qs('.main').innerHTML = `
       <div class="page-head"><div><h2>Perfil de usuario</h2><div class="sub">Datos personales asociados a tu cuenta.</div></div>
       <button class="btn btn-primary btn-small" style="width:auto; padding:9px 18px;" data-nav="#/app/perfil/editar">Editar</button></div>
       <div class="chart-row" style="grid-template-columns: 2fr 1fr;">
         <div class="chart-card">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:20px;">
-            <span class="avatar" style="width:52px;height:52px;font-size:1rem;background:${avatarColor(0)[0]};color:${avatarColor(0)[1]}">${initials(user.nombre)}</span>
-            <div><div style="font-weight:700; font-size:1.05rem;">${escapeHtml(user.nombre)}</div><div style="color:var(--ink-soft); font-size:.85rem;">${escapeHtml(user.email)} · ${escapeHtml(user.role)}${user.institucionNombre ? ' · ' + escapeHtml(user.institucionNombre) : ''}</div></div>
+            <div class="profile-avatar-wrap" id="foto-wrap" title="Cambiar foto de perfil">
+              <span class="avatar" style="width:64px;height:64px;font-size:1.1rem;${fotoUrl ? `background-image:url('${fotoUrl}');background-size:cover;background-position:center;` : `background:${avatarColor(0)[0]};color:${avatarColor(0)[1]}`}">${fotoUrl ? '' : initials(user.nombre)}</span>
+              <button type="button" class="avatar-edit-btn" id="foto-btn" aria-label="Cambiar foto de perfil">${ICONS.camera}</button>
+            </div>
+            <input type="file" id="foto-input" accept=".jpg,.jpeg,.png" style="display:none;">
+            <div>
+              <div style="font-weight:700; font-size:1.05rem;">${escapeHtml(user.nombre)}</div>
+              <div style="color:var(--ink-soft); font-size:.85rem;">${escapeHtml(user.email)} · ${escapeHtml(user.role)}${user.institucionNombre ? ' · ' + escapeHtml(user.institucionNombre) : ''}</div>
+              ${fotoUrl ? '<button type="button" class="link-btn" id="foto-remove-btn">Quitar foto</button>' : ''}
+            </div>
           </div>
+          <div id="foto-err"></div>
           <div class="two-col">
             <div><div class="help">SEXO</div><div>${escapeHtml(user.sexo || '—')}</div></div>
             <div><div class="help">ESTADO</div><div>${escapeHtml(user.estado)}</div></div>
@@ -727,6 +739,37 @@
       </div>
     `;
     bindShellEvents();
+
+    const fotoInput = qs('#foto-input');
+    const fotoBtn = qs('#foto-btn');
+    fotoBtn && fotoBtn.addEventListener('click', () => fotoInput.click());
+    fotoInput && fotoInput.addEventListener('change', async () => {
+      if (!fotoInput.files || !fotoInput.files[0]) return;
+      qs('#foto-err').innerHTML = '';
+      const fd = new FormData();
+      fd.append('foto', fotoInput.files[0]);
+      try {
+        const res = await fetch('/api/users/me/foto', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw { errors: data.errors || [data.error || 'No se pudo subir la imagen.'] };
+        state.user = data.user;
+        toast('Foto de perfil actualizada.', 'ok');
+        await viewApp(['perfil'], {});
+      } catch (err) {
+        qs('#foto-err').innerHTML = fieldErrorsBlock(err.errors || [err.message || 'No se pudo subir la imagen.']);
+      }
+    });
+    const fotoRemoveBtn = qs('#foto-remove-btn');
+    fotoRemoveBtn && fotoRemoveBtn.addEventListener('click', async () => {
+      try {
+        const data = await api('/users/me/foto', { method: 'DELETE' });
+        state.user = data.user;
+        toast('Foto eliminada.', 'ok');
+        await viewApp(['perfil'], {});
+      } catch (err) {
+        toast(err.message || 'No se pudo eliminar la imagen.', 'err');
+      }
+    });
   }
 
   async function renderPerfilEditar() {
@@ -1032,9 +1075,10 @@
             ${users.map((u, i) => {
               const rs = ROLE_STYLE[u.role] || { bg: '#eee', fg: '#333' };
               const [avBg, avFg] = avatarColor(i);
+              const avStyle = u.foto ? `background-image:url('/api/users/${u.id}/foto?v=${encodeURIComponent(u.foto.uploadedAt)}');background-size:cover;background-position:center;` : `background:${avBg};color:${avFg}`;
               const active = u.estado === 'Activo';
               return `<tr>
-                <td><div class="user-cell"><span class="av" style="background:${avBg};color:${avFg}">${initials(u.nombre)}</span><span><div class="name">${escapeHtml(u.nombre)}</div><div class="mail">${escapeHtml(u.email)}</div></span></div></td>
+                <td><div class="user-cell"><span class="av" style="${avStyle}">${u.foto ? '' : initials(u.nombre)}</span><span><div class="name">${escapeHtml(u.nombre)}</div><div class="mail">${escapeHtml(u.email)}</div></span></div></td>
                 <td><span class="pill" style="background:${rs.bg};color:${rs.fg}">${escapeHtml(u.role)}</span></td>
                 <td>${escapeHtml(u.institucionNombre || '—')}</td>
                 <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${u.estado}</span></td>

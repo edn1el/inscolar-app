@@ -133,6 +133,18 @@ button.link:hover{ color:var(--garnet-deep); }
 .notif-panel-foot button:hover{ color:var(--garnet-deep); }
 .who{ display:flex; align-items:center; gap:10px; }
 .avatar{ width:34px; height:34px; border-radius:50%; background:#f6dde2; color:var(--garnet-deep); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.78rem; flex:none; }
+
+.profile-avatar-wrap{ position:relative; width:64px; height:64px; flex:none; }
+.profile-avatar-wrap .avatar{ width:64px; height:64px; }
+.avatar-edit-btn{
+  position:absolute; right:-2px; bottom:-2px; width:26px; height:26px; border-radius:50%;
+  background:var(--garnet); color:#fff; border:2px solid var(--surface); display:flex; align-items:center; justify-content:center;
+  cursor:pointer; padding:0; opacity:0; transform:scale(.75); transition:opacity .18s ease, transform .18s ease, background .18s ease;
+}
+.avatar-edit-btn:hover{ background:var(--garnet-deep); }
+.profile-avatar-wrap:hover .avatar-edit-btn, .avatar-edit-btn:focus-visible{ opacity:1; transform:scale(1); }
+.link-btn{ display:inline-block; background:none; border:none; padding:0; margin-top:4px; font-size:.78rem; color:var(--garnet); cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.link-btn:hover{ color:var(--garnet-deep); }
 .who .stack{ line-height:1.2; }
 .who .w1{ font-size:.86rem; font-weight:700; }
 .who .w2{ font-size:.72rem; color:var(--garnet); }

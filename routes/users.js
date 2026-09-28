@@ -1,6 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdmin } = require('../lib/middleware');
 const { notifyAdmins } = require('../lib/notify');
@@ -9,6 +12,24 @@ const { isEmail, passwordRules, isPhoneDigits, formatPhoneDO } = require('../lib
 
 const router = express.Router();
 router.use(requireAuth);
+
+// ---- foto de perfil (HU: usuarios configuran su propia foto) ----
+const FOTOS_DIR = path.join(__dirname, '..', 'data', 'uploads', 'usuarios');
+if (!fs.existsSync(FOTOS_DIR)) fs.mkdirSync(FOTOS_DIR, { recursive: true });
+const FOTO_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const FOTO_ALLOWED_MIME = ['image/jpeg', 'image/png'];
+const fotoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, FOTOS_DIR),
+  filename: (req, file, cb) => {
+    const safeExt = path.extname(file.originalname).slice(0, 6).replace(/[^a-zA-Z0-9.]/g, '') || '.jpg';
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`);
+  },
+});
+const uploadFoto = multer({
+  storage: fotoStorage,
+  limits: { fileSize: FOTO_MAX_SIZE },
+  fileFilter: (req, file, cb) => cb(null, FOTO_ALLOWED_MIME.includes(file.mimetype)),
+});
 
 function publicUser(u, db) {
   if (!u) return null;
@@ -111,6 +132,59 @@ router.put('/me/notification-prefs', (req, res) => {
   user.notifyByEmail = notifyByEmail !== false;
   save(db);
   res.json({ user: publicUser(user, db) });
+});
+
+// ---- foto de perfil ----
+router.post('/me/foto', (req, res, next) => {
+  uploadFoto.single('foto')(req, res, (err) => {
+    if (err instanceof multer.MulterError || err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'La imagen no puede pesar más de 5 MB.' : 'No se pudo subir la imagen. Usa JPG o PNG.';
+      return res.status(400).json({ errors: [msg] });
+    }
+    next();
+  });
+}, (req, res) => {
+  const db = req.db;
+  const user = db.users.find((u) => u.id === req.currentUser.id);
+  if (!req.file) return res.status(400).json({ errors: ['Selecciona una imagen JPG o PNG de hasta 5 MB.'] });
+
+  const previous = user.foto;
+  user.foto = {
+    storageFile: req.file.filename,
+    mimeType: req.file.mimetype,
+    uploadedAt: new Date().toISOString(),
+  };
+  if (previous && previous.storageFile) {
+    fs.unlink(path.join(FOTOS_DIR, previous.storageFile), () => {});
+  }
+  logEvent(db, { actor: req.currentUser, accion: 'Foto de perfil actualizada', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
+  save(db);
+  res.json({ user: publicUser(user, db) });
+});
+
+router.delete('/me/foto', (req, res) => {
+  const db = req.db;
+  const user = db.users.find((u) => u.id === req.currentUser.id);
+  if (user.foto && user.foto.storageFile) {
+    fs.unlink(path.join(FOTOS_DIR, user.foto.storageFile), () => {});
+  }
+  user.foto = null;
+  logEvent(db, { actor: req.currentUser, accion: 'Foto de perfil eliminada', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
+  save(db);
+  res.json({ user: publicUser(user, db) });
+});
+
+router.get('/:id/foto', (req, res) => {
+  const db = req.db;
+  const user = db.users.find((u) => u.id === req.params.id);
+  if (!user || !user.foto || !user.foto.storageFile) {
+    return res.status(404).json({ error: 'Este usuario no tiene una foto de perfil registrada.' });
+  }
+  const filePath = path.join(FOTOS_DIR, user.foto.storageFile);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'La imagen ya no está disponible.' });
+  res.setHeader('Content-Type', user.foto.mimeType || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  fs.createReadStream(filePath).pipe(res);
 });
 
 // ---- administración de usuarios ----
