@@ -187,6 +187,22 @@ button.link:hover{ color:var(--garnet-deep); }
 .manual-item li{ font-size:.86rem; color:var(--ink-soft); line-height:1.7; }
 .manual-item a{ color:var(--garnet); }
 
+/* Foto/portada de institución (HU: fondo real por institución + overlay) */
+.inst-hero{
+  position:relative; border-radius:18px; overflow:hidden; min-height:200px;
+  background-color:var(--garnet-deep); background-image:linear-gradient(158deg, var(--garnet-deep) 0%, var(--garnet) 55%, var(--garnet-bright) 130%);
+  background-size:cover; background-position:center; border:1px solid var(--border);
+}
+.inst-hero-overlay{
+  min-height:200px; display:flex; flex-direction:column; justify-content:space-between;
+  padding:22px 26px; background:linear-gradient(180deg, rgba(20,8,11,.15) 0%, rgba(20,8,11,.72) 100%);
+}
+.inst-hero-body h2{ color:#fff; font-family:'Fraunces',serif; font-size:1.6rem; margin-bottom:10px; text-shadow:0 2px 10px rgba(0,0,0,.35); }
+.inst-hero-body .estado-cell{ background:rgba(255,255,255,.16); color:#fff; padding:5px 12px; border-radius:999px; font-size:.8rem; backdrop-filter:blur(2px); }
+.inst-hero-actions{ display:flex; gap:10px; align-self:flex-end; }
+.inst-hero-actions .btn-secondary{ background:rgba(255,255,255,.94); color:var(--garnet-deep); }
+.inst-hero-actions .btn-ghost{ background:rgba(20,8,11,.35); color:#fff; border:1px solid rgba(255,255,255,.5); }
+
 /* Charts */
 .chart-row{ display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-bottom:26px; }
 .chart-card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:22px; }

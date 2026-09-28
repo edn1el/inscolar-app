@@ -5,264 +5,347 @@
       "nombre": "Colegio San Rafael",
       "provincia": "Santo Domingo",
       "distrito": "10-02",
+      "municipio": "Santo Domingo Este",
       "tipo": "Privado",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Av. San Vicente de Paúl #45",
+      "telefono": "(809) 555-2101",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.515,
+      "lng": -69.9,
+      "foto": {
+        "storageFile": "foto-san-rafael.jpg",
+        "mimeType": "image/jpeg",
+        "uploadedAt": "2026-08-01T09:00:00.000Z"
+      }
     },
     {
       "id": "i002",
       "nombre": "Liceo Matutino Duarte",
       "provincia": "Duarte",
       "distrito": "07-01",
+      "municipio": "San Francisco de Macorís",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Duarte #12",
+      "telefono": "(809) 555-2102",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.313075970481123,
+      "lng": -70.24083563337086,
+      "foto": {
+        "storageFile": "foto-liceo-duarte.jpg",
+        "mimeType": "image/jpeg",
+        "uploadedAt": "2026-08-01T09:00:00.000Z"
+      }
     },
     {
       "id": "i003",
       "nombre": "Escuela Básica Juan Pablo Duarte",
       "provincia": "Santo Domingo",
       "distrito": "10-05",
+      "municipio": "Santo Domingo Norte",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Central #8",
+      "telefono": "(809) 555-2103",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.498535114051375,
+      "lng": -69.87905115494455
     },
     {
       "id": "i004",
       "nombre": "Colegio Loyola",
       "provincia": "Santiago",
       "distrito": "08-01",
+      "municipio": "Santiago de los Caballeros",
       "tipo": "Privado",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Av. Estrella Sadhalá #120",
+      "telefono": "(809) 555-2104",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.433048496925032,
+      "lng": -70.6818963106148,
+      "foto": null
     },
     {
       "id": "i005",
       "nombre": "Liceo Vespertino Independencia",
       "provincia": "Distrito Nacional",
       "distrito": "15-01",
+      "municipio": "Distrito Nacional",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle José Reyes #33",
+      "telefono": "(809) 555-2105",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.469265442831393,
+      "lng": -69.93356594271633
     },
     {
       "id": "i006",
       "nombre": "Escuela Primaria Las Flores",
       "provincia": "Santo Domingo",
       "distrito": "10-03",
+      "municipio": "Santo Domingo Oeste",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Las Flores #5",
+      "telefono": "(809) 555-2106",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.48852847127298,
+      "lng": -69.91638304088579
     },
     {
       "id": "i007",
       "nombre": "Colegio Santa Teresa de Jesús",
       "provincia": "Santiago",
       "distrito": "08-02",
+      "municipio": "Santiago de los Caballeros",
       "tipo": "Privado",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle del Sol #77",
+      "telefono": "(809) 555-2107",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.456481968888806,
+      "lng": -70.71949739481688
     },
     {
       "id": "i008",
       "nombre": "Liceo Eugenio María de Hostos",
       "provincia": "Distrito Nacional",
       "distrito": "15-02",
+      "municipio": "Distrito Nacional",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Av. Independencia #210",
+      "telefono": "(809) 555-2108",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.499814676811233,
+      "lng": -69.93944060919857
     },
     {
       "id": "i009",
       "nombre": "Escuela José Martí",
       "provincia": "La Vega",
       "distrito": "09-01",
+      "municipio": "La Vega",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Restauración #19",
+      "telefono": "(809) 555-2109",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.24046397222283,
+      "lng": -70.52396289023947
     },
     {
       "id": "i010",
       "nombre": "Colegio Nuevo Amanecer",
       "provincia": "San Cristóbal",
       "distrito": "18-01",
+      "municipio": "San Cristóbal",
       "tipo": "Privado",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Palo Hincado #4",
+      "telefono": "(809) 555-2110",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.42668779099427,
+      "lng": -70.08039785646785
     },
     {
       "id": "i011",
       "nombre": "Liceo Gastón Fernando Deligne",
       "provincia": "Puerto Plata",
       "distrito": "06-01",
+      "municipio": "Puerto Plata",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Beller #56",
+      "telefono": "(809) 555-2111",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.78826969785011,
+      "lng": -70.67430461068821
     },
     {
       "id": "i012",
       "nombre": "Escuela Padre Fantino Falco",
       "provincia": "Santo Domingo",
       "distrito": "10-06",
+      "municipio": "Santo Domingo Este",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Padre Fantino #2",
+      "telefono": "(809) 555-2112",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.483430912637857,
+      "lng": -69.8929668396872
     },
     {
       "id": "i013",
       "nombre": "Colegio Sagrado Corazón",
       "provincia": "Santiago",
       "distrito": "08-03",
+      "municipio": "Santiago de los Caballeros",
       "tipo": "Privado",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Av. Juan Pablo Duarte #300",
+      "telefono": "(809) 555-2113",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.432515545389503,
+      "lng": -70.7055414695046
     },
     {
       "id": "i014",
       "nombre": "Liceo Profesor Juan Bosch",
       "provincia": "La Vega",
       "distrito": "09-02",
+      "municipio": "La Vega",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Pedro A. Rivera #14",
+      "telefono": "(809) 555-2114",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.21438636429303,
+      "lng": -70.55189244581439
     },
     {
       "id": "i015",
       "nombre": "Escuela Ercilia Pepín",
       "provincia": "Distrito Nacional",
       "distrito": "15-03",
+      "municipio": "Distrito Nacional",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Hostos #88",
+      "telefono": "(809) 555-2115",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.49408101656736,
+      "lng": -69.9462101090786
     },
     {
       "id": "i016",
       "nombre": "Colegio Metodista",
       "provincia": "Santo Domingo",
       "distrito": "10-07",
+      "municipio": "Santo Domingo Oeste",
       "tipo": "Privado",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Metodista #9",
+      "telefono": "(809) 555-2116",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.519318516525782,
+      "lng": -69.90517638090206
     },
     {
       "id": "i017",
       "nombre": "Liceo Matutino Salomé Ureña",
       "provincia": "La Altagracia",
       "distrito": "11-01",
+      "municipio": "Higüey",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Av. Libertad #23",
+      "telefono": "(809) 555-2117",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.634205106211596,
+      "lng": -68.69571185692263
     },
     {
       "id": "i018",
       "nombre": "Escuela Básica María Trinidad Sánchez",
       "provincia": "Santiago",
       "distrito": "08-04",
+      "municipio": "Santiago de los Caballeros",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Sánchez #61",
+      "telefono": "(809) 555-2118",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.454752943926024,
+      "lng": -70.68129396506484
     },
     {
       "id": "i019",
       "nombre": "Colegio Santo Tomás de Aquino",
       "provincia": "Santo Domingo",
       "distrito": "10-08",
+      "municipio": "Santo Domingo Este",
       "tipo": "Privado",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Santo Tomás #17",
+      "telefono": "(809) 555-2119",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.488832080206443,
+      "lng": -69.88462867710687
     },
     {
       "id": "i020",
       "nombre": "Liceo Nocturno Duarte",
       "provincia": "San Cristóbal",
       "distrito": "18-02",
+      "municipio": "Villa Altagracia",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Duarte #99",
+      "telefono": "(809) 555-2120",
       "estado": "Inactivo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.39486398466389,
+      "lng": -70.09731887444508
     },
     {
       "id": "i021",
       "nombre": "Escuela Fe y Alegría",
       "provincia": "Puerto Plata",
       "distrito": "06-02",
+      "municipio": "Sosúa",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Pedro Clisante #40",
+      "telefono": "(809) 555-2121",
       "estado": "Inactivo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.781909333353212,
+      "lng": -70.6980418141453
     },
     {
       "id": "i022",
       "nombre": "Colegio Cristo Rey",
       "provincia": "Distrito Nacional",
       "distrito": "15-04",
-      "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "municipio": "Distrito Nacional",
+      "tipo": "Privado",
+      "direccion": "Av. Cristo Rey #150",
+      "telefono": "(809) 555-2122",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.485157952787628,
+      "lng": -69.94917533162558
     },
     {
       "id": "i023",
       "nombre": "Liceo Pedro Henríquez Ureña",
       "provincia": "Santo Domingo",
       "distrito": "10-09",
+      "municipio": "Santo Domingo Norte",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Pedro Henríquez Ureña #6",
+      "telefono": "(809) 555-2123",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 18.51458782577964,
+      "lng": -69.91510613580712
     },
     {
       "id": "i024",
       "nombre": "Escuela Básica Altagracia",
       "provincia": "Santiago",
       "distrito": "08-05",
+      "municipio": "Santiago de los Caballeros",
       "tipo": "Público",
-      "direccion": "",
-      "telefono": "",
+      "direccion": "Calle Altagracia #33",
+      "telefono": "(809) 555-2124",
       "estado": "Activo",
-      "createdAt": "2025-08-01T09:00:00.000Z"
+      "createdAt": "2025-08-01T09:00:00.000Z",
+      "lat": 19.47569634468375,
+      "lng": -70.6965811422455
     }
   ],
   "users": [
@@ -270,7 +353,7 @@
       "id": "u001",
       "nombre": "María Altagracia Rosario",
       "email": "maria.rosario@inscolar.do",
-      "passwordHash": "$2a$10$eirbUlzKqROL13q6POSsW.AlJBIkfRWhfCIRvDJrYvP0DTWDd8/46",
+      "passwordHash": "$2a$10$RIi19vSgffqpEM9NrguupOtuj4Tw.jzigqWo/dVX1QqunpIteG1q2",
       "passwordHistory": [],
       "role": "Administrador",
       "institucionId": null,
@@ -279,17 +362,18 @@
       "telefonoFijo": "",
       "telefonoMovil": "(829) 214-8890",
       "cedula": null,
-      "mfaEnabled": true,
+      "mfaEnabled": false,
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-11-05T13:58:00.000Z",
-      "lastAccess": "2026-08-27T07:41:10.639Z"
+      "lastAccess": "2026-09-28T01:59:09.520Z",
+      "notifyByEmail": true
     },
     {
       "id": "u002",
       "nombre": "Ana Beltré Peña",
       "email": "ana.beltre@correo.do",
-      "passwordHash": "$2a$10$u9QBw.0w9REnzXcO1hfLpuCZ4Q.2pT6/g11nFW3MOvte.s38Kcmim",
+      "passwordHash": "$2a$10$lxlr8e9i2bJNwoDWqShhouLBpxY2B0aoquMAAM6api78wqTG2ny6K",
       "passwordHistory": [],
       "role": "Tutor",
       "institucionId": null,
@@ -302,13 +386,14 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-08-27T07:41:31.500Z"
+      "lastAccess": "2026-08-24T09:12:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u003",
       "nombre": "José Manuel Cepeda",
       "email": "jm.cepeda@sanrafael.edu.do",
-      "passwordHash": "$2a$10$M9hZDX.h.Sh6dLxYwcKwnef9Ck6UHThbP64LAWF0G9BG8JKl8JY/y",
+      "passwordHash": "$2a$10$AzgCnvSofgnmRcor0rBLI.xBz11YA5kvbdgMc77eU47fLsUatzNpm",
       "passwordHistory": [],
       "role": "Personal de institución",
       "institucionId": "i001",
@@ -321,13 +406,14 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-02-14T11:00:00.000Z",
-      "lastAccess": "2026-08-27T07:42:15.729Z"
+      "lastAccess": "2026-08-24T08:40:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u004",
       "nombre": "Yorlenny Sánchez",
       "email": "y.sanchez@inscolar.do",
-      "passwordHash": "$2a$10$U9CdJmPQ5P63LS8eqedfvuwBhU9PvSGO2qNBmZfesrpZWu3QbyRYa",
+      "passwordHash": "$2a$10$c0amg66ommcGR1GcGtlWt.nhZDInMJ.QRCQ7jK35ldNXuLZg.5Pze",
       "passwordHistory": [],
       "role": "Soporte",
       "institucionId": null,
@@ -340,13 +426,14 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-09-01T09:00:00.000Z",
-      "lastAccess": "2026-08-12T15:03:00.000Z"
+      "lastAccess": "2026-08-12T15:03:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u005",
       "nombre": "Rafael Ureña Mota",
       "email": "r.urena@liceoduarte.edu.do",
-      "passwordHash": "$2a$10$o.CiKpcczADPC6gX/L8Cm.LgOconMlUFKNM7dwFRl90QfWsC29vxa",
+      "passwordHash": "$2a$10$qMgh46mywwC.zEzDNexISus8qalj7b4GrLpQEVlwXoGy2TvdFVdee",
       "passwordHistory": [],
       "role": "Personal de institución",
       "institucionId": "i002",
@@ -359,13 +446,14 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-03-20T09:00:00.000Z",
-      "lastAccess": "2026-08-23T17:55:00.000Z"
+      "lastAccess": "2026-08-23T17:55:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u006",
       "nombre": "Claribel Guzmán Ferreras",
       "email": "c.guzman@inscolar.do",
-      "passwordHash": "$2a$10$Ju2xI3.FFOYPobT5wT6ds.pZVTNz..xnOuq9TiGP9w1drd8iwl9ge",
+      "passwordHash": "$2a$10$mSe2KFeNLl5vnksXhph.LeGH36pd7rBjuHPYujlE5cQJeU.xaemMC",
       "passwordHistory": [],
       "role": "Administrador",
       "institucionId": null,
@@ -378,13 +466,14 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-02-14T09:00:00.000Z",
-      "lastAccess": "2026-08-27T08:17:51.692Z"
+      "lastAccess": "2026-08-25T08:41:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u007",
       "nombre": "Pedro Antonio Lluberes",
       "email": "p.lluberes@inscolar.do",
-      "passwordHash": "$2a$10$/nj7YTeOn8RA6ieILX7SMeQeixDuQfG321QLaqjdo9ZOr2eTbJPVG",
+      "passwordHash": "$2a$10$nGDPa944SdCbvnZKfZvfNuIyaKFpxrx.ZlyZhsKM5Ph2ybo3L2NKe",
       "passwordHistory": [],
       "role": "Auditoría",
       "institucionId": null,
@@ -397,52 +486,50 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-06-01T09:00:00.000Z",
-      "lastAccess": "2026-08-01T11:20:00.000Z"
-    }
-  ],
-  "mfaCodes": [],
-  "resetTokens": [],
-  "notifications": [
-    {
-      "id": "n001",
-      "userId": "u006",
-      "userNombre": "Claribel Guzmán",
-      "campo": "Rol",
-      "anterior": "Soporte",
-      "nuevo": "Administrador",
-      "actorId": "u001",
-      "actorNombre": "María Rosario",
-      "createdAt": "2026-08-25T08:41:00.000Z",
-      "read": true
+      "lastAccess": "2026-08-01T11:20:00.000Z",
+      "notifyByEmail": true
     },
     {
-      "id": "n002",
-      "userId": "u007",
-      "userNombre": "Pedro A. Lluberes",
-      "campo": "Contraseña restablecida",
-      "anterior": "",
-      "nuevo": "",
-      "actorId": "u001",
-      "actorNombre": "Carlos Peña",
-      "createdAt": "2026-08-24T17:12:00.000Z",
-      "read": false
+      "id": "u008",
+      "nombre": "Rosa Elena Almonte Vargas",
+      "email": "rosa.almonte@correo.do",
+      "passwordHash": "$2a$10$vfpAszG7N7mzXixznNj8e.HxH2ybP2BiqG2qs9dKHlxWQS1PEzc2e",
+      "passwordHistory": [],
+      "role": "Tutor",
+      "institucionId": null,
+      "estado": "Activo",
+      "sexo": "Femenino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(809) 555-0311",
+      "cedula": "00198765432",
+      "mfaEnabled": false,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2026-04-08T10:00:00.000Z",
+      "lastAccess": "2026-08-20T09:30:00.000Z",
+      "notifyByEmail": true
     },
     {
-      "id": "n003",
-      "userId": "u004",
-      "userNombre": "Yorlenny Sánchez",
-      "campo": "Estado",
-      "anterior": "Activo",
-      "nuevo": "Inactivo",
-      "actorId": "u001",
-      "actorNombre": "Carlos Peña",
-      "createdAt": "2026-08-12T15:03:00.000Z",
-      "read": false
+      "id": "u009",
+      "nombre": "Miguel Ángel Peña Reyes",
+      "email": "miguel.pena@correo.do",
+      "passwordHash": "$2a$10$y6CPMRlsse8iGg8YRQKwVOoOSoRSjK5WqgQcsGemTPSR.B3gtSGSW",
+      "passwordHistory": [],
+      "role": "Tutor",
+      "institucionId": null,
+      "estado": "Activo",
+      "sexo": "Masculino",
+      "telefonoFijo": "",
+      "telefonoMovil": "(809) 555-0322",
+      "cedula": null,
+      "mfaEnabled": false,
+      "mfaMethod": "correo",
+      "mustChangePassword": false,
+      "createdAt": "2026-05-15T10:00:00.000Z",
+      "lastAccess": "2026-08-22T14:10:00.000Z",
+      "notifyByEmail": true
     }
   ],
-  "meta": {
-    "defaultPassword": "Inscolar#2026"
-  },
   "students": [
     {
       "id": "s001",
@@ -459,6 +546,22 @@
       "fechaNacimiento": "2019-11-02",
       "documento": "",
       "createdAt": "2026-07-01T10:05:00.000Z"
+    },
+    {
+      "id": "s003",
+      "tutorId": "u008",
+      "nombre": "Fernando Almonte Reyes",
+      "fechaNacimiento": "2017-05-20",
+      "documento": "",
+      "createdAt": "2026-07-15T09:00:00.000Z"
+    },
+    {
+      "id": "s004",
+      "tutorId": "u009",
+      "nombre": "Valentina Peña Cruz",
+      "fechaNacimiento": "2020-02-10",
+      "documento": "",
+      "createdAt": "2026-07-20T09:00:00.000Z"
     }
   ],
   "enrollments": [
@@ -469,10 +572,10 @@
       "institucionId": "i001",
       "gradoSolicitado": "4to de Primaria",
       "cicloEscolar": "2026-2027",
-      "estado": "Pendiente",
+      "estado": "Abandonada",
       "motivoRechazo": "",
       "createdAt": "2026-08-20T09:00:00.000Z",
-      "decidedAt": null,
+      "decidedAt": "2026-09-28T01:59:14.627Z",
       "decidedBy": null
     },
     {
@@ -500,6 +603,32 @@
       "createdAt": "2026-08-05T09:00:00.000Z",
       "decidedAt": "2026-08-07T11:00:00.000Z",
       "decidedBy": "u001"
+    },
+    {
+      "id": "e004",
+      "studentId": "s003",
+      "tutorId": "u008",
+      "institucionId": "i004",
+      "gradoSolicitado": "5to de Primaria",
+      "cicloEscolar": "2026-2027",
+      "estado": "Aprobada",
+      "motivoRechazo": "",
+      "createdAt": "2026-07-28T09:00:00.000Z",
+      "decidedAt": "2026-07-30T13:00:00.000Z",
+      "decidedBy": "u001"
+    },
+    {
+      "id": "e005",
+      "studentId": "s004",
+      "tutorId": "u009",
+      "institucionId": "i009",
+      "gradoSolicitado": "Pre-Primario",
+      "cicloEscolar": "2026-2027",
+      "estado": "Pendiente",
+      "motivoRechazo": "",
+      "createdAt": "2026-09-18T09:00:00.000Z",
+      "decidedAt": null,
+      "decidedBy": null
     }
   ],
   "appointments": [
@@ -547,6 +676,1018 @@
       "createdAt": "2026-08-09T09:00:00.000Z",
       "decidedAt": "2026-08-10T10:00:00.000Z",
       "decidedBy": "u001"
+    },
+    {
+      "id": "c004",
+      "tutorId": "u008",
+      "studentId": "s003",
+      "institucionId": "i004",
+      "motivo": "Entrevista de admisión",
+      "notas": "",
+      "fechaHoraSolicitada": "2026-07-29T13:00:00.000Z",
+      "fechaHoraConfirmada": "2026-07-29T14:00:00.000Z",
+      "estado": "Confirmada",
+      "motivoCancelacion": "",
+      "createdAt": "2026-07-25T09:00:00.000Z",
+      "decidedAt": "2026-07-26T10:00:00.000Z",
+      "decidedBy": "u001"
+    },
+    {
+      "id": "c005",
+      "tutorId": "u009",
+      "studentId": "s004",
+      "institucionId": "i009",
+      "motivo": "Entrega de documentos",
+      "notas": "Puedo asistir en horario de tarde.",
+      "fechaHoraSolicitada": "2026-09-20T15:00:00.000Z",
+      "fechaHoraConfirmada": "2026-09-20T15:30:00.000Z",
+      "estado": "Confirmada",
+      "motivoCancelacion": "",
+      "createdAt": "2026-09-16T09:00:00.000Z",
+      "decidedAt": "2026-09-17T11:00:00.000Z",
+      "decidedBy": "u006"
     }
-  ]
+  ],
+  "ratings": [
+    {
+      "id": "r001",
+      "institucionId": "i001",
+      "tutorId": "u002",
+      "tutorNombre": "Ana Beltré Peña",
+      "estrellas": 5,
+      "comentario": "Excelente atención, el proceso de inscripción fue muy rápido.",
+      "createdAt": "2026-08-05T12:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r002",
+      "institucionId": "i001",
+      "tutorId": "u008",
+      "tutorNombre": "Rosa Elena Almonte Vargas",
+      "estrellas": 4,
+      "comentario": "Buen colegio, aunque la comunicación por correo tardó un poco.",
+      "createdAt": "2026-08-10T09:30:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r003",
+      "institucionId": "i002",
+      "tutorId": "u002",
+      "tutorNombre": "Ana Beltré Peña",
+      "estrellas": 5,
+      "comentario": "Muy contenta con el seguimiento que le dan a mi hija.",
+      "createdAt": "2026-07-20T10:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r004",
+      "institucionId": "i004",
+      "tutorId": "u008",
+      "tutorNombre": "Rosa Elena Almonte Vargas",
+      "estrellas": 5,
+      "comentario": "Instalaciones excelentes y el personal fue muy amable en la cita.",
+      "createdAt": "2026-08-02T11:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r005",
+      "institucionId": "i004",
+      "tutorId": "u009",
+      "tutorNombre": "Miguel Ángel Peña Reyes",
+      "estrellas": 3,
+      "comentario": "El proceso de admisión fue algo lento, pero al final todo salió bien.",
+      "createdAt": "2026-08-15T16:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r006",
+      "institucionId": "i009",
+      "tutorId": "u009",
+      "tutorNombre": "Miguel Ángel Peña Reyes",
+      "estrellas": 4,
+      "comentario": "Buena atención, aunque el horario de citas es limitado.",
+      "createdAt": "2026-09-18T08:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r007",
+      "institucionId": "i005",
+      "tutorId": "u002",
+      "tutorNombre": "Ana Beltré Peña",
+      "estrellas": 2,
+      "comentario": "Tardaron mucho en responder sobre el estado de la solicitud.",
+      "createdAt": "2026-07-28T14:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r008",
+      "institucionId": "i007",
+      "tutorId": "u008",
+      "tutorNombre": "Rosa Elena Almonte Vargas",
+      "estrellas": 5,
+      "comentario": "Todo el equipo docente muy comprometido.",
+      "createdAt": "2026-08-12T09:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r009",
+      "institucionId": "i006",
+      "tutorId": "u009",
+      "tutorNombre": "Miguel Ángel Peña Reyes",
+      "estrellas": 4,
+      "comentario": "Buena experiencia en general.",
+      "createdAt": "2026-08-06T13:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r010",
+      "institucionId": "i013",
+      "tutorId": "u002",
+      "tutorNombre": "Ana Beltré Peña",
+      "estrellas": 5,
+      "comentario": "Excelente comunicación durante todo el proceso.",
+      "createdAt": "2026-08-20T10:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r011",
+      "institucionId": "i008",
+      "tutorId": "u008",
+      "tutorNombre": "Rosa Elena Almonte Vargas",
+      "estrellas": 3,
+      "comentario": "El proceso estuvo bien pero faltó más información sobre documentos requeridos.",
+      "createdAt": "2026-07-15T09:00:00.000Z",
+      "updatedAt": null
+    },
+    {
+      "id": "r012",
+      "institucionId": "i016",
+      "tutorId": "u009",
+      "tutorNombre": "Miguel Ángel Peña Reyes",
+      "estrellas": 5,
+      "comentario": "Muy satisfecho con el trato recibido.",
+      "createdAt": "2026-08-22T15:00:00.000Z",
+      "updatedAt": null
+    }
+  ],
+  "reports": [
+    {
+      "id": "rp001",
+      "institucionId": "i005",
+      "tutorId": "u002",
+      "tutorNombre": "Ana Beltré Peña",
+      "motivo": "Trato inadecuado",
+      "descripcion": "El personal administrativo fue cortante al solicitar información sobre el estado de mi solicitud.",
+      "estado": "Pendiente",
+      "createdAt": "2026-07-29T09:00:00.000Z"
+    },
+    {
+      "id": "rp002",
+      "institucionId": "i009",
+      "tutorId": "u009",
+      "tutorNombre": "Miguel Ángel Peña Reyes",
+      "motivo": "Información incorrecta",
+      "descripcion": "Me indicaron un horario de cita que luego cambiaron sin avisar.",
+      "estado": "Pendiente",
+      "createdAt": "2026-09-19T09:00:00.000Z"
+    },
+    {
+      "id": "rp003",
+      "institucionId": "i004",
+      "tutorId": "u008",
+      "tutorNombre": "Rosa Elena Almonte Vargas",
+      "motivo": "Cobros indebidos",
+      "descripcion": "Se me solicitó un pago adicional no especificado en el proceso de admisión.",
+      "estado": "Pendiente",
+      "createdAt": "2026-08-16T09:00:00.000Z"
+    },
+    {
+      "id": "rp004",
+      "institucionId": "i001",
+      "tutorId": "u002",
+      "tutorNombre": "Ana Beltré Peña",
+      "motivo": "Otro",
+      "descripcion": "El sistema de turnos para citas presenciales no estaba organizado.",
+      "estado": "Pendiente",
+      "createdAt": "2026-08-11T09:00:00.000Z"
+    },
+    {
+      "id": "rp005",
+      "institucionId": "i008",
+      "tutorId": "u008",
+      "tutorNombre": "Rosa Elena Almonte Vargas",
+      "motivo": "Información incorrecta",
+      "descripcion": "La lista de documentos requeridos publicada no coincidía con la solicitada en persona.",
+      "estado": "Pendiente",
+      "createdAt": "2026-07-16T09:00:00.000Z"
+    }
+  ],
+  "documents": [
+    {
+      "id": "d001",
+      "enrollmentId": "e002",
+      "institucionId": "i002",
+      "tutorId": "u002",
+      "tipoDocumento": "Acta de nacimiento",
+      "nombreArchivo": "acta_nacimiento_genesis.png",
+      "storageFile": "seed-documento-ejemplo.png",
+      "mimeType": "image/png",
+      "size": 68,
+      "estado": "Aceptado",
+      "motivoRechazo": "",
+      "uploadedAt": "2026-08-10T10:00:00.000Z",
+      "decidedAt": "2026-08-11T09:00:00.000Z",
+      "decidedBy": "u005"
+    },
+    {
+      "id": "d002",
+      "enrollmentId": "e002",
+      "institucionId": "i002",
+      "tutorId": "u002",
+      "tipoDocumento": "Cédula o identificación del tutor",
+      "nombreArchivo": "cedula_ana_beltre.png",
+      "storageFile": "seed-documento-ejemplo.png",
+      "mimeType": "image/png",
+      "size": 68,
+      "estado": "Aceptado",
+      "motivoRechazo": "",
+      "uploadedAt": "2026-08-10T10:05:00.000Z",
+      "decidedAt": "2026-08-11T09:05:00.000Z",
+      "decidedBy": "u005"
+    },
+    {
+      "id": "d003",
+      "enrollmentId": "e001",
+      "institucionId": "i001",
+      "tutorId": "u002",
+      "tipoDocumento": "Acta de nacimiento",
+      "nombreArchivo": "acta_nacimiento_kelvin.png",
+      "storageFile": "seed-documento-ejemplo.png",
+      "mimeType": "image/png",
+      "size": 68,
+      "estado": "Pendiente",
+      "motivoRechazo": "",
+      "uploadedAt": "2026-08-20T09:30:00.000Z",
+      "decidedAt": null,
+      "decidedBy": null
+    },
+    {
+      "id": "d004",
+      "enrollmentId": "e003",
+      "institucionId": "i004",
+      "tutorId": "u002",
+      "tipoDocumento": "Certificado de notas",
+      "nombreArchivo": "certificado_notas_kelvin.png",
+      "storageFile": "seed-documento-ejemplo.png",
+      "mimeType": "image/png",
+      "size": 68,
+      "estado": "Rechazado",
+      "motivoRechazo": "Documento ilegible, favor reenviar en mejor calidad.",
+      "uploadedAt": "2026-08-05T09:30:00.000Z",
+      "decidedAt": "2026-08-07T11:00:00.000Z",
+      "decidedBy": "u001"
+    },
+    {
+      "id": "d005",
+      "enrollmentId": "e004",
+      "institucionId": "i004",
+      "tutorId": "u008",
+      "tipoDocumento": "Acta de nacimiento",
+      "nombreArchivo": "acta_nacimiento_fernando.png",
+      "storageFile": "seed-documento-ejemplo.png",
+      "mimeType": "image/png",
+      "size": 68,
+      "estado": "Aceptado",
+      "motivoRechazo": "",
+      "uploadedAt": "2026-07-28T09:30:00.000Z",
+      "decidedAt": "2026-07-30T13:00:00.000Z",
+      "decidedBy": "u001"
+    },
+    {
+      "id": "d006",
+      "enrollmentId": "e004",
+      "institucionId": "i004",
+      "tutorId": "u008",
+      "tipoDocumento": "Foto 2x2",
+      "nombreArchivo": "foto_fernando.png",
+      "storageFile": "seed-documento-ejemplo.png",
+      "mimeType": "image/png",
+      "size": 68,
+      "estado": "Aceptado",
+      "motivoRechazo": "",
+      "uploadedAt": "2026-07-28T09:35:00.000Z",
+      "decidedAt": "2026-07-30T13:05:00.000Z",
+      "decidedBy": "u001"
+    },
+    {
+      "id": "d007",
+      "enrollmentId": "e005",
+      "institucionId": "i009",
+      "tutorId": "u009",
+      "tipoDocumento": "Acta de nacimiento",
+      "nombreArchivo": "acta_nacimiento_valentina.png",
+      "storageFile": "seed-documento-ejemplo.png",
+      "mimeType": "image/png",
+      "size": 68,
+      "estado": "Pendiente",
+      "motivoRechazo": "",
+      "uploadedAt": "2026-09-18T09:30:00.000Z",
+      "decidedAt": null,
+      "decidedBy": null
+    }
+  ],
+  "periods": [
+    {
+      "id": "per001",
+      "institucionId": "i001",
+      "cicloEscolar": "2026-2027",
+      "inscripcion": {
+        "desde": "2026-06-01T00:00:00.000Z",
+        "hasta": "2026-10-15T00:00:00.000Z"
+      },
+      "documentos": {
+        "desde": "2026-06-01T00:00:00.000Z",
+        "hasta": "2026-10-31T00:00:00.000Z"
+      },
+      "citas": {
+        "desde": "2026-08-01T00:00:00.000Z",
+        "hasta": "2026-11-30T00:00:00.000Z",
+        "limiteCitas": 20
+      },
+      "documentosRequeridos": [
+        "Acta de nacimiento",
+        "Cédula o identificación del tutor",
+        "Certificado de notas"
+      ],
+      "createdAt": "2026-05-20T09:00:00.000Z",
+      "updatedAt": "2026-05-20T09:00:00.000Z"
+    },
+    {
+      "id": "per002",
+      "institucionId": "i002",
+      "cicloEscolar": "2026-2027",
+      "inscripcion": {
+        "desde": "2026-06-01T00:00:00.000Z",
+        "hasta": "2026-11-01T00:00:00.000Z"
+      },
+      "documentos": {
+        "desde": "2026-06-01T00:00:00.000Z",
+        "hasta": "2026-11-15T00:00:00.000Z"
+      },
+      "citas": {
+        "desde": "2026-08-01T00:00:00.000Z",
+        "hasta": "2026-12-01T00:00:00.000Z",
+        "limiteCitas": 15
+      },
+      "documentosRequeridos": [
+        "Acta de nacimiento",
+        "Cédula o identificación del tutor",
+        "Certificado de notas",
+        "Foto 2x2"
+      ],
+      "createdAt": "2026-05-22T09:00:00.000Z",
+      "updatedAt": "2026-05-22T09:00:00.000Z"
+    },
+    {
+      "id": "per003",
+      "institucionId": "i004",
+      "cicloEscolar": "2026-2027",
+      "inscripcion": {
+        "desde": "2026-05-01T00:00:00.000Z",
+        "hasta": "2026-08-31T00:00:00.000Z"
+      },
+      "documentos": {
+        "desde": "2026-05-01T00:00:00.000Z",
+        "hasta": "2026-09-15T00:00:00.000Z"
+      },
+      "citas": null,
+      "documentosRequeridos": [
+        "Acta de nacimiento",
+        "Foto 2x2"
+      ],
+      "createdAt": "2026-04-15T09:00:00.000Z",
+      "updatedAt": "2026-04-15T09:00:00.000Z"
+    },
+    {
+      "id": "per004",
+      "institucionId": "i009",
+      "cicloEscolar": "2026-2027",
+      "inscripcion": null,
+      "documentos": null,
+      "citas": {
+        "desde": "2026-09-01T00:00:00.000Z",
+        "hasta": "2026-10-31T00:00:00.000Z",
+        "limiteCitas": 10
+      },
+      "documentosRequeridos": [],
+      "createdAt": "2026-08-20T09:00:00.000Z",
+      "updatedAt": "2026-08-20T09:00:00.000Z"
+    }
+  ],
+  "logs": [
+    {
+      "id": "log001",
+      "fecha": "2026-09-01T08:05:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log002",
+      "fecha": "2026-09-01T08:10:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución modificada",
+      "entidad": "Institución",
+      "entidadId": "i001",
+      "detalle": "Colegio San Rafael"
+    },
+    {
+      "id": "log003",
+      "fecha": "2026-09-02T09:00:00.000Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log004",
+      "fecha": "2026-09-02T09:20:00.000Z",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "actorRole": null,
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": null,
+      "detalle": "Intento con: desconocido@correo.do"
+    },
+    {
+      "id": "log005",
+      "fecha": "2026-09-03T10:00:00.000Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cita creada",
+      "entidad": "Cita",
+      "entidadId": "c001",
+      "detalle": "Colegio San Rafael · Entrega de documentos"
+    },
+    {
+      "id": "log006",
+      "fecha": "2026-09-04T11:00:00.000Z",
+      "actorId": "u006",
+      "actorNombre": "Claribel Guzmán Ferreras",
+      "actorRole": "Administrador",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u009",
+      "detalle": "Miguel Ángel Peña Reyes (Tutor)"
+    },
+    {
+      "id": "log007",
+      "fecha": "2026-09-05T08:15:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": "Con verificación en dos pasos"
+    },
+    {
+      "id": "log008",
+      "fecha": "2026-09-05T14:00:00.000Z",
+      "actorId": "u005",
+      "actorNombre": "Rafael Ureña Mota",
+      "actorRole": "Personal de institución",
+      "accion": "Inscripción aprobada",
+      "entidad": "Inscripción",
+      "entidadId": "e002",
+      "detalle": ""
+    },
+    {
+      "id": "log009",
+      "fecha": "2026-09-06T09:30:00.000Z",
+      "actorId": "u005",
+      "actorNombre": "Rafael Ureña Mota",
+      "actorRole": "Personal de institución",
+      "accion": "Cita confirmada",
+      "entidad": "Cita",
+      "entidadId": "c002",
+      "detalle": ""
+    },
+    {
+      "id": "log010",
+      "fecha": "2026-09-07T16:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inscripción rechazada",
+      "entidad": "Inscripción",
+      "entidadId": "e003",
+      "detalle": "No hay cupo disponible para ese grado en este ciclo."
+    },
+    {
+      "id": "log011",
+      "fecha": "2026-09-08T10:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cita cancelada",
+      "entidad": "Cita",
+      "entidadId": "c003",
+      "detalle": "El horario solicitado ya no está disponible, favor solicitar una nueva cita."
+    },
+    {
+      "id": "log012",
+      "fecha": "2026-09-09T09:00:00.000Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Documento subido",
+      "entidad": "Documento",
+      "entidadId": "d003",
+      "detalle": "Acta de nacimiento — acta_nacimiento_kelvin.png"
+    },
+    {
+      "id": "log013",
+      "fecha": "2026-09-10T11:00:00.000Z",
+      "actorId": "u005",
+      "actorNombre": "Rafael Ureña Mota",
+      "actorRole": "Personal de institución",
+      "accion": "Documento aceptado",
+      "entidad": "Documento",
+      "entidadId": "d001",
+      "detalle": "Acta de nacimiento"
+    },
+    {
+      "id": "log014",
+      "fecha": "2026-09-10T11:05:00.000Z",
+      "actorId": "u005",
+      "actorNombre": "Rafael Ureña Mota",
+      "actorRole": "Personal de institución",
+      "accion": "Documento aceptado",
+      "entidad": "Documento",
+      "entidadId": "d002",
+      "detalle": "Cédula o identificación del tutor"
+    },
+    {
+      "id": "log015",
+      "fecha": "2026-09-11T13:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Documento rechazado",
+      "entidad": "Documento",
+      "entidadId": "d004",
+      "detalle": "Documento ilegible, favor reenviar en mejor calidad."
+    },
+    {
+      "id": "log016",
+      "fecha": "2026-09-12T08:30:00.000Z",
+      "actorId": "u006",
+      "actorNombre": "Claribel Guzmán Ferreras",
+      "actorRole": "Administrador",
+      "accion": "Institución creada",
+      "entidad": "Institución",
+      "entidadId": "i010",
+      "detalle": "Colegio Nuevo Amanecer"
+    },
+    {
+      "id": "log017",
+      "fecha": "2026-09-13T09:00:00.000Z",
+      "actorId": "u006",
+      "actorNombre": "Claribel Guzmán Ferreras",
+      "actorRole": "Administrador",
+      "accion": "Institución desactivada",
+      "entidad": "Institución",
+      "entidadId": "i020",
+      "detalle": "Liceo Nocturno Duarte"
+    },
+    {
+      "id": "log018",
+      "fecha": "2026-09-14T10:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario modificado",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Campos: telefonoMovil"
+    },
+    {
+      "id": "log019",
+      "fecha": "2026-09-15T09:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario desactivado",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Yorlenny Sánchez"
+    },
+    {
+      "id": "log020",
+      "fecha": "2026-09-15T15:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Contraseña de usuario restablecida",
+      "entidad": "Usuario",
+      "entidadId": "u007",
+      "detalle": "Pedro Antonio Lluberes"
+    },
+    {
+      "id": "log021",
+      "fecha": "2026-09-16T09:00:00.000Z",
+      "actorId": "u009",
+      "actorNombre": "Miguel Ángel Peña Reyes",
+      "actorRole": "Tutor",
+      "accion": "Inscripción creada",
+      "entidad": "Inscripción",
+      "entidadId": "e005",
+      "detalle": "Escuela José Martí · Pre-Primario"
+    },
+    {
+      "id": "log022",
+      "fecha": "2026-09-16T09:30:00.000Z",
+      "actorId": "u009",
+      "actorNombre": "Miguel Ángel Peña Reyes",
+      "actorRole": "Tutor",
+      "accion": "Documento subido",
+      "entidad": "Documento",
+      "entidadId": "d007",
+      "detalle": "Acta de nacimiento — acta_nacimiento_valentina.png"
+    },
+    {
+      "id": "log023",
+      "fecha": "2026-09-16T14:00:00.000Z",
+      "actorId": "u009",
+      "actorNombre": "Miguel Ángel Peña Reyes",
+      "actorRole": "Tutor",
+      "accion": "Cita creada",
+      "entidad": "Cita",
+      "entidadId": "c005",
+      "detalle": "Escuela José Martí · Entrega de documentos"
+    },
+    {
+      "id": "log024",
+      "fecha": "2026-09-17T11:00:00.000Z",
+      "actorId": "u006",
+      "actorNombre": "Claribel Guzmán Ferreras",
+      "actorRole": "Administrador",
+      "accion": "Cita confirmada",
+      "entidad": "Cita",
+      "entidadId": "c005",
+      "detalle": ""
+    },
+    {
+      "id": "log025",
+      "fecha": "2026-09-18T08:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log026",
+      "fecha": "2026-09-19T09:00:00.000Z",
+      "actorId": "u007",
+      "actorNombre": "Pedro Antonio Lluberes",
+      "actorRole": "Auditoría",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u007",
+      "detalle": "Cuenta desactivada"
+    },
+    {
+      "id": "log027",
+      "fecha": "2026-09-20T10:00:00.000Z",
+      "actorId": "u006",
+      "actorNombre": "Claribel Guzmán Ferreras",
+      "actorRole": "Administrador",
+      "accion": "Periodo de ciclo creado",
+      "entidad": "Periodo",
+      "entidadId": "per004",
+      "detalle": "Escuela José Martí · ciclo 2026-2027"
+    },
+    {
+      "id": "log028",
+      "fecha": "2026-09-21T09:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per003",
+      "detalle": "Colegio Loyola · ciclo 2026-2027"
+    },
+    {
+      "id": "log029",
+      "fecha": "2026-09-22T15:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Notificación importante leída",
+      "entidad": "Notificación",
+      "entidadId": "n001",
+      "detalle": "Rol · Claribel Guzmán"
+    },
+    {
+      "id": "log030",
+      "fecha": "2026-09-24T08:00:00.000Z",
+      "actorId": "u006",
+      "actorNombre": "Claribel Guzmán Ferreras",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u006",
+      "detalle": ""
+    },
+    {
+      "id": "log031",
+      "fecha": "2026-09-25T09:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución modificada",
+      "entidad": "Institución",
+      "entidadId": "i016",
+      "detalle": "Colegio Metodista"
+    },
+    {
+      "id": "log032",
+      "fecha": "2026-09-27T10:00:00.000Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log033",
+      "fecha": "2026-09-28T01:55:56.985Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log034",
+      "fecha": "2026-09-28T01:59:09.520Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log035",
+      "fecha": "2026-09-28T01:59:14.627Z",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "actorRole": null,
+      "accion": "Inscripción abandonada por inactividad",
+      "entidad": "Inscripción",
+      "entidadId": "e001",
+      "detalle": "Ciclo 2026-2027 · 30 días sin respuesta"
+    },
+    {
+      "id": "log036",
+      "fecha": "2026-09-28T01:59:32.604Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución modificada",
+      "entidad": "Institución",
+      "entidadId": "i004",
+      "detalle": "Colegio Loyola"
+    },
+    {
+      "id": "log037",
+      "fecha": "2026-09-28T01:59:44.489Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Foto de institución actualizada",
+      "entidad": "Institución",
+      "entidadId": "i004",
+      "detalle": "Colegio Loyola"
+    },
+    {
+      "id": "log038",
+      "fecha": "2026-09-28T01:59:50.504Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Foto de institución eliminada",
+      "entidad": "Institución",
+      "entidadId": "i004",
+      "detalle": "Colegio Loyola"
+    }
+  ],
+  "emailLog": [
+    {
+      "id": "em016",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de inscripción",
+      "text": "Se registró un cambio en \"Estado de inscripción\". De \"Pendiente\" a \"Abandonada\".",
+      "sentAt": "2026-09-28T01:59:14.628Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em001",
+      "to": "maria.rosario@inscolar.do",
+      "subject": "Inscolar: actualización — Rol",
+      "text": "Se registró un cambio en \"Rol\". De \"Soporte\" a \"Administrador\".\nUsuario afectado: Claribel Guzmán Ferreras.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-08-25T08:41:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em002",
+      "to": "c.guzman@inscolar.do",
+      "subject": "Inscolar: actualización — Rol",
+      "text": "Se registró un cambio en \"Rol\". De \"Soporte\" a \"Administrador\".\nUsuario afectado: Claribel Guzmán Ferreras.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-08-25T08:41:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em003",
+      "to": "maria.rosario@inscolar.do",
+      "subject": "Inscolar: actualización — Contraseña restablecida",
+      "text": "Se registró un cambio en \"Contraseña restablecida\".\nUsuario afectado: Pedro Antonio Lluberes.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-15T15:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em004",
+      "to": "c.guzman@inscolar.do",
+      "subject": "Inscolar: actualización — Contraseña restablecida",
+      "text": "Se registró un cambio en \"Contraseña restablecida\".\nUsuario afectado: Pedro Antonio Lluberes.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-15T15:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em005",
+      "to": "maria.rosario@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Yorlenny Sánchez.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-15T09:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em006",
+      "to": "c.guzman@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Yorlenny Sánchez.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-15T09:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em007",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de inscripción",
+      "text": "Se registró un cambio en \"Estado de inscripción\". De \"Pendiente\" a \"Aprobada\".",
+      "sentAt": "2026-09-05T14:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em008",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de inscripción",
+      "text": "Se registró un cambio en \"Estado de inscripción\". De \"Pendiente\" a \"Rechazada\".",
+      "sentAt": "2026-09-07T16:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em009",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de cita",
+      "text": "Se registró un cambio en \"Estado de cita\". De \"Pendiente\" a \"Confirmada\".",
+      "sentAt": "2026-09-06T09:30:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em010",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de cita",
+      "text": "Se registró un cambio en \"Estado de cita\". De \"Pendiente\" a \"Cancelada\".",
+      "sentAt": "2026-09-08T10:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em011",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de documento",
+      "text": "Se registró un cambio en \"Estado de documento\". De \"Pendiente\" a \"Aceptado\".",
+      "sentAt": "2026-09-10T11:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em012",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de documento",
+      "text": "Se registró un cambio en \"Estado de documento\". De \"Pendiente\" a \"Rechazado\".",
+      "sentAt": "2026-09-11T13:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em013",
+      "to": "rosa.almonte@correo.do",
+      "subject": "Inscolar: actualización — Estado de documento",
+      "text": "Se registró un cambio en \"Estado de documento\". De \"Pendiente\" a \"Aceptado\".",
+      "sentAt": "2026-07-30T13:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em014",
+      "to": "miguel.pena@correo.do",
+      "subject": "Inscolar: actualización — Estado de cita",
+      "text": "Se registró un cambio en \"Estado de cita\". De \"Pendiente\" a \"Confirmada\".",
+      "sentAt": "2026-09-17T11:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em015",
+      "to": "maria.rosario@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Liceo Nocturno Duarte.\nRegistrado por: Claribel Guzmán Ferreras.",
+      "sentAt": "2026-09-13T09:00:00.000Z",
+      "via": "simulado (sin SMTP configurado)"
+    }
+  ],
+  "mfaCodes": [],
+  "resetTokens": [],
+  "notifications": [
+    {
+      "id": "n004",
+      "recipientId": "u002",
+      "userId": "u002",
+      "userNombre": "Kelvin Beltré Peña",
+      "campo": "Estado de inscripción",
+      "anterior": "Pendiente",
+      "nuevo": "Abandonada",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "createdAt": "2026-09-28T01:59:14.627Z",
+      "read": false
+    },
+    {
+      "id": "n001",
+      "userId": "u006",
+      "userNombre": "Claribel Guzmán",
+      "campo": "Rol",
+      "anterior": "Soporte",
+      "nuevo": "Administrador",
+      "actorId": "u001",
+      "actorNombre": "María Rosario",
+      "createdAt": "2026-08-25T08:41:00.000Z",
+      "read": false
+    },
+    {
+      "id": "n002",
+      "userId": "u007",
+      "userNombre": "Pedro A. Lluberes",
+      "campo": "Contraseña restablecida",
+      "anterior": "",
+      "nuevo": "",
+      "actorId": "u001",
+      "actorNombre": "Carlos Peña",
+      "createdAt": "2026-08-24T17:12:00.000Z",
+      "read": false
+    },
+    {
+      "id": "n003",
+      "userId": "u004",
+      "userNombre": "Yorlenny Sánchez",
+      "campo": "Estado",
+      "anterior": "Activo",
+      "nuevo": "Inactivo",
+      "actorId": "u001",
+      "actorNombre": "Carlos Peña",
+      "createdAt": "2026-08-12T15:03:00.000Z",
+      "read": false
+    }
+  ],
+  "meta": {
+    "defaultPassword": "Inscolar#2026"
+  }
 }

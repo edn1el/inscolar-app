@@ -4,11 +4,32 @@ const { requireAuth, requireAdmin } = require('../lib/middleware');
 const { isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 const { logEvent } = require('../lib/audit');
 const { haversineKm } = require('../lib/geo');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 
 const router = express.Router();
 router.use(requireAuth);
 
 const DISTRITO_RE = /^\d{2}-\d{2}$/;
+
+// ---- foto/portada de una institución (HU: fondo real por institución + overlay) ----
+const FOTOS_DIR = path.join(__dirname, '..', 'data', 'uploads', 'instituciones');
+if (!fs.existsSync(FOTOS_DIR)) fs.mkdirSync(FOTOS_DIR, { recursive: true });
+const FOTO_MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const FOTO_ALLOWED_MIME = ['image/jpeg', 'image/png'];
+const fotoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, FOTOS_DIR),
+  filename: (req, file, cb) => {
+    const safeExt = path.extname(file.originalname).slice(0, 6).replace(/[^a-zA-Z0-9.]/g, '') || '.jpg';
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`);
+  },
+});
+const uploadFoto = multer({
+  storage: fotoStorage,
+  limits: { fileSize: FOTO_MAX_SIZE },
+  fileFilter: (req, file, cb) => cb(null, FOTO_ALLOWED_MIME.includes(file.mimetype)),
+});
 
 function normalizeTipo(v) {
   return v === 'Privado' ? 'Privado' : 'Público';
@@ -191,6 +212,65 @@ router.get('/:id/calendar', (req, res) => {
     detalle,
     dias,
   });
+});
+
+
+// ---- foto/portada de una institución (solo Administrador/Soporte la pueden cambiar) ----
+router.post('/:id/foto', requireAdmin, (req, res, next) => {
+  uploadFoto.single('foto')(req, res, (err) => {
+    if (err instanceof multer.MulterError || err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'La imagen no puede pesar más de 5 MB.' : 'No se pudo subir la imagen. Usa JPG o PNG.';
+      return res.status(400).json({ errors: [msg] });
+    }
+    next();
+  });
+}, (req, res) => {
+  const db = req.db;
+  const institution = db.institutions.find((i) => i.id === req.params.id);
+  if (!institution) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return res.status(404).json({ error: 'Institución no encontrada.' });
+  }
+  if (!req.file) return res.status(400).json({ errors: ['Selecciona una imagen JPG o PNG de hasta 5 MB.'] });
+
+  const previous = institution.foto;
+  institution.foto = {
+    storageFile: req.file.filename,
+    mimeType: req.file.mimetype,
+    uploadedAt: new Date().toISOString(),
+  };
+  if (previous && previous.storageFile) {
+    fs.unlink(path.join(FOTOS_DIR, previous.storageFile), () => {});
+  }
+  logEvent(db, { actor: req.currentUser, accion: 'Foto de institución actualizada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre });
+  save(db);
+  res.json({ institution: withRating(institution, db) });
+});
+
+router.delete('/:id/foto', requireAdmin, (req, res) => {
+  const db = req.db;
+  const institution = db.institutions.find((i) => i.id === req.params.id);
+  if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
+  if (institution.foto && institution.foto.storageFile) {
+    fs.unlink(path.join(FOTOS_DIR, institution.foto.storageFile), () => {});
+  }
+  institution.foto = null;
+  logEvent(db, { actor: req.currentUser, accion: 'Foto de institución eliminada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre });
+  save(db);
+  res.json({ institution: withRating(institution, db) });
+});
+
+router.get('/:id/foto', (req, res) => {
+  const db = req.db;
+  const institution = db.institutions.find((i) => i.id === req.params.id);
+  if (!institution || !institution.foto || !institution.foto.storageFile) {
+    return res.status(404).json({ error: 'Esta institución no tiene una foto registrada.' });
+  }
+  const filePath = path.join(FOTOS_DIR, institution.foto.storageFile);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'La imagen ya no está disponible.' });
+  res.setHeader('Content-Type', institution.foto.mimeType || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  fs.createReadStream(filePath).pipe(res);
 });
 
 module.exports = router;

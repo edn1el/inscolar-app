@@ -1181,7 +1181,7 @@
               const ts = INST_TIPO_STYLE[inst.tipo] || { bg: '#eee', fg: '#333' };
               const active = (inst.estado || 'Activo') === 'Activo';
               return `<tr>
-                <td><div class="user-cell"><span class="av" style="background:#e1ecf7;color:#2a5c96">${ICONS.building}</span><span><div class="name">${escapeHtml(inst.nombre)}</div><div class="mail">${escapeHtml(inst.direccion || 'Sin dirección registrada')}</div></span></div></td>
+                <td><div class="user-cell"><span class="av" style="background:#e1ecf7;color:#2a5c96;${inst.foto ? `background-image:url('/api/institutions/${inst.id}/foto?v=${encodeURIComponent(inst.foto.uploadedAt)}');background-size:cover;background-position:center;` : ''}">${inst.foto ? '' : ICONS.building}</span><span><div class="name">${escapeHtml(inst.nombre)}</div><div class="mail">${escapeHtml(inst.direccion || 'Sin dirección registrada')}</div></span></div></td>
                 <td>${escapeHtml(inst.provincia)}</td>
                 <td>${escapeHtml(inst.distrito)}${inst.municipio ? ' · ' + escapeHtml(inst.municipio) : ''}</td>
                 <td><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
@@ -1276,12 +1276,29 @@
     const ts = INST_TIPO_STYLE[institution.tipo] || { bg: '#eee', fg: '#333' };
     const active = (institution.estado || 'Activo') === 'Activo';
     const backHref = isAdmin() ? '#/app/instituciones' : (state.user.role === 'Tutor' ? '#/app/citas' : '#/app/citas');
+    const canManageFoto = isAdmin();
+    const fotoUrl = institution.foto ? '/api/institutions/' + institution.id + '/foto?v=' + encodeURIComponent(institution.foto.uploadedAt) : null;
 
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
-      <div class="page-head">
-        <div><h2>${escapeHtml(institution.nombre)}</h2><div class="sub">Detalle de la institución.</div></div>
-        <span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${institution.estado || 'Activo'}</span>
+      <div class="inst-hero" style="${fotoUrl ? `background-image:url('${fotoUrl}')` : ''}">
+        <div class="inst-hero-overlay">
+          <div class="inst-hero-body">
+            <h2>${escapeHtml(institution.nombre)}</h2>
+            <span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${institution.estado || 'Activo'}</span>
+          </div>
+          ${canManageFoto ? `
+            <div class="inst-hero-actions">
+              <button class="btn btn-secondary btn-small" type="button" id="foto-btn">${fotoUrl ? 'Cambiar foto' : 'Agregar foto'}</button>
+              ${fotoUrl ? '<button class="btn btn-ghost btn-small" type="button" id="foto-remove-btn">Quitar foto</button>' : ''}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+      <input type="file" id="foto-input" accept=".jpg,.jpeg,.png" style="display:none;">
+      <div id="foto-err"></div>
+      <div class="page-head" style="margin-top:16px;">
+        <div class="sub">Detalle de la institución.</div>
       </div>
       <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
         <div class="chart-card">
@@ -1308,6 +1325,35 @@
       </div>
     `;
     bindShellEvents();
+
+    const fotoInput = qs('#foto-input');
+    const fotoBtn = qs('#foto-btn');
+    fotoBtn && fotoBtn.addEventListener('click', () => fotoInput.click());
+    fotoInput && fotoInput.addEventListener('change', async () => {
+      if (!fotoInput.files || !fotoInput.files[0]) return;
+      qs('#foto-err').innerHTML = '';
+      const fd = new FormData();
+      fd.append('foto', fotoInput.files[0]);
+      try {
+        const res = await fetch('/api/institutions/' + institution.id + '/foto', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw { errors: data.errors || [data.error || 'No se pudo subir la imagen.'] };
+        toast('Foto actualizada.', 'ok');
+        renderInstitucionDetalle(institucionId);
+      } catch (err) {
+        qs('#foto-err').innerHTML = fieldErrorsBlock(err.errors || [err.message || 'No se pudo subir la imagen.']);
+      }
+    });
+    const fotoRemoveBtn = qs('#foto-remove-btn');
+    fotoRemoveBtn && fotoRemoveBtn.addEventListener('click', async () => {
+      try {
+        await api('/institutions/' + institution.id + '/foto', { method: 'DELETE' });
+        toast('Foto eliminada.', 'ok');
+        renderInstitucionDetalle(institucionId);
+      } catch (err) {
+        toast(err.message || 'No se pudo eliminar la imagen.', 'err');
+      }
+    });
   }
 
   const DIAS_SEMANA_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
