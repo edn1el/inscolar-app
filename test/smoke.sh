@@ -23,7 +23,7 @@ SERVER_PID=$!
 trap "kill $SERVER_PID 2>/dev/null; rm -f $COOKIE_ADMIN $COOKIE_TUTOR" EXIT
 # Esperar a que el servidor esté listo (hasta 6s)
 for i in $(seq 1 12); do
-  curl -sf "$BASE/api/auth/setup-needed" >/dev/null 2>&1 && break
+  curl -s "$BASE/api/auth/setup-needed" >/dev/null 2>&1 && break
   sleep 0.5
 done
 
@@ -34,13 +34,13 @@ echo " Servidor PID $SERVER_PID  →  $BASE"
 echo "================================================================"
 
 # ---- Helpers ----
-get() {  curl -sf -b "$2" "$BASE$1" 2>/dev/null; }
-post() { curl -sf -X POST "$BASE$1" -H "Content-Type: application/json" -d "$2" -c "$3" -b "$3" 2>/dev/null; }
+get() {  curl -s -b "$2" "$BASE$1" 2>/dev/null; }
+post() { curl -s -X POST "$BASE$1" -H "Content-Type: application/json" -d "$2" -c "$3" -b "$3" 2>/dev/null; }
 
 # === 0. Servidor responde ===
 echo ""
 echo "[ Grupo 0 – Conectividad ]"
-SETUP=$(curl -sf "$BASE/api/auth/setup-needed" 2>/dev/null || echo "")
+SETUP=$(curl -s "$BASE/api/auth/setup-needed" 2>/dev/null || echo "")
 if echo "$SETUP" | grep -q '"needed"'; then ok "GET /api/auth/setup-needed responde JSON";
 else fail "GET /api/auth/setup-needed no responde"; fi
 
@@ -52,21 +52,21 @@ ADMIN_LOGIN=$(post "/api/auth/login" '{"email":"maria.rosario@inscolar.do","pass
 if echo "$ADMIN_LOGIN" | grep -q '"status":"ok"'; then ok "Login admin correcto";
 else fail "Login admin falló: $ADMIN_LOGIN"; fi
 
-BAD_LOGIN=$(curl -sf -X POST "$BASE/api/auth/login" -H "Content-Type: application/json" \
+BAD_LOGIN=$(curl -s -X POST "$BASE/api/auth/login" -H "Content-Type: application/json" \
   -d '{"email":"maria.rosario@inscolar.do","password":"wrong"}' 2>/dev/null || echo '{"status":"err"}')
 if echo "$BAD_LOGIN" | grep -q '"error"'; then ok "Login contraseña incorrecta devuelve error";
 else fail "Login contraseña incorrecta no devuelve error"; fi
 
-INACTIVE_LOGIN=$(curl -sf -X POST "$BASE/api/auth/login" -H "Content-Type: application/json" \
+INACTIVE_LOGIN=$(curl -s -X POST "$BASE/api/auth/login" -H "Content-Type: application/json" \
   -d '{"email":"y.sanchez@inscolar.do","password":"Inscolar#2026"}' 2>/dev/null || echo '{}')
-if echo "$INACTIVE_LOGIN" | grep -q 'desactivada'; then ok "Login cuenta inactiva rechazado (Soporte)";
-else fail "Login cuenta inactiva no rechazado"; fi
+if echo "$INACTIVE_LOGIN" | grep -q 'desactivada'; then ok "Login cuenta desactivada rechazado (Soporte)";
+else fail "Login cuenta desactivada no rechazado"; fi
 
 TUTOR_LOGIN=$(post "/api/auth/login" '{"email":"ana.beltre@correo.do","password":"Inscolar#2026"}' "$COOKIE_TUTOR")
 if echo "$TUTOR_LOGIN" | grep -q '"role":"Tutor"'; then ok "Login tutor correcto";
 else fail "Login tutor falló"; fi
 
-NO_COOKIE=$(curl -sf "$BASE/api/institutions" 2>/dev/null || echo '{"error":"No"}')
+NO_COOKIE=$(curl -s "$BASE/api/institutions" 2>/dev/null || echo '{"error":"No"}')
 if echo "$NO_COOKIE" | grep -q '"error"'; then ok "Sin sesión → 401 en ruta protegida";
 else fail "Sin sesión no devuelve error en ruta protegida"; fi
 
@@ -82,12 +82,12 @@ TUTOR_USERS=$(get "/api/users" "$COOKIE_TUTOR")
 if echo "$TUTOR_USERS" | grep -q '"error"'; then ok "Tutor no puede listar /api/users";
 else fail "Tutor PUEDE listar /api/users (fuga de datos)"; fi
 
-TUTOR_CREATE_USER=$(curl -sf -X POST "$BASE/api/users" -b "$COOKIE_TUTOR" \
+TUTOR_CREATE_USER=$(curl -s -X POST "$BASE/api/users" -b "$COOKIE_TUTOR" \
   -H "Content-Type: application/json" -d '{"role":"Administrador","nombre":"Hacker","email":"hack@x.do"}' 2>/dev/null || echo '{}')
 if echo "$TUTOR_CREATE_USER" | grep -q '"error"'; then ok "Tutor no puede crear usuarios";
 else fail "Tutor PUEDE crear usuarios (escalada de privilegios)"; fi
 
-TUTOR_CREATE_INST=$(curl -sf -X POST "$BASE/api/institutions" -b "$COOKIE_TUTOR" \
+TUTOR_CREATE_INST=$(curl -s -X POST "$BASE/api/institutions" -b "$COOKIE_TUTOR" \
   -H "Content-Type: application/json" -d '{"nombre":"X","provincia":"DN","distrito":"10-01"}' 2>/dev/null || echo '{}')
 if echo "$TUTOR_CREATE_INST" | grep -q '"error"'; then ok "Tutor no puede crear instituciones";
 else fail "Tutor PUEDE crear instituciones (escalada)"; fi

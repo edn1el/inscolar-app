@@ -74,6 +74,8 @@ async function runTests() {
   const db = load();
   const soporte = db.users.find(u => u.role === 'Soporte');
   const prevEstado = soporte.estado;
+  const prevHash = soporte.passwordHash;
+  const prevHistory = [...(soporte.passwordHistory || [])];
   soporte.estado = 'Activo';
   save(db);
 
@@ -141,7 +143,24 @@ async function runTests() {
     r = await request({ method: 'POST', path: `/api/users/${soporteId}/toggle-estado` }, null, soporteCookie);
     assert('Soporte NO puede desactivar otro usuario (HU013/HU014)', r.status === 403, r.body);
 
+    // Admin intenta desactivarse a sí mismo → 403
+    r = await request({ method: 'POST', path: `/api/users/${adminId}/toggle-estado` }, null, adminCookie);
+    assert('Admin NO puede desactivarse a sí mismo', r.status === 403, r.body);
+
+    // Admin desactiva a otro Administrador (admintest_f21@test.do) cuando quedan varios → OK
+    const newAdminId = load().users.find(u => u.email === 'admintest_f21@test.do').id;
+    r = await request({ method: 'POST', path: `/api/users/${newAdminId}/toggle-estado` }, null, adminCookie);
+    assert('Admin puede desactivar a otro Administrador cuando quedan varios', r.status === 200 && r.body.user?.estado === 'Inactivo', r.body);
+
+    // Reactivación del otro Administrador
+    r = await request({ method: 'POST', path: `/api/users/${newAdminId}/toggle-estado` }, null, adminCookie);
+    assert('Admin puede reactivar a otro Administrador', r.status === 200 && r.body.user?.estado === 'Activo', r.body);
+
     console.log('\n--- EDICIÓN DE USUARIOS (HU015) ---');
+
+    // Admin intenta cambiar su propio rol → 403
+    r = await request({ method: 'PUT', path: `/api/users/${adminId}` }, { role: 'Soporte' }, adminCookie);
+    assert('Admin NO puede cambiar su propio rol', r.status === 403, r.body);
 
     // Soporte intenta editar Admin → 403
     r = await request({ method: 'PUT', path: `/api/users/${adminId}` },
@@ -177,12 +196,12 @@ async function runTests() {
     r = await request({ method: 'POST', path: `/api/users/${soporteId}/reset-password` }, null, adminCookie);
     assert('Admin puede resetear contraseña de cualquier usuario (HU016)', r.status === 200, r.body);
 
-    console.log(`\n=== RESUMEN: ${pass} ✅ PASS | ${fail} ❌ FAIL ===\n`);
-
     // Restaurar datos
     const db2 = load();
     const s2 = db2.users.find(u => u.email === soporte.email);
     s2.estado = prevEstado;
+    s2.passwordHash = prevHash;
+    s2.passwordHistory = prevHistory;
     // Eliminar usuarios de prueba
     db2.users = db2.users.filter(u => !u.email.endsWith('@test.do'));
     save(db2);

@@ -1226,8 +1226,8 @@
                 <td>${fmtDate(u.lastAccess)}</td>
                 <td><span class="actions-cell">
                   ${canEditUser(u.role) ? `<button class="neutral" data-edit="${u.id}" data-name="${escapeHtml(u.nombre)}" data-role="${escapeHtml(u.role)}">Modificar</button>` : ''}
-                  ${canResetPassword(u.role) ? `<button class="neutral" data-reset="${u.id}" data-name="${escapeHtml(u.nombre)}">Resetear</button>` : ''}
-                  ${canToggleEstado() ? `<button class="${active ? 'danger' : 'ok'}" data-toggle="${u.id}" data-name="${escapeHtml(u.nombre)}" data-active="${active}">${active ? 'Desactivar' : 'Activar'}</button>` : ''}
+                  ${canResetPassword(u.role) ? `<button class="neutral" data-reset="${u.id}" data-name="${escapeHtml(u.nombre)}" data-email="${escapeHtml(u.email)}">Resetear</button>` : ''}
+                  ${canToggleEstado() ? `<button class="${active ? 'danger' : 'ok'}" data-toggle="${u.id}" data-name="${escapeHtml(u.nombre)}" data-role="${escapeHtml(u.role)}" data-active="${active}">${active ? 'Desactivar' : 'Activar'}</button>` : ''}
                 </span></td>
               </tr>`;
             }).join('')}
@@ -1251,12 +1251,130 @@
 
     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/usuarios/' + b.dataset.edit + '/editar')));
     qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
-      await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
-      renderUsuarios(query);
+      if (b.dataset.active === 'true') {
+        const uId = b.dataset.toggle;
+        if (uId === state.user.id) {
+          toast('No puedes desactivar tu propia cuenta.', 'err');
+          return;
+        }
+        if (b.dataset.role === 'Administrador') {
+          const activeAdmins = users.filter(u => u.role === 'Administrador' && u.estado === 'Activo');
+          if (activeAdmins.length <= 1) {
+            toast('No puedes desactivar al último Administrador activo del sistema.', 'err');
+            return;
+          }
+        }
+        const modal = document.createElement('div');
+        modal.className = 'sidebar-backdrop visible';
+        modal.style.zIndex = '9999';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.innerHTML = `
+          <div class="card" style="position:relative; z-index:10000; width: 400px; padding: 24px; text-align: left;">
+            <h3 style="margin-top:0;">¿Desactivar a ${escapeHtml(b.dataset.name)}?</h3>
+            <p style="margin-bottom:20px;">No podrá iniciar sesión hasta que otro Administrador reactive su cuenta.</p>
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+              <button class="btn btn-ghost" style="width:auto;" id="cancel-deact">Cancelar</button>
+              <button class="btn btn-primary" style="width:auto; background:#af112b; border-color:#af112b;" id="confirm-deact">Desactivar usuario</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(modal);
+        
+        qs('#cancel-deact', modal).addEventListener('click', () => modal.remove());
+        qs('#confirm-deact', modal).addEventListener('click', async () => {
+          modal.remove();
+          try {
+            await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
+            renderUsuarios(query);
+          } catch(e) {
+            toast(e.message, 'err');
+          }
+        });
+      } else {
+        try {
+          await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
+          renderUsuarios(query);
+        } catch(e) {
+          toast(e.message, 'err');
+        }
+      }
     }));
     qsa('[data-reset]').forEach((b) => b.addEventListener('click', async () => {
-      const data = await api('/users/' + b.dataset.reset + '/reset-password', { method: 'POST' });
-      alert('Contraseña temporal generada (modo de prueba, sin envío real de correo):\n\n' + data.devTempPassword);
+      if (b.disabled) return;
+      
+      const modal = document.createElement('div');
+      modal.className = 'sidebar-backdrop visible';
+      modal.style.zIndex = '9999';
+      modal.style.display = 'flex';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.innerHTML = `
+        <div class="card" style="position:relative; z-index:10000; width: 400px; padding: 24px; text-align: left;">
+          <h3 style="margin-top:0;">Restablecer contraseña</h3>
+          <p style="margin-bottom:10px;">¿Restablecer el acceso para <strong>${escapeHtml(b.dataset.name)}</strong> (${escapeHtml(b.dataset.email)})?</p>
+          <p style="margin-bottom:20px; font-size:0.9em; color:#666;">La contraseña anterior dejará de funcionar inmediatamente.</p>
+          <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button class="btn btn-ghost" style="width:auto;" id="cancel-reset">Cancelar</button>
+            <button class="btn btn-primary" style="width:auto;" id="confirm-reset">Restablecer contraseña</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      qs('#cancel-reset', modal).addEventListener('click', () => modal.remove());
+      qs('#confirm-reset', modal).addEventListener('click', async () => {
+        const confirmBtn = qs('#confirm-reset', modal);
+        if (confirmBtn.disabled) return;
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Procesando...';
+        b.disabled = true;
+
+        try {
+          const data = await api('/users/' + b.dataset.reset + '/reset-password', { method: 'POST' });
+          modal.remove();
+          
+          const successModal = document.createElement('div');
+          successModal.className = 'sidebar-backdrop visible';
+          successModal.style.zIndex = '9999';
+          successModal.style.display = 'flex';
+          successModal.style.alignItems = 'center';
+          successModal.style.justifyContent = 'center';
+          successModal.innerHTML = `
+            <div class="card" style="position:relative; z-index:10000; width: 420px; padding: 24px; text-align: left;">
+              <h3 style="margin-top:0; color:#1c7c72;">Acceso restablecido</h3>
+              <p style="margin-bottom:15px;">Se ha generado una nueva contraseña temporal. En el entorno de producción, esta será enviada por correo electrónico.</p>
+              <div style="background:#f5f7f9; padding:12px; border-radius:4px; font-family:monospace; font-size:1.1em; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <span id="temp-pw-display">${escapeHtml(data.devTempPassword)}</span>
+                <button class="btn btn-ghost btn-small" id="copy-pw" style="width:auto; padding:4px 8px;">Copiar</button>
+              </div>
+              <p style="font-size:0.85em; color:#af112b; margin-bottom:20px;"><strong>Advertencia:</strong> Esta contraseña solo se muestra una vez. Asegúrate de copiarla ahora.</p>
+              <p style="font-size:0.85em; color:#666; margin-bottom:20px;">Estado del correo: <em>${escapeHtml(data.emailStatus || 'simulado')}</em></p>
+              <button class="btn btn-primary btn-block" id="close-success">Cerrar</button>
+            </div>
+          `;
+          document.body.appendChild(successModal);
+
+          qs('#copy-pw', successModal).addEventListener('click', () => {
+            navigator.clipboard.writeText(data.devTempPassword);
+            qs('#copy-pw', successModal).textContent = '¡Copiada!';
+            setTimeout(() => {
+              if (qs('#copy-pw', successModal)) qs('#copy-pw', successModal).textContent = 'Copiar';
+            }, 2000);
+          });
+          
+          qs('#close-success', successModal).addEventListener('click', () => {
+            successModal.remove();
+            renderUsuarios(query);
+          });
+          
+        } catch(e) {
+          modal.remove();
+          b.disabled = false;
+          toast(e.message, 'err');
+        }
+      });
     }));
   }
 
@@ -1264,8 +1382,10 @@
   async function renderUsuarioForm(id) {
     const { institutions } = await api('/institutions');
     let editing = null;
+    let allUsers = [];
     if (id) {
       const { users } = await api('/users');
+      allUsers = users;
       editing = users.find((u) => u.id === id);
     }
     // F2.1: roles disponibles según quién crea
@@ -1315,11 +1435,55 @@
       qs('#err').innerHTML = '';
       try {
         if (editing) {
+          if (editing.role === 'Administrador' && body.role && body.role !== 'Administrador' && editing.estado === 'Activo') {
+            if (editing.id === state.user.id) {
+              return qs('#err').innerHTML = fieldErrorsBlock(['No puedes cambiar tu propio rol de Administrador.']);
+            }
+            const activeAdmins = allUsers.filter(u => u.role === 'Administrador' && u.estado === 'Activo');
+            if (activeAdmins.length <= 1) {
+              return qs('#err').innerHTML = fieldErrorsBlock(['No puedes cambiar el rol del último Administrador activo del sistema.']);
+            }
+          }
           await api('/users/' + editing.id, { method: 'PUT', body });
           toast('Usuario actualizado.', 'ok');
         } else {
           const data = await api('/users', { method: 'POST', body });
-          alert('Usuario creado. Contraseña temporal (modo de prueba, sin envío real de correo):\n\n' + data.devTempPassword);
+          const successModal = document.createElement('div');
+          successModal.className = 'sidebar-backdrop visible';
+          successModal.style.zIndex = '9999';
+          successModal.style.display = 'flex';
+          successModal.style.alignItems = 'center';
+          successModal.style.justifyContent = 'center';
+          successModal.innerHTML = `
+            <div class="card" style="position:relative; z-index:10000; width: 420px; padding: 24px; text-align: left;">
+              <h3 style="margin-top:0; color:#1c7c72;">Usuario creado exitosamente</h3>
+              <p style="margin-bottom:15px;">Se ha generado una contraseña temporal inicial. En producción, será enviada al correo del usuario.</p>
+              <div style="background:#f5f7f9; padding:12px; border-radius:4px; font-family:monospace; font-size:1.1em; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <span id="temp-pw-display">${escapeHtml(data.devTempPassword)}</span>
+                <button type="button" class="btn btn-ghost btn-small" id="copy-pw" style="width:auto; padding:4px 8px;">Copiar</button>
+              </div>
+              <p style="font-size:0.85em; color:#af112b; margin-bottom:20px;"><strong>Advertencia:</strong> Esta contraseña solo se muestra una vez. Asegúrate de copiarla ahora.</p>
+              <p style="font-size:0.85em; color:#666; margin-bottom:20px;">Estado del correo: <em>${escapeHtml(data.emailStatus || 'simulado')}</em></p>
+              <button type="button" class="btn btn-primary btn-block" id="close-success">Continuar</button>
+            </div>
+          `;
+          document.body.appendChild(successModal);
+
+          qs('#copy-pw', successModal).addEventListener('click', (ev) => {
+            ev.preventDefault();
+            navigator.clipboard.writeText(data.devTempPassword);
+            qs('#copy-pw', successModal).textContent = '¡Copiada!';
+            setTimeout(() => {
+              if (qs('#copy-pw', successModal)) qs('#copy-pw', successModal).textContent = 'Copiar';
+            }, 2000);
+          });
+          
+          qs('#close-success', successModal).addEventListener('click', (ev) => {
+            ev.preventDefault();
+            successModal.remove();
+            navigate('#/app/usuarios');
+          });
+          return;
         }
         navigate('#/app/usuarios');
       } catch (err) {

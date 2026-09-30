@@ -40,8 +40,8 @@ function publicUser(u, db) {
 
 function genTempPassword() {
   const words = ['Insc', 'Esco', 'Aula', 'Beca'];
-  const w = words[Math.floor(Math.random() * words.length)];
-  const digits = String(Math.floor(1000 + Math.random() * 9000));
+  const w = words[crypto.randomInt(0, words.length)];
+  const digits = String(crypto.randomInt(1000, 10000));
   return `${w}-2026-${digits}`;
 }
 
@@ -253,7 +253,7 @@ router.post('/', requireAdminOrSupport, (req, res) => {
   db.users.push(user);
   logEvent(db, { actor: req.currentUser, accion: 'Usuario creado', entidad: 'Usuario', entidadId: user.id, detalle: `${user.nombre} (${user.role})` });
   save(db);
-  res.json({ user: publicUser(user, db), devTempPassword: tempPassword });
+  res.json({ user: publicUser(user, db), emailStatus: 'pendiente de envío (simulado en demo)', devTempPassword: tempPassword });
 });
 
 // HU015: Admin edita cualquier usuario; Soporte solo edita Personal o Tutor.
@@ -283,6 +283,16 @@ router.put('/:id', requireAdminOrSupport, (req, res) => {
   const roleChanged = role && role !== user.role;
   const prevRole = user.role;
 
+  if (roleChanged && wasAdmin && user.estado === 'Activo') {
+    if (user.id === req.currentUser.id) {
+      return res.status(403).json({ error: 'No puedes cambiar tu propio rol de Administrador.' });
+    }
+    const activeAdmins = db.users.filter(u => u.role === 'Administrador' && u.estado === 'Activo' && u.id !== user.id);
+    if (activeAdmins.length === 0) {
+      return res.status(403).json({ error: 'No puedes cambiar el rol del último Administrador activo del sistema.' });
+    }
+  }
+
   if (nombre) user.nombre = nombre.trim();
   if (email) user.email = email.trim().toLowerCase();
   if (role) user.role = role;
@@ -303,6 +313,19 @@ router.post('/:id/toggle-estado', requireAdminOnly, (req, res) => {
   const db = req.db;
   const user = db.users.find((u) => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+  
+  if (user.estado === 'Activo') {
+    if (user.id === req.currentUser.id) {
+      return res.status(403).json({ error: 'No puedes desactivar tu propia cuenta.' });
+    }
+    if (user.role === 'Administrador') {
+      const activeAdmins = db.users.filter(u => u.role === 'Administrador' && u.estado === 'Activo' && u.id !== user.id);
+      if (activeAdmins.length === 0) {
+        return res.status(403).json({ error: 'No puedes desactivar al último Administrador activo del sistema.' });
+      }
+    }
+  }
+
   const prev = user.estado;
   user.estado = prev === 'Activo' ? 'Inactivo' : 'Activo';
   logEvent(db, { actor: req.currentUser, accion: user.estado === 'Activo' ? 'Usuario activado' : 'Usuario desactivado', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
@@ -333,7 +356,7 @@ router.post('/:id/reset-password', requireAdminOrSupport, (req, res) => {
     notifyAdmins(db, { affectedUser: user, campo: 'Contraseña restablecida', actor: req.currentUser });
     save(db);
   }
-  res.json({ status: 'ok', devTempPassword: tempPassword });
+  res.json({ status: 'ok', emailStatus: 'pendiente de envío (simulado en demo)', devTempPassword: tempPassword });
 });
 
 module.exports = router;
