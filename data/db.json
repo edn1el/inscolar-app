@@ -314,14 +314,26 @@
       "nombre": "Colegio Cristo Rey",
       "provincia": "Distrito Nacional",
       "distrito": "15-04",
-      "municipio": "Distrito Nacional",
+      "municipio": "Santo Domingo de Guzmán",
       "tipo": "Privado",
       "direccion": "Av. Cristo Rey #150",
       "telefono": "(809) 555-2122",
       "estado": "Activo",
       "createdAt": "2025-08-01T09:00:00.000Z",
       "lat": 18.485157952787628,
-      "lng": -69.94917533162558
+      "lng": -69.94917533162558,
+      "rnc": "993491294",
+      "correo": "cristorey@edu.do",
+      "logo": {
+        "storageFile": "1790802402195-353442892.jpg",
+        "mimeType": "image/jpeg",
+        "uploadedAt": "2026-09-30T21:06:42.204Z"
+      },
+      "fondo": {
+        "storageFile": "1790802402196-778010964.png",
+        "mimeType": "image/png",
+        "uploadedAt": "2026-09-30T21:06:42.204Z"
+      }
     },
     {
       "id": "i023",
@@ -370,7 +382,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-11-05T13:58:00.000Z",
-      "lastAccess": "2026-09-30T17:20:40.765Z",
+      "lastAccess": "2026-09-30T21:22:10.955Z",
       "notifyByEmail": true
     },
     {
@@ -390,7 +402,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-09-30T17:20:40.972Z",
+      "lastAccess": "2026-09-30T21:22:11.157Z",
       "notifyByEmail": true
     },
     {
@@ -628,11 +640,11 @@
       "institucionId": "i009",
       "gradoSolicitado": "Pre-Primario",
       "cicloEscolar": "2026-2027",
-      "estado": "Pendiente",
+      "estado": "Aprobada",
       "motivoRechazo": "",
       "createdAt": "2026-09-18T09:00:00.000Z",
-      "decidedAt": null,
-      "decidedBy": null
+      "decidedAt": "2026-09-30T21:14:20.710Z",
+      "decidedBy": "u001"
     }
   ],
   "appointments": [
@@ -1627,9 +1639,336 @@
       "entidad": "Inscripción",
       "entidadId": "e001",
       "detalle": "Ciclo 2026-2027 · 30 días sin respuesta"
+    },
+    {
+      "id": "log050",
+      "fecha": "2026-09-30T20:59:17.554Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log051",
+      "fecha": "2026-09-30T20:59:54.643Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción creada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Colegio Cristo Rey · Pre-Primario"
+    },
+    {
+      "id": "log052",
+      "fecha": "2026-09-30T21:00:13.189Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción cancelada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Ciclo 2026-2027"
+    },
+    {
+      "id": "log053",
+      "fecha": "2026-09-30T21:00:31.151Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log054",
+      "fecha": "2026-09-30T21:00:34.026Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log055",
+      "fecha": "2026-09-30T21:06:42.204Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución modificada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log056",
+      "fecha": "2026-09-30T21:10:08.838Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución desactivada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log057",
+      "fecha": "2026-09-30T21:10:09.986Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución activada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log058",
+      "fecha": "2026-09-30T21:10:10.605Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución desactivada",
+      "entidad": "Institución",
+      "entidadId": "i004",
+      "detalle": "Colegio Loyola"
+    },
+    {
+      "id": "log059",
+      "fecha": "2026-09-30T21:10:11.359Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución activada",
+      "entidad": "Institución",
+      "entidadId": "i004",
+      "detalle": "Colegio Loyola"
+    },
+    {
+      "id": "log060",
+      "fecha": "2026-09-30T21:10:57.404Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log061",
+      "fecha": "2026-09-30T21:11:04.234Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log062",
+      "fecha": "2026-09-30T21:11:14.908Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción creada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Colegio Cristo Rey · Pre-Primario"
+    },
+    {
+      "id": "log063",
+      "fecha": "2026-09-30T21:11:17.575Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción cancelada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Ciclo 2026-2027"
+    },
+    {
+      "id": "log064",
+      "fecha": "2026-09-30T21:14:05.726Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log065",
+      "fecha": "2026-09-30T21:14:10.273Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log066",
+      "fecha": "2026-09-30T21:14:20.710Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inscripción aprobada",
+      "entidad": "Inscripción",
+      "entidadId": "e005",
+      "detalle": ""
+    },
+    {
+      "id": "log067",
+      "fecha": "2026-09-30T21:18:18.934Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log068",
+      "fecha": "2026-09-30T21:18:21.376Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log069",
+      "fecha": "2026-09-30T21:18:40.272Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución desactivada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log070",
+      "fecha": "2026-09-30T21:18:41.358Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución activada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log071",
+      "fecha": "2026-09-30T21:21:35.021Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log072",
+      "fecha": "2026-09-30T21:21:35.100Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": "Intento con: maria.rosario@inscolar.do"
+    },
+    {
+      "id": "log073",
+      "fecha": "2026-09-30T21:21:35.186Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Cuenta desactivada"
+    },
+    {
+      "id": "log074",
+      "fecha": "2026-09-30T21:21:35.256Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log075",
+      "fecha": "2026-09-30T21:22:10.955Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log076",
+      "fecha": "2026-09-30T21:22:11.025Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": "Intento con: maria.rosario@inscolar.do"
+    },
+    {
+      "id": "log077",
+      "fecha": "2026-09-30T21:22:11.090Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Cuenta desactivada"
+    },
+    {
+      "id": "log078",
+      "fecha": "2026-09-30T21:22:11.157Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
     }
   ],
   "emailLog": [
+    {
+      "id": "em026",
+      "to": "miguel.pena@correo.do",
+      "subject": "Inscolar: actualización — Estado de inscripción",
+      "text": "Se registró un cambio en \"Estado de inscripción\". De \"Pendiente\" a \"Aprobada\".",
+      "sentAt": "2026-09-30T21:14:20.710Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
     {
       "id": "em025",
       "to": "ana.beltre@correo.do",
@@ -1834,6 +2173,19 @@
   "mfaCodes": [],
   "resetTokens": [],
   "notifications": [
+    {
+      "id": "n007",
+      "recipientId": "u009",
+      "userId": "u009",
+      "userNombre": "Valentina Peña Cruz",
+      "campo": "Estado de inscripción",
+      "anterior": "Pendiente",
+      "nuevo": "Aprobada",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "createdAt": "2026-09-30T21:14:20.710Z",
+      "read": false
+    },
     {
       "id": "n006",
       "recipientId": "u002",
