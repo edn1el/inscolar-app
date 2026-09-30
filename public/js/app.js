@@ -2044,6 +2044,7 @@
           <p style="font-size:1.3rem; margin-bottom:6px;">${calificacionLabel(institution.calificacionPromedio, institution.totalCalificaciones)}</p>
           <p class="help" style="margin-bottom:18px;">Basado en ${institution.totalCalificaciones} calificación${institution.totalCalificaciones === 1 ? '' : 'es'}.</p>
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
+            ${state.user && state.user.role === 'Tutor' ? `<button class="btn btn-primary" style="width:auto; padding:9px 16px;" data-nav="#/app/calificar/${institution.id}">Calificar institución</button>` : ''}
             <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/calificaciones">Ver calificaciones</button>
             <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/reportes">Ver reportes</button>
             <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/calendario">Ver calendario</button>
@@ -2138,7 +2139,10 @@
     ]);
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
-      <div class="page-head"><div><h2>Calificaciones — ${escapeHtml(nombre)}</h2><div class="sub">${total ? `Promedio: ★ ${promedio.toFixed(1)} de ${total} calificación${total === 1 ? '' : 'es'}.` : 'Todavía no tiene calificaciones.'}</div></div></div>
+      <div class="page-head">
+        <div><h2>Calificaciones — ${escapeHtml(nombre)}</h2><div class="sub">${total ? `Promedio: ★ ${promedio.toFixed(1)} de ${total} calificación${total === 1 ? '' : 'es'}.` : 'Todavía no tiene calificaciones.'}</div></div>
+        ${state.user && state.user.role === 'Tutor' ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/calificar/${institucionId}">Calificar institución</button>` : ''}
+      </div>
       <div class="notif-list">
         ${ratings.length ? ratings.map((r) => `
           <div class="notif-item">
@@ -2189,29 +2193,53 @@
       <div class="chart-card" style="max-width:520px;">
         <div id="err"></div>
         <form id="rating-form">
-          <div class="field"><label>Calificación</label>
-            <select name="estrellas">
-              ${[5, 4, 3, 2, 1].map((n) => `<option value="${n}" ${mine && mine.estrellas === n ? 'selected' : ''}>${n} estrella${n === 1 ? '' : 's'}</option>`).join('')}
-            </select>
+          <div class="field">
+            <label>Calificación</label>
+            <div class="star-rating" role="radiogroup" aria-label="Calificación de 1 a 5 estrellas">
+              ${[5, 4, 3, 2, 1].map((n) => `
+                <input type="radio" id="star${n}" name="estrellas" value="${n}" ${mine && mine.estrellas === n ? 'checked' : ''} required>
+                <label for="star${n}" title="${n} estrella${n === 1 ? '' : 's'}" aria-label="${n} estrella${n === 1 ? '' : 's'}">★</label>
+              `).join('')}
+            </div>
+            <div id="rating-text" class="rating-text">Selecciona una calificación</div>
           </div>
-          <div class="field"><label>Comentario (opcional)</label><textarea name="comentario" rows="4" maxlength="500">${escapeHtml(mine ? mine.comentario || '' : '')}</textarea></div>
+          <div class="field"><label>Comentario (opcional)</label><textarea name="comentario" rows="4" maxlength="500" placeholder="Cuéntanos tu experiencia con esta institución...">${escapeHtml(mine ? mine.comentario || '' : '')}</textarea></div>
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">${mine ? 'Actualizar calificación' : 'Enviar calificación'}</button>
+            <button id="btn-submit-rating" class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">${mine ? 'Actualizar calificación' : 'Enviar calificación'}</button>
             <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
           </div>
         </form>
       </div>
     `;
     bindShellEvents();
+
+    const texts = { 1: '1 - Pésimo', 2: '2 - Malo', 3: '3 - Regular', 4: '4 - Bueno', 5: '5 - Excelente' };
+    const ratingInputs = Array.from(document.querySelectorAll('.star-rating input'));
+    const ratingText = document.getElementById('rating-text');
+    
+    function updateRatingText() {
+      const checked = ratingInputs.find(i => i.checked);
+      if (checked) ratingText.textContent = texts[checked.value] || checked.value + ' estrellas';
+    }
+    ratingInputs.forEach(i => i.addEventListener('change', updateRatingText));
+    if (mine) updateRatingText();
+
     qs('#rating-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
       qs('#err').innerHTML = '';
+      const submitBtn = qs('#btn-submit-rating');
+      const originalText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Guardando...';
+      
       try {
         await api('/institutions/' + institucionId + '/ratings', { method: 'POST', body: Object.fromEntries(fd.entries()) });
         toast('Gracias por tu calificación.', 'ok');
         navigate('#/app/inscripciones');
       } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
       }
     });

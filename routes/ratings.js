@@ -62,6 +62,8 @@ router.post('/institutions/:id/ratings', (req, res) => {
     rating.estrellas = n;
     rating.comentario = (comentario || '').trim();
     rating.updatedAt = new Date().toISOString();
+    // PENDIENTE (Auditoría): Registrar evento 'EdicionCalificacionInstitucion' (Audit.NET no integrado)
+    // Datos sugeridos: { usuarioId: u.id, institucionId: institucion.id, calificacionPrevia: oldEstrellas, nuevaCalificacion: n }
   } else {
     rating = {
       id: nextId(db.ratings, 'r'),
@@ -74,6 +76,8 @@ router.post('/institutions/:id/ratings', (req, res) => {
       updatedAt: null,
     };
     db.ratings.push(rating);
+    // PENDIENTE (Auditoría): Registrar evento 'CreacionCalificacionInstitucion' (Audit.NET no integrado)
+    // Datos sugeridos: { usuarioId: u.id, institucionId: institucion.id, calificacion: n }
   }
   save(db);
   res.json({ rating: publicRating(rating) });

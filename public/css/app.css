@@ -1011,3 +1011,15 @@ tbody tr:last-child td { border-bottom: none; }
     flex: none;
   }
 }
+
+/* ---- Star Rating ---- */
+.star-rating { display: flex; flex-direction: row-reverse; justify-content: flex-end; gap: 8px; margin-bottom: 8px; }
+.star-rating input { position: absolute; opacity: 0; width: 0; height: 0; }
+.star-rating label { font-size: 2.4rem; color: var(--c-surface-3); cursor: pointer; transition: color 0.2s, transform 0.2s; line-height: 1; }
+.star-rating input:checked ~ label,
+.star-rating label:hover,
+.star-rating label:hover ~ label { color: #fbc02d; }
+.star-rating input:focus-visible + label { outline: 3px solid var(--c-garnet); outline-offset: 4px; border-radius: 4px; }
+.star-rating label:active { transform: scale(0.9); }
+.rating-text { font-size: 0.95rem; font-weight: 600; color: var(--c-ink-soft); min-height: 24px; }
+
