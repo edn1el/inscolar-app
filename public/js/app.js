@@ -2223,7 +2223,7 @@
         const file = inputEl.files[0];
         if (file) {
           if (file.size > maxMB * 1024 * 1024) {
-            alert(\`El archivo supera los \${maxMB}MB.\`);
+            alert('El archivo supera los ' + maxMB + 'MB.');
             inputEl.value = '';
             return;
           }
