@@ -66,6 +66,41 @@
     return `<div class="field-errors"><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
   }
 
+  function showConfirmModal({ title, bodyHtml, confirmText, danger, onConfirm }) {
+    const modal = document.createElement('div');
+    modal.className = 'sidebar-backdrop visible';
+    modal.style.zIndex = '9999';
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    const btnStyle = danger ? 'background:#af112b; border-color:#af112b;' : '';
+    modal.innerHTML = `
+      <div class="card" style="position:relative; z-index:10000; width: 400px; padding: 24px; text-align: left;">
+        <h3 style="margin-top:0;">${escapeHtml(title)}</h3>
+        <div style="margin-bottom:20px;">${bodyHtml}</div>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+          <button class="btn btn-ghost" style="width:auto;" id="mod-cancel">Cancelar</button>
+          <button class="btn btn-primary" style="width:auto; ${btnStyle}" id="mod-confirm">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    qs('#mod-cancel', modal).addEventListener('click', () => modal.remove());
+    qs('#mod-confirm', modal).addEventListener('click', async () => {
+      const btn = qs('#mod-confirm', modal);
+      btn.disabled = true;
+      btn.textContent = 'Procesando...';
+      try {
+        const keepOpen = await onConfirm(modal);
+        if (!keepOpen) modal.remove();
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = confirmText;
+        toast(err.message || 'Error', 'err');
+      }
+    });
+  }
+
   const ROLE_STYLE = {
     'Tutor': { bg: '#eef1f4', fg: '#46505c' },
     'Personal de institución': { bg: '#e1f2f0', fg: '#1c7c72' },
@@ -1770,18 +1805,22 @@
 
   async function renderInstituciones(query) {
     const params = new URLSearchParams();
+    const page = parseInt(query.page) || 1;
+    const limit = parseInt(query.limit) || 10;
     if (query.q) params.set('q', query.q);
     if (query.provincia) params.set('provincia', query.provincia);
     if (query.estado) params.set('estado', query.estado);
     if (query.calificacionMin) params.set('calificacionMin', query.calificacionMin);
     if (query.municipio) params.set('municipio', query.municipio);
+    params.set('page', page);
+    params.set('limit', limit);
     const geoActiva = !!(query.lat && query.lng);
     if (geoActiva) {
       params.set('lat', query.lat);
       params.set('lng', query.lng);
       if (query.radioKm) params.set('radioKm', query.radioKm);
     }
-    const { total, institutions, municipios } = await api('/institutions?' + params.toString());
+    const { total, totalFiltradas, institutions, municipios } = await api('/institutions?' + params.toString());
     const provinciasFiltro = ['Todas', ...PROVINCIAS];
     const estados = ['Todos', 'Activo', 'Inactivo'];
     const calificaciones = ['Cualquiera', '4', '3'];
@@ -1805,7 +1844,7 @@
       ${geoActiva ? '<p class="help" style="margin:-6px 0 16px;">Ordenado por cercanía a tu ubicación actual (HU021).</p>' : ''}
       <div class="table-card">
         <table>
-          <thead><tr><th>Institución</th><th>Provincia</th><th>Distrito</th><th>Tipo</th><th>Calificación</th>${geoActiva ? '<th>Distancia</th>' : ''}<th>Estado</th><th>Acciones</th></tr></thead>
+          <thead><tr><th>Institución</th><th>Provincia</th><th>Distrito</th><th>Tipo</th><th>Calificación</th>${geoActiva ? '<th>Distancia</th>' : ''}<th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead>
           <tbody>
             ${institutions.map((inst) => {
               const ts = INST_TIPO_STYLE[inst.tipo] || { bg: '#eee', fg: '#333' };
@@ -1817,10 +1856,11 @@
                 <td><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
                 <td>${calificacionLabel(inst.calificacionPromedio, inst.totalCalificaciones)}</td>
                 ${geoActiva ? `<td>${inst.distanciaKm !== null && inst.distanciaKm !== undefined ? inst.distanciaKm + ' km' : '—'}</td>` : ''}
+                <td>${fmtDate(inst.createdAt)}</td>
                 <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${inst.estado || 'Activo'}</span></td>
                 <td><span class="actions-cell">
-                  <button class="neutral" data-edit="${inst.id}">Modificar</button>
-                  <button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>
+                  ${isAdmin() || (state.user && state.user.role === 'Personal de institución' && state.user.institucionId === inst.id) ? `<button class="neutral" data-edit="${inst.id}">Modificar</button>` : ''}
+                  ${isAdmin() ? `<button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>` : ''}
                   <button class="neutral" data-ver-detalle="${inst.id}">Detalle</button>
                   <button class="neutral" data-ver-calificaciones="${inst.id}">Calificaciones</button>
                   <button class="neutral" data-ver-reportes="${inst.id}">Reportes</button>
@@ -1831,7 +1871,14 @@
             }).join('')}
           </tbody>
         </table>
-        <div class="table-footer"><span>Mostrando ${institutions.length} de ${total} instituciones${geoActiva ? ' (dentro del filtro de ubicación)' : ''}</span></div>
+        <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Mostrando ${institutions.length} de ${totalFiltradas || total} instituciones${geoActiva ? ' (dentro del filtro de ubicación)' : ''}</span>
+          <div class="pagination">
+            <button class="btn btn-ghost" id="p-prev" ${page <= 1 ? 'disabled' : ''}>Anterior</button>
+            <span style="margin: 0 10px;">Página ${page} de ${Math.ceil((totalFiltradas || total) / limit) || 1}</span>
+            <button class="btn btn-ghost" id="p-next" ${page >= Math.ceil((totalFiltradas || total) / limit) ? 'disabled' : ''}>Siguiente</button>
+          </div>
+        </div>
       </div>
     `;
     bindShellEvents();
@@ -1851,8 +1898,13 @@
         if (radioVal) p.set('radioKm', radioVal);
       }
       if (extra && extra.lat !== undefined) { p.set('lat', extra.lat); p.set('lng', extra.lng); }
+      if (extra && extra.page) p.set('page', extra.page);
       navigate('#/app/instituciones?' + p.toString());
     }
+    const prevBtn = qs('#p-prev');
+    const nextBtn = qs('#p-next');
+    if (prevBtn) prevBtn.addEventListener('click', () => applyFilters({ page: page - 1 }));
+    if (nextBtn) nextBtn.addEventListener('click', () => applyFilters({ page: page + 1 }));
     qs('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
     qs('#f-provincia').addEventListener('change', () => applyFilters());
     qs('#f-municipio').addEventListener('change', () => applyFilters());
@@ -1865,9 +1917,34 @@
     qsa('[data-ver-detalle]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.verDetalle + '/detalle')));
 
     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.edit + '/editar')));
-    qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
-      await api('/institutions/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
-      renderInstituciones(query);
+    qsa('[data-toggle]').forEach((b) => b.addEventListener('click', () => {
+      const inst = institutions.find(i => i.id === b.dataset.toggle);
+      const active = (inst.estado || 'Activo') === 'Activo';
+      if (active) {
+        showConfirmModal({
+          title: 'Desactivar institución',
+          bodyHtml: `<p>¿Estás seguro de que deseas desactivar <strong>${escapeHtml(inst.nombre)}</strong>? Dejará de aparecer en la búsqueda pública, pero sus datos se conservarán.</p>`,
+          confirmText: 'Desactivar institución',
+          danger: true,
+          onConfirm: async () => {
+            await api('/institutions/' + inst.id + '/toggle-estado', { method: 'POST' });
+            toast('Institución desactivada.', 'ok');
+            renderInstituciones(query);
+          }
+        });
+      } else {
+        showConfirmModal({
+          title: 'Activar institución',
+          bodyHtml: `<p>¿Deseas volver a activar <strong>${escapeHtml(inst.nombre)}</strong>? Volverá a ser visible en las búsquedas públicas.</p>`,
+          confirmText: 'Activar institución',
+          danger: false,
+          onConfirm: async () => {
+            await api('/institutions/' + inst.id + '/toggle-estado', { method: 'POST' });
+            toast('Institución reactivada.', 'ok');
+            renderInstituciones(query);
+          }
+        });
+      }
     }));
 
     // HU021: usar la ubicación actual del dispositivo para filtrar/ordenar por cercanía.
@@ -2392,13 +2469,19 @@
     if (admin && qs('#f-institucion')) qs('#f-institucion').addEventListener('change', applyFilters);
 
     qsa('[data-comprobante]').forEach((b) => b.addEventListener('click', () => navigate('#/app/inscripciones/comprobante/' + b.dataset.comprobante)));
-    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('¿Cancelar esta solicitud de inscripción?')) return;
-      try {
-        await api('/enrollments/' + b.dataset.cancel + '/cancelar', { method: 'POST' });
-        toast('Solicitud cancelada.', 'ok');
-        renderInscripciones(query);
-      } catch (err) { toast(err.message, 'err'); }
+    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
+      showConfirmModal({
+        title: 'Cancelar solicitud de inscripción',
+        bodyHtml: '<p>Esta acción eliminará permanentemente tu solicitud de inscripción y no podrá ser recuperada. ¿Estás seguro?</p>',
+        confirmText: 'Cancelar solicitud',
+        danger: true,
+        onConfirm: async () => {
+          await api('/enrollments/' + b.dataset.cancel + '/cancelar', { method: 'POST' });
+          toast('Solicitud cancelada.', 'ok');
+          renderInscripciones(query);
+          return false;
+        }
+      });
     }));
     qsa('[data-approve]').forEach((b) => b.addEventListener('click', async () => {
       try {
@@ -2407,14 +2490,21 @@
         renderInscripciones(query);
       } catch (err) { toast(err.message, 'err'); }
     }));
-    qsa('[data-reject]').forEach((b) => b.addEventListener('click', async () => {
-      const motivo = prompt('Motivo del rechazo:');
-      if (!motivo || !motivo.trim()) return;
-      try {
-        await api('/enrollments/' + b.dataset.reject + '/decidir', { method: 'POST', body: { estado: 'Rechazada', motivo } });
-        toast('Inscripción rechazada.', 'ok');
-        renderInscripciones(query);
-      } catch (err) { toast(err.message, 'err'); }
+    qsa('[data-reject]').forEach((b) => b.addEventListener('click', () => {
+      showConfirmModal({
+        title: 'Rechazar solicitud',
+        bodyHtml: '<p>Indica el motivo del rechazo:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo del rechazo..." />',
+        confirmText: 'Rechazar',
+        danger: true,
+        onConfirm: async (modal) => {
+          const motivo = qs('#mod-motivo', modal).value;
+          if (!motivo || !motivo.trim()) throw new Error('Debes indicar un motivo.');
+          await api('/enrollments/' + b.dataset.reject + '/decidir', { method: 'POST', body: { estado: 'Rechazada', motivo } });
+          toast('Inscripción rechazada.', 'ok');
+          renderInscripciones(query);
+          return false;
+        }
+      });
     }));
   }
 
@@ -2843,28 +2933,52 @@
         renderCitas(query);
       } catch (err) { toast(err.message, 'err'); }
     }));
-    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
-      let motivo = '';
+    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
       if (!tutor) {
-        motivo = prompt('Motivo de la cancelación:');
-        if (!motivo || !motivo.trim()) return;
-      } else if (!confirm('¿Cancelar esta cita?')) {
-        return;
+        showConfirmModal({
+          title: 'Cancelar cita',
+          bodyHtml: '<p>Indica el motivo de la cancelación:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo..." />',
+          confirmText: 'Cancelar cita',
+          danger: true,
+          onConfirm: async (modal) => {
+            const motivo = qs('#mod-motivo', modal).value;
+            if (!motivo || !motivo.trim()) throw new Error('Debes indicar un motivo.');
+            await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo } });
+            toast('Cita cancelada.', 'ok');
+            renderCitas(query);
+            return false;
+          }
+        });
+      } else {
+        showConfirmModal({
+          title: 'Cancelar cita',
+          bodyHtml: '<p>¿Estás seguro de que deseas cancelar esta cita?</p>',
+          confirmText: 'Cancelar cita',
+          danger: true,
+          onConfirm: async () => {
+            await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo: '' } });
+            toast('Cita cancelada.', 'ok');
+            renderCitas(query);
+            return false;
+          }
+        });
       }
-      try {
-        await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo } });
-        toast('Cita cancelada.', 'ok');
-        renderCitas(query);
-      } catch (err) { toast(err.message, 'err'); }
     }));
-    qsa('[data-reject]').forEach((b) => b.addEventListener('click', async () => {
-      const motivo = prompt('Motivo del rechazo:');
-      if (!motivo || !motivo.trim()) return;
-      try {
-        await api('/appointments/' + b.dataset.reject + '/rechazar', { method: 'POST', body: { motivo } });
-        toast('Cita rechazada.', 'ok');
-        renderCitas(query);
-      } catch (err) { toast(err.message, 'err'); }
+    qsa('[data-reject]').forEach((b) => b.addEventListener('click', () => {
+      showConfirmModal({
+        title: 'Rechazar cita',
+        bodyHtml: '<p>Indica el motivo del rechazo:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo del rechazo..." />',
+        confirmText: 'Rechazar cita',
+        danger: true,
+        onConfirm: async (modal) => {
+          const motivo = qs('#mod-motivo', modal).value;
+          if (!motivo || !motivo.trim()) throw new Error('Debes indicar un motivo.');
+          await api('/appointments/' + b.dataset.reject + '/rechazar', { method: 'POST', body: { motivo } });
+          toast('Cita rechazada.', 'ok');
+          renderCitas(query);
+          return false;
+        }
+      });
     }));
   }
 

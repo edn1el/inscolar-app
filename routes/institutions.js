@@ -99,7 +99,22 @@ router.get('/', (req, res) => {
     });
   }
 
-  res.json({ total: db.institutions.length, institutions: withRatings, municipios });
+  const page = parseInt(req.query.page);
+  const limit = parseInt(req.query.limit);
+  let paginatedInstitutions = withRatings;
+  if (!isNaN(page) && !isNaN(limit)) {
+    const start = (page - 1) * limit;
+    paginatedInstitutions = withRatings.slice(start, start + limit);
+  }
+
+  res.json({
+    total: db.institutions.length,
+    totalFiltradas: withRatings.length,
+    page: isNaN(page) ? null : page,
+    limit: isNaN(limit) ? null : limit,
+    institutions: paginatedInstitutions,
+    municipios
+  });
 });
 
 // HU026: vista de detalle de una institución (público).

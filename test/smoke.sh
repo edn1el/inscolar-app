@@ -66,7 +66,7 @@ TUTOR_LOGIN=$(post "/api/auth/login" '{"email":"ana.beltre@correo.do","password"
 if echo "$TUTOR_LOGIN" | grep -q '"role":"Tutor"'; then ok "Login tutor correcto";
 else fail "Login tutor falló"; fi
 
-NO_COOKIE=$(curl -s "$BASE/api/institutions" 2>/dev/null || echo '{"error":"No"}')
+NO_COOKIE=$(curl -s "$BASE/api/users" 2>/dev/null || echo '{"error":"No"}')
 if echo "$NO_COOKIE" | grep -q '"error"'; then ok "Sin sesión → 401 en ruta protegida";
 else fail "Sin sesión no devuelve error en ruta protegida"; fi
 
