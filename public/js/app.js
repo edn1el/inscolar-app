@@ -78,6 +78,34 @@
     qs('#confirm-ok', backdrop).addEventListener('click', () => { close(); onConfirm(); });
   }
 
+  function promptAction(title, label, inputPlaceholder, confirmBtnText, onConfirm) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal">
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(label)}</p>
+        <textarea class="input" style="width:100%; min-height:80px; margin-bottom:15px; resize:vertical; font-family:inherit;" placeholder="${escapeHtml(inputPlaceholder)}"></textarea>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="prompt-cancel">Cancelar</button>
+          <button type="button" class="btn btn-primary danger" id="prompt-ok">${escapeHtml(confirmBtnText)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+    const close = () => { backdrop.remove(); };
+    qs('#prompt-cancel', backdrop).addEventListener('click', close);
+    qs('#prompt-ok', backdrop).addEventListener('click', () => {
+      const val = qs('textarea', backdrop).value.trim();
+      if (!val) {
+        toast('Debes indicar un motivo.', 'err');
+        return;
+      }
+      close();
+      onConfirm(val);
+    });
+  }
+
   function fieldErrorsBlock(errors) {
     if (!errors || !errors.length) return '';
     return `<div class="field-errors"><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
@@ -1891,14 +1919,14 @@
         renderInscripciones(query);
       } catch (err) { toast(err.message, 'err'); }
     }));
-    qsa('[data-reject]').forEach((b) => b.addEventListener('click', async () => {
-      const motivo = prompt('Motivo del rechazo:');
-      if (!motivo || !motivo.trim()) return;
-      try {
-        await api('/enrollments/' + b.dataset.reject + '/decidir', { method: 'POST', body: { estado: 'Rechazada', motivo } });
-        toast('Inscripción rechazada.', 'ok');
-        renderInscripciones(query);
-      } catch (err) { toast(err.message, 'err'); }
+    qsa('[data-reject]').forEach((b) => b.addEventListener('click', () => {
+      promptAction('Rechazar inscripción', 'Indica el motivo por el cual se rechaza esta solicitud. El tutor recibirá esta información.', 'Ej. Falta de cupo, edad no corresponde al grado...', 'Rechazar inscripción', async (motivo) => {
+        try {
+          await api('/enrollments/' + b.dataset.reject + '/decidir', { method: 'POST', body: { estado: 'Rechazada', motivo } });
+          toast('Inscripción rechazada.', 'ok');
+          renderInscripciones(query);
+        } catch (err) { toast(err.message, 'err'); }
+      });
     }));
   }
 
@@ -2063,14 +2091,14 @@
         renderDocumentosInscripcion(enrollmentId);
       } catch (err) { toast(err.message, 'err'); }
     }));
-    qsa('[data-doc-reject]').forEach((b) => b.addEventListener('click', async () => {
-      const motivo = prompt('Motivo del rechazo:');
-      if (!motivo || !motivo.trim()) return;
-      try {
-        await api('/documents/' + b.dataset.docReject + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
-        toast('Documento rechazado.', 'ok');
-        renderDocumentosInscripcion(enrollmentId);
-      } catch (err) { toast(err.message, 'err'); }
+    qsa('[data-doc-reject]').forEach((b) => b.addEventListener('click', () => {
+      promptAction('Rechazar documento', 'Indica el motivo por el cual este documento no es válido. El tutor deberá subir uno nuevo.', 'Ej. Documento borroso, falta firma...', 'Rechazar documento', async (motivo) => {
+        try {
+          await api('/documents/' + b.dataset.docReject + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
+          toast('Documento rechazado.', 'ok');
+          renderDocumentosInscripcion(enrollmentId);
+        } catch (err) { toast(err.message, 'err'); }
+      });
     }));
   }
 
@@ -2328,16 +2356,15 @@
         renderCitas(query);
       } catch (err) { toast(err.message, 'err'); }
     }));
-    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
-      let motivo = '';
+    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
       if (!tutor) {
-        motivo = prompt('Motivo de la cancelación:');
-        if (!motivo || !motivo.trim()) return;
-        try {
-          await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo } });
-          toast('Cita cancelada.', 'ok');
-          renderCitas(query);
-        } catch (err) { toast(err.message, 'err'); }
+        promptAction('Cancelar cita', 'Indica el motivo de la cancelación. Se enviará una notificación al tutor.', 'Ej. Inconveniente de fuerza mayor, reunión docente...', 'Cancelar cita', async (motivo) => {
+          try {
+            await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo } });
+            toast('Cita cancelada.', 'ok');
+            renderCitas(query);
+          } catch (err) { toast(err.message, 'err'); }
+        });
       } else {
         confirmAction('¿Cancelar cita?', '¿Cancelar esta cita programada? No podrá recuperarse.', 'Cancelar cita', async () => {
           try {
@@ -2348,14 +2375,14 @@
         });
       }
     }));
-    qsa('[data-reject]').forEach((b) => b.addEventListener('click', async () => {
-      const motivo = prompt('Motivo del rechazo:');
-      if (!motivo || !motivo.trim()) return;
-      try {
-        await api('/appointments/' + b.dataset.reject + '/rechazar', { method: 'POST', body: { motivo } });
-        toast('Cita rechazada.', 'ok');
-        renderCitas(query);
-      } catch (err) { toast(err.message, 'err'); }
+    qsa('[data-reject]').forEach((b) => b.addEventListener('click', () => {
+      promptAction('Rechazar cita', 'Indica el motivo del rechazo. El tutor podrá solicitar otra cita en un horario diferente.', 'Ej. Horario no disponible, tutor requiere contactar por teléfono...', 'Rechazar cita', async (motivo) => {
+        try {
+          await api('/appointments/' + b.dataset.reject + '/rechazar', { method: 'POST', body: { motivo } });
+          toast('Cita rechazada.', 'ok');
+          renderCitas(query);
+        } catch (err) { toast(err.message, 'err'); }
+      });
     }));
   }
 
