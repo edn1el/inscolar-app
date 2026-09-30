@@ -95,18 +95,24 @@ router.post('/login', (req, res) => {
   }
 
   if (user.mfaEnabled) {
-    const code = genCode();
-    db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== user.id);
-    db.mfaCodes.push({ userId: user.id, code, expiresAt: new Date(Date.now() + MFA_TTL_MS).toISOString() });
-    save(db);
-    req.session.pendingUserId = user.id;
-    req.session.pendingPurpose = 'mfa';
-    return res.json({
-      status: 'mfa_required',
-      method: user.mfaMethod,
-      maskedEmail: user.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '•'.repeat(Math.min(b.length, 3)) + c),
-      devCode: code, // sin servicio real de correo/SMS: se muestra en la respuesta para poder probar el flujo
-    });
+    const { deviceToken } = req.body || {};
+    db.trustedDevices = db.trustedDevices || [];
+    const isTrusted = db.trustedDevices.find(d => d.userId === user.id && d.token === deviceToken && new Date(d.expiresAt) > new Date());
+    
+    if (!isTrusted) {
+      const code = genCode();
+      db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== user.id);
+      db.mfaCodes.push({ userId: user.id, code, expiresAt: new Date(Date.now() + MFA_TTL_MS).toISOString() });
+      save(db);
+      req.session.pendingUserId = user.id;
+      req.session.pendingPurpose = 'mfa';
+      return res.json({
+        status: 'mfa_required',
+        method: user.mfaMethod,
+        maskedEmail: user.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '•'.repeat(Math.min(b.length, 3)) + c),
+        devCode: code, // sin servicio real de correo/SMS: se muestra en la respuesta para poder probar el flujo
+      });
+    }
   }
 
   req.session.userId = user.id;
@@ -120,7 +126,7 @@ router.post('/mfa/verify', (req, res) => {
   const db = load();
   const userId = req.session.pendingUserId;
   if (!userId || req.session.pendingPurpose !== 'mfa') return res.status(400).json({ error: 'No hay una verificación pendiente.' });
-  const { code } = req.body || {};
+  const { code, rememberDevice } = req.body || {};
   const entry = db.mfaCodes.find((c) => c.userId === userId);
   const pendingUser = db.users.find((u) => u.id === userId);
   if (!entry || entry.code !== String(code || '') || new Date(entry.expiresAt) < new Date()) {
@@ -129,6 +135,14 @@ router.post('/mfa/verify', (req, res) => {
     return res.status(400).json({ error: 'Código inválido o expirado.' });
   }
   db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== userId);
+  
+  let newDeviceToken = null;
+  if (rememberDevice) {
+    newDeviceToken = crypto.randomBytes(32).toString('hex');
+    db.trustedDevices = db.trustedDevices || [];
+    db.trustedDevices.push({ userId, token: newDeviceToken, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() });
+  }
+
   const user = db.users.find((u) => u.id === userId);
   user.lastAccess = new Date().toISOString();
   logEvent(db, { actor: user, accion: 'Inicio de sesión exitoso', entidad: 'Usuario', entidadId: user.id, detalle: 'Con verificación en dos pasos' });
@@ -136,7 +150,7 @@ router.post('/mfa/verify', (req, res) => {
   req.session.userId = userId;
   delete req.session.pendingUserId;
   delete req.session.pendingPurpose;
-  res.json({ status: 'ok', user: publicUser(user) });
+  res.json({ status: 'ok', user: publicUser(user), deviceToken: newDeviceToken });
 });
 
 router.post('/mfa/resend', (req, res) => {

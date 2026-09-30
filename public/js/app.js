@@ -255,7 +255,8 @@
       }
 
       try {
-        const data = await api('/auth/login', { method: 'POST', body: { email: fd.get('email'), password: fd.get('password') } });
+        const deviceToken = localStorage.getItem('deviceToken');
+        const data = await api('/auth/login', { method: 'POST', body: { email: fd.get('email'), password: fd.get('password'), deviceToken } });
         if (data.status === 'mfa_required') {
           state.pendingMfa = data;
           navigate('#/mfa');
@@ -285,7 +286,7 @@
           <div class="otp-row">
             ${[0, 1, 2, 3, 4, 5].map((i) => `<input type="text" maxlength="1" class="otp" data-i="${i}" inputmode="numeric">`).join('')}
           </div>
-          <label class="checkbox" style="margin-bottom:18px"><input type="checkbox" checked> Recordar este dispositivo por 30 días</label>
+          <label class="checkbox" style="margin-bottom:18px"><input type="checkbox" name="rememberDevice" checked> Recordar este dispositivo por 30 días</label>
           <button class="btn btn-primary btn-block" type="submit">Verificar código</button>
         </form>
         <button class="btn btn-ghost btn-small" id="resend" style="width:100%; margin-top:10px;">Reenviar código</button>
@@ -314,9 +315,13 @@
     qs('#mfa-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const code = otps.map((o) => o.value).join('');
+      const rememberDevice = qs('input[name=rememberDevice]').checked;
       qs('#err').innerHTML = '';
       try {
-        const data = await api('/auth/mfa/verify', { method: 'POST', body: { code } });
+        const data = await api('/auth/mfa/verify', { method: 'POST', body: { code, rememberDevice } });
+        if (data.deviceToken) {
+          localStorage.setItem('deviceToken', data.deviceToken);
+        }
         state.user = data.user;
         state.pendingMfa = null;
         navigate('#/app/perfil');
@@ -987,7 +992,16 @@
           ${mfa.enabled
             ? `<div class="notice ok">MFA activado · método: ${escapeHtml(mfa.method === 'app' ? 'App autenticadora' : 'Correo electrónico')}</div>
                <button class="btn btn-secondary" style="width:auto; padding:10px 18px;" id="mfa-off">Desactivar MFA</button>`
-            : `<div id="mfa-flow"><button class="btn btn-primary" style="width:auto; padding:10px 18px;" id="mfa-start">Activar MFA</button></div>`
+            : `<div id="mfa-flow">
+                 <div class="field" style="margin-bottom:10px;">
+                   <label>Método de verificación</label>
+                   <select id="mfa-method">
+                     <option value="correo">Correo electrónico</option>
+                     <option value="app">Aplicación autenticadora</option>
+                   </select>
+                 </div>
+                 <button class="btn btn-primary" style="width:auto; padding:10px 18px;" id="mfa-start">Configurar y Activar</button>
+               </div>`
           }
         </div>
         <div class="chart-card">
@@ -1024,17 +1038,23 @@
 
     const startBtn = qs('#mfa-start');
     startBtn && startBtn.addEventListener('click', async () => {
-      const data = await api('/users/me/mfa/start', { method: 'POST', body: { method: 'correo' } });
+      const selectedMethod = qs('#mfa-method').value;
+      const data = await api('/users/me/mfa/start', { method: 'POST', body: { method: selectedMethod } });
+      const methodLabel = selectedMethod === 'app' ? 'Escanea el código QR en tu app (simulado)' : 'Te hemos enviado un código';
       qs('#mfa-flow').innerHTML = `
-        <div class="notice">Modo de prueba (sin envío real de correo): tu código es <strong>${data.devCode}</strong></div>
+        <div class="notice"><strong>${methodLabel}</strong><br>Modo de prueba: tu código es <strong>${data.devCode}</strong></div>
         <div id="mfa-confirm-err"></div>
-        <div class="field"><label>Código de verificación</label><input type="text" id="mfa-code" maxlength="6"></div>
-        <button class="btn btn-primary" style="width:auto; padding:10px 18px;" id="mfa-confirm">Confirmar y activar</button>
+        <div class="field"><label>Ingresa el código de 6 dígitos</label><input type="text" id="mfa-code" maxlength="6"></div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-primary" style="width:auto; padding:10px 18px;" id="mfa-confirm">Confirmar y activar</button>
+          <button class="btn btn-ghost" style="width:auto; padding:10px 18px;" id="mfa-cancel">Cancelar</button>
+        </div>
       `;
+      qs('#mfa-cancel').addEventListener('click', renderSeguridad);
       qs('#mfa-confirm').addEventListener('click', async () => {
         try {
           await api('/users/me/mfa/confirm', { method: 'POST', body: { code: qs('#mfa-code').value } });
-          toast('MFA activado.', 'ok');
+          toast('MFA activado exitosamente.', 'ok');
           renderSeguridad();
         } catch (err) {
           qs('#mfa-confirm-err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
