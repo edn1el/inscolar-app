@@ -428,7 +428,15 @@
       }
       try {
         currentMap = L.map(mapContainer).setView([18.7357, -70.1627], 8);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(currentMap);
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(currentMap);
+        
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+          tileLayer.on('add', () => {
+            const tilePane = mapContainer.querySelector('.leaflet-tile-pane');
+            if (tilePane) tilePane.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
+          });
+        }
       } catch (e) {
         console.warn('Leaflet error', e);
         mapContainer.innerHTML = '<div style="padding:20px; color:#666;">Mapa no disponible.</div>';
@@ -2562,46 +2570,173 @@
     const [{ students }, { institutions }] = await Promise.all([api('/students'), api('/institutions')]);
     const activas = institutions.filter((i) => (i.estado || 'Activo') === 'Activo');
     const ciclos = cicloOptions();
-    qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
-      <div class="page-head"><h2>Nueva inscripción</h2></div>
-      <div class="chart-card" style="max-width:560px;">
-        <div id="err"></div>
-        <form id="enroll-form">
-          <div class="field"><label>Estudiante</label>
-            <select name="studentId">${students.map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('')}</select>
-          </div>
-          <div class="field"><label>Institución</label>
-            <select name="institucionId">${activas.map((i) => `<option value="${i.id}">${escapeHtml(i.nombre)} — ${escapeHtml(i.provincia)}</option>`).join('')}</select>
-          </div>
-          <div class="two-col">
-            <div class="field"><label>Grado</label>
-              <select name="gradoSolicitado">${GRADOS.map((g) => `<option>${escapeHtml(g)}</option>`).join('')}</select>
+    let selectedInst = null;
+    let step = 1;
+
+    async function renderStep() {
+      if (step === 1) {
+        qs('.main').innerHTML = `
+          <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
+          <div class="page-head" style="margin-bottom:10px;"><h2>Paso 1: Seleccionar institución</h2></div>
+          <p class="lede" style="margin-bottom:20px;">Explora el mapa y selecciona la escuela donde deseas inscribir al estudiante.</p>
+          
+          <div class="search-layout" style="height: 60vh; min-height: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--border-color); display:flex; flex-direction:row;">
+            <div class="search-sidebar" style="width: 350px; padding: 15px; border-right: 1px solid var(--border-color); background: var(--bg-card); display:flex; flex-direction:column; gap:10px;">
+              <input type="text" id="map-filter" placeholder="Buscar por nombre..." class="search-input" style="padding:10px; border:1px solid var(--border-color); border-radius:8px; width:100%;">
+              <div id="inst-list" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;"></div>
             </div>
-            <div class="field"><label>Ciclo escolar</label>
-              <select name="cicloEscolar">${ciclos.map((c) => `<option>${c}</option>`).join('')}</select>
+            <div class="search-map" id="enroll-map-container" style="flex:1; background:var(--bg-body); position:relative;"></div>
+          </div>
+        `;
+        bindShellEvents();
+
+        const listContainer = qs('#inst-list');
+        const filterInput = qs('#map-filter');
+        let markers = [];
+        let mapObj = null;
+
+        if (typeof L === 'undefined') {
+          qs('#enroll-map-container').innerHTML = '<div class="loading" style="padding:20px">Cargando mapa...</div>';
+          await new Promise((resolve) => {
+            const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+            const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = resolve; document.head.appendChild(script);
+          });
+        }
+
+          const mapEl = qs('#enroll-map-container');
+        if (mapEl) {
+          mapEl.innerHTML = '';
+          mapObj = L.map(mapEl).setView([18.7357, -70.1627], 8);
+          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          
+          const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapObj);
+          
+          if (isDark) {
+            // Apply CSS filter to OSM tiles for a dark mode effect
+            tileLayer.on('add', () => {
+              const tilePane = mapEl.querySelector('.leaflet-tile-pane');
+              if (tilePane) {
+                tilePane.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
+              }
+            });
+          }
+
+          // Custom Marker Icon (Premium visual)
+          const createIcon = (color) => L.divIcon({
+            className: 'custom-pin',
+            html: `<svg viewBox="0 0 24 24" fill="${color}" width="32" height="32" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform-origin:bottom; transition:transform 0.2s;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
+            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+          });
+
+          const defaultIcon = createIcon('var(--primary-color)');
+          const hoverIcon = createIcon('var(--c-amber)');
+
+          const renderList = (query = '') => {
+            const filtered = activas.filter(i => i.nombre.toLowerCase().includes(query.toLowerCase()));
+            listContainer.innerHTML = filtered.map(i => `
+              <div class="inst-item" data-id="${i.id}" style="padding:12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer; transition:all 0.2s; background:var(--bg-card);">
+                <div style="font-weight:600; color:var(--primary-color);">${escapeHtml(i.nombre)}</div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">${escapeHtml(i.municipio||'')}</div>
+              </div>
+            `).join('');
+
+            markers.forEach(m => m.remove());
+            markers = [];
+            const bounds = [];
+            
+            filtered.forEach(i => {
+              if (i.lat && i.lng) {
+                const m = L.marker([i.lat, i.lng], { icon: defaultIcon }).addTo(mapObj);
+                const popupContent = document.createElement('div');
+                popupContent.innerHTML = `<strong>${escapeHtml(i.nombre)}</strong><br><button class="btn btn-primary btn-small" style="margin-top:8px; width:100%;">Seleccionar</button>`;
+                popupContent.querySelector('button').addEventListener('click', () => { selectedInst = i; step = 2; renderStep(); });
+                m.bindPopup(popupContent);
+                m.instId = i.id;
+                
+                m.on('mouseover', () => m.setIcon(hoverIcon));
+                m.on('mouseout', () => m.setIcon(defaultIcon));
+                m.on('click', () => {
+                  qsa('.inst-item').forEach(el => el.style.borderColor = 'var(--border-color)');
+                  const card = qs(`.inst-item[data-id="${i.id}"]`);
+                  if (card) { card.style.borderColor = 'var(--c-amber)'; card.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+                });
+
+                markers.push(m);
+                bounds.push([i.lat, i.lng]);
+              }
+            });
+            if (bounds.length > 0) mapObj.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
+
+            qsa('.inst-item').forEach(card => {
+              card.addEventListener('mouseenter', () => {
+                const mk = markers.find(x => x.instId === card.dataset.id);
+                if (mk) { mk.setIcon(hoverIcon); mk.setZIndexOffset(1000); }
+              });
+              card.addEventListener('mouseleave', () => {
+                const mk = markers.find(x => x.instId === card.dataset.id);
+                if (mk) { mk.setIcon(defaultIcon); mk.setZIndexOffset(0); }
+              });
+              card.addEventListener('click', () => {
+                selectedInst = activas.find(x => x.id === card.dataset.id);
+                step = 2;
+                renderStep();
+              });
+            });
+          };
+
+          renderList();
+          filterInput.addEventListener('input', (e) => renderList(e.target.value));
+        }
+
+      } else if (step === 2) {
+        qs('.main').innerHTML = `
+          <button class="back-link" id="btn-back-step">${ICONS.back} Volver al mapa</button>
+          <div class="page-head"><h2>Paso 2: Datos de inscripción</h2></div>
+          <div class="chart-card" style="max-width:560px;">
+            <div style="background:var(--bg-body); padding:15px; border-radius:8px; margin-bottom:20px; display:flex; align-items:center; gap:15px; border:1px solid var(--border-color);">
+              <div style="width:48px; height:48px; border-radius:8px; background:var(--primary-color); color:#fff; display:flex; align-items:center; justify-content:center;">${ICONS.building}</div>
+              <div>
+                <div style="font-weight:600; font-size:16px;">${escapeHtml(selectedInst.nombre)}</div>
+                <div style="font-size:13px; color:var(--text-muted);">${escapeHtml(selectedInst.provincia)}</div>
+              </div>
             </div>
+            <div id="err"></div>
+            <form id="enroll-form">
+              <input type="hidden" name="institucionId" value="${selectedInst.id}">
+              <div class="field"><label>Estudiante</label>
+                <select name="studentId">${students.map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('')}</select>
+              </div>
+              <div class="two-col">
+                <div class="field"><label>Grado solicitado</label>
+                  <select name="gradoSolicitado">${GRADOS.map((g) => `<option>${escapeHtml(g)}</option>`).join('')}</select>
+                </div>
+                <div class="field"><label>Ciclo escolar</label>
+                  <select name="cicloEscolar">${ciclos.map((c) => `<option>${c}</option>`).join('')}</select>
+                </div>
+              </div>
+              <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Enviar solicitud</button>
+              </div>
+            </form>
           </div>
-          <div style="display:flex; gap:10px;">
-            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Enviar solicitud</button>
-            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
-          </div>
-        </form>
-      </div>
-    `;
-    bindShellEvents();
-    qs('#enroll-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      qs('#err').innerHTML = '';
-      try {
-        await api('/enrollments', { method: 'POST', body: Object.fromEntries(fd.entries()) });
-        toast('Solicitud enviada.', 'ok');
-        navigate('#/app/inscripciones');
-      } catch (err) {
-        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+        `;
+        qs('#btn-back-step').addEventListener('click', () => { step = 1; renderStep(); });
+        
+        qs('#enroll-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const fd = new FormData(e.target);
+          qs('#err').innerHTML = '';
+          try {
+            await api('/enrollments', { method: 'POST', body: Object.fromEntries(fd.entries()) });
+            toast('Solicitud enviada.', 'ok');
+            navigate('#/app/inscripciones');
+          } catch (err) {
+            qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+          }
+        });
       }
-    });
+    }
+    await renderStep();
   }
 
   // ---------------- Documentos de una inscripcion ----------------
