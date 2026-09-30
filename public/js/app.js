@@ -493,19 +493,61 @@
   }
 
   // ================= APP SHELL (autenticado) =================
+  // --- F2.1 Matriz de permisos (acción × rol) ---
+  // Roles privilegiados (tienen acceso a panel de administración)
   const ADMIN_ROLES = ['Administrador', 'Soporte'];
 
-  function isAdmin() { return state.user && ADMIN_ROLES.includes(state.user.role); }
+  // Helpers por acción y ámbito (per HU002-HU016)
+  function role() { return (state.user || {}).role; }
+  function isAdmin()      { return state.user && ADMIN_ROLES.includes(role()); }
+  function isOnlyAdmin()  { return role() === 'Administrador'; }
+  function isSupport()    { return role() === 'Soporte'; }
+  function isStaff()      { return role() === 'Personal de institución'; }
+  function isTutor()      { return role() === 'Tutor'; }
+  function isAudit()      { return role() === 'Auditoría'; }
+
+  // Usuarios: quién ve el módulo
+  function canSeeUsuarios()     { return isAdmin(); }
+  // Quién puede crear usuarios (y qué roles puede asignar)
+  function canCreateUsuario()   { return isAdmin(); } // Admin y Soporte, pero Soporte solo Personal
+  // Quién puede editar: Admin todos; Soporte solo Personal/Tutor
+  function canEditUser(targetRole) {
+    if (isOnlyAdmin()) return true;
+    if (isSupport()) return ['Personal de institución', 'Tutor'].includes(targetRole);
+    return false;
+  }
+  // Solo Admin puede activar/desactivar (HU013/HU014)
+  function canToggleEstado()    { return isOnlyAdmin(); }
+  // Soporte puede resetear solo Personal/Tutor; Admin todos (HU016)
+  function canResetPassword(targetRole) {
+    if (isOnlyAdmin()) return true;
+    if (isSupport()) return ['Personal de institución', 'Tutor'].includes(targetRole);
+    return false;
+  }
+  // Roles que Soporte puede crear (solo Personal)
+  const ROLES_SOPORTE_PUEDE_CREAR = ['Personal de institución'];
+  // Roles que Admin puede crear (todos)
+  const ROLES_ADMIN_PUEDE_CREAR = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
+
   const AUDIT_ROLES = ['Administrador', 'Auditoría'];
-  function canSeeAuditoria() { return state.user && AUDIT_ROLES.includes(state.user.role); }
+  function canSeeAuditoria() { return state.user && AUDIT_ROLES.includes(role()); }
 
 
   async function viewApp(segs, query) {
     const section = segs[0] || 'perfil';
-    const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes((state.user || {}).role);
+    const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes(role());
     const esCalendarioInstitucion = section === 'instituciones' && segs[2] === 'calendario';
     const esDetalleInstitucion = section === 'instituciones' && segs[2] === 'detalle';
-    if (['usuarios', 'instituciones', 'analiticas'].includes(section) && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion) {
+    // Solo Admin y Soporte ven Usuarios e Instituciones; Analíticas solo Admin
+    if (section === 'usuarios' && !canSeeUsuarios()) {
+      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      return;
+    }
+    if (section === 'analiticas' && !isAdmin()) {
+      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      return;
+    }
+    if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -531,7 +573,7 @@
     }
 
     let unread = 0;
-    if (isAdmin() || (state.user || {}).role === 'Tutor') {
+    if (isAdmin() || isTutor()) {
       try { const n = await api('/notifications'); unread = n.unreadCount; } catch (e) {}
     }
 
@@ -617,7 +659,7 @@
               ${ICONS.building} <span>${instName}</span>
             </div>
             ` : ''}
-            ${admin ? `
+            ${isOnlyAdmin() ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
             <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">${ICONS.building} Instituciones</button>
@@ -633,7 +675,16 @@
             <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
             </button>
-            ` : (u.role === 'Tutor' || u.role === 'Personal de institución') ? `
+            ` : isSupport() ? `
+            <div class="sec-label">Módulos</div>
+            <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
+            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
+            </button>
+            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
+            </button>
+            ` : (isTutor() || isStaff()) ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
@@ -1150,12 +1201,13 @@
     const estados = ['Todos', 'Activo', 'Inactivo'];
 
     qs('.main').innerHTML = `
-      <div class="page-head"><div><h2>Usuarios</h2><div class="sub">Administración de cuentas del sistema.</div></div></div>
+      <div class="page-head"><div><h2>Usuarios</h2><div class="sub">Administración de cuentas del sistema.</div></div>
+        ${canCreateUsuario() ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/usuarios/nuevo">Nuevo usuario</button>` : ''}
+      </div>
       <div class="filters">
         <input id="f-q" placeholder="Buscar por nombre o correo..." value="${escapeHtml(query.q || '')}">
         <select id="f-role">${roles.map((r) => `<option ${query.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
         <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        <button class="btn btn-primary spacer" style="width:auto; padding:10px 18px;" data-nav="#/app/usuarios/nuevo">Nuevo usuario</button>
       </div>
       <div class="table-card">
         <table>
@@ -1173,9 +1225,9 @@
                 <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${u.estado}</span></td>
                 <td>${fmtDate(u.lastAccess)}</td>
                 <td><span class="actions-cell">
-                  <button class="neutral" data-edit="${u.id}">Modificar</button>
-                  <button class="neutral" data-reset="${u.id}">Resetear</button>
-                  <button class="${active ? 'danger' : 'ok'}" data-toggle="${u.id}">${active ? 'Desactivar' : 'Activar'}</button>
+                  ${canEditUser(u.role) ? `<button class="neutral" data-edit="${u.id}" data-name="${escapeHtml(u.nombre)}" data-role="${escapeHtml(u.role)}">Modificar</button>` : ''}
+                  ${canResetPassword(u.role) ? `<button class="neutral" data-reset="${u.id}" data-name="${escapeHtml(u.nombre)}">Resetear</button>` : ''}
+                  ${canToggleEstado() ? `<button class="${active ? 'danger' : 'ok'}" data-toggle="${u.id}" data-name="${escapeHtml(u.nombre)}" data-active="${active}">${active ? 'Desactivar' : 'Activar'}</button>` : ''}
                 </span></td>
               </tr>`;
             }).join('')}
@@ -1216,7 +1268,16 @@
       const { users } = await api('/users');
       editing = users.find((u) => u.id === id);
     }
-    const roles = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
+    // F2.1: roles disponibles según quién crea
+    const rolesDisponibles = isOnlyAdmin() ? ROLES_ADMIN_PUEDE_CREAR : ROLES_SOPORTE_PUEDE_CREAR;
+    // Al editar, si Soporte intenta editar un usuario privilegiado, redirigir
+    if (id && editing && !canEditUser(editing.role)) {
+      qs('.main').innerHTML = '<div class="empty-state">No tienes permiso para modificar este usuario.</div>';
+      return;
+    }
+    const roles = editing
+      ? (isOnlyAdmin() ? ROLES_ADMIN_PUEDE_CREAR : ROLES_SOPORTE_PUEDE_CREAR)
+      : rolesDisponibles;
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="#/app/usuarios">${ICONS.back} Volver a usuarios</button>
       <div class="page-head"><h2>${editing ? 'Modificar usuario' : 'Nuevo usuario'}</h2></div>

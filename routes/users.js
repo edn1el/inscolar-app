@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { load, save, nextId } = require('../lib/db');
-const { requireAuth, requireAdmin } = require('../lib/middleware');
+const { requireAuth, requireAdminOnly, requireAdminOrSupport, requireCanManageRole, ROLES_QUE_SOPORTE_PUEDE_GESTIONAR } = require('../lib/middleware');
 const { notifyAdmins } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
 const { isEmail, passwordRules, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
@@ -188,10 +188,14 @@ router.get('/:id/foto', (req, res) => {
 });
 
 // ---- administración de usuarios ----
-router.get('/', requireAdmin, (req, res) => {
+// HU013/HU014: listado - Admin ve todos; Soporte solo ve Personal e institución y Tutor
+router.get('/', requireAdminOrSupport, (req, res) => {
   const db = req.db;
   const { q, role, estado, institucionId } = req.query;
+  const isSupport = req.currentUser.role === 'Soporte';
   let list = db.users.slice();
+  // Soporte no puede ver ni gestionar Admin, Soporte ni Auditoría (HU015 reglas de negocio)
+  if (isSupport) list = list.filter((u) => ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(u.role));
   if (q) {
     const qq = q.toLowerCase();
     list = list.filter((u) => u.nombre.toLowerCase().includes(qq) || u.email.toLowerCase().includes(qq));
@@ -200,15 +204,26 @@ router.get('/', requireAdmin, (req, res) => {
   if (estado && estado !== 'Todos') list = list.filter((u) => u.estado === estado);
   if (institucionId && institucionId !== 'Todas') list = list.filter((u) => u.institucionId === institucionId);
   list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json({ total: db.users.length, users: list.map((u) => publicUser(u, db)) });
+  res.json({ total: list.length, users: list.map((u) => publicUser(u, db)) });
 });
 
-router.post('/', requireAdmin, (req, res) => {
+// HU002 (Admin crea Admin), HU003 (Admin crea Soporte), HU004 (Admin o Soporte crean Personal).
+// FUN-02 FIX: validar aquí explícitamente quién puede crear qué rol.
+router.post('/', requireAdminOrSupport, (req, res) => {
   const db = req.db;
   const { role, nombre, email, institucionId } = req.body || {};
+  const isSupport = req.currentUser.role === 'Soporte';
   const errors = [];
-  const validRoles = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
-  if (!validRoles.includes(role)) errors.push('Rol inválido.');
+
+  // FUN-02: Soporte solo puede crear Personal de institución (no Admin, Soporte ni Auditoría)
+  if (isSupport && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(role)) {
+    return res.status(403).json({ error: 'Soporte solo puede crear usuarios de tipo Personal de institución.' });
+  }
+
+  const validRoles = isSupport
+    ? ['Personal de institución'] // Soporte solo ve y crea Personal (HU004)
+    : ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
+  if (!validRoles.includes(role)) errors.push('Rol inválido o no permitido para tu nivel de acceso.');
   if (!nombre || nombre.trim().length < 3) errors.push('El nombre completo es obligatorio.');
   if (!isEmail(email)) errors.push('Correo electrónico inválido.');
   if (db.users.some((u) => u.email.toLowerCase() === String(email || '').toLowerCase())) errors.push('Ese correo ya está en uso.');
@@ -241,11 +256,22 @@ router.post('/', requireAdmin, (req, res) => {
   res.json({ user: publicUser(user, db), devTempPassword: tempPassword });
 });
 
-router.put('/:id', requireAdmin, (req, res) => {
+// HU015: Admin edita cualquier usuario; Soporte solo edita Personal o Tutor.
+router.put('/:id', requireAdminOrSupport, (req, res) => {
   const db = req.db;
   const user = db.users.find((u) => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+
+  // Verificar que Soporte no intente modificar Admin, otro Soporte o Auditoría
+  const isSupport = req.currentUser.role === 'Soporte';
+  if (isSupport && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(user.role)) {
+    return res.status(403).json({ error: 'Soporte solo puede modificar usuarios de tipo Personal de institución o Tutor.' });
+  }
+  // Soporte no puede cambiar el rol a uno privilegiado
   const { nombre, email, role, institucionId } = req.body || {};
+  if (isSupport && role && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(role)) {
+    return res.status(403).json({ error: 'Soporte no puede asignar ese rol.' });
+  }
   const errors = [];
   if (email && !isEmail(email)) errors.push('Correo electrónico inválido.');
   if (email && db.users.some((u) => u.id !== user.id && u.email.toLowerCase() === String(email).toLowerCase())) {
@@ -272,7 +298,8 @@ router.put('/:id', requireAdmin, (req, res) => {
   res.json({ user: publicUser(user, db) });
 });
 
-router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
+// HU013/HU014: solo Admin puede activar o desactivar usuarios.
+router.post('/:id/toggle-estado', requireAdminOnly, (req, res) => {
   const db = req.db;
   const user = db.users.find((u) => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
@@ -287,10 +314,15 @@ router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
   res.json({ user: publicUser(user, db) });
 });
 
-router.post('/:id/reset-password', requireAdmin, (req, res) => {
+// HU016: Admin y Soporte pueden resetear contraseñas; Soporte solo para Personal/Tutor.
+router.post('/:id/reset-password', requireAdminOrSupport, (req, res) => {
   const db = req.db;
   const user = db.users.find((u) => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+  // Soporte no puede resetear contraseña de Admin/Soporte/Auditoría
+  if (req.currentUser.role === 'Soporte' && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(user.role)) {
+    return res.status(403).json({ error: 'Soporte solo puede restablecer contraseñas de Personal de institución o Tutor.' });
+  }
   const tempPassword = genTempPassword();
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(tempPassword, 10);
