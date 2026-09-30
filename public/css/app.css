@@ -202,6 +202,27 @@ img { max-width: 100%; display: block; }
   min-height: 100vh;
   display: flex;
   background: var(--c-bg);
+  animation: entryFadeUp 450ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes entryFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-stage.fade-out-success .panel,
+.auth-stage.fade-out-success .headline-block,
+.auth-stage.fade-out-success .footer-note,
+.auth-stage.fade-out-success .brand-logo,
+.auth-stage.fade-out-success .pause-particles-btn {
+  opacity: 0 !important;
+  transform: translateY(-8px) !important;
+  transition: opacity 400ms ease-in, transform 400ms ease-in;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-stage { animation: none; opacity: 1; transform: none; }
 }
 
 /* Variante sin hero (registro, recuperar, setup) */
@@ -255,6 +276,18 @@ img { max-width: 100%; display: block; }
   transition: background var(--t-base) ease, transform var(--t-base) ease;
 }
 .hero-public-link:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); color: #fff; }
+
+.particles-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+
+.pause-particles-btn {
+  position: absolute; bottom: 20px; right: 20px; z-index: 10;
+  color: rgba(255,255,255,0.7); background: rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.2); padding: 6px 10px;
+  font-size: 0.75rem; border-radius: 4px; display: inline-flex; align-items: center; gap: 6px;
+  cursor: pointer; transition: all 0.2s;
+}
+.pause-particles-btn:hover { background: rgba(0,0,0,0.3); color: #fff; }
+.pause-particles-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 
 .arches { position: absolute; inset: auto 0 0 0; height: 46%; display: flex; align-items: flex-end; opacity: .13; pointer-events: none; }
 .arch { flex: 1; height: 100%; border: 3px solid #fff; border-bottom: none; border-top-left-radius: 80px; border-top-right-radius: 80px; margin: 0 -3px; }
@@ -424,7 +457,9 @@ button.link:hover { color: var(--c-garnet-deep); text-decoration: underline; }
 /* ============================================================
    APP SHELL (F1.3 Estructura por rol)
    ============================================================ */
-.app { display: flex; flex-direction: column; min-height: 100vh; }
+@keyframes appFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.app { display: flex; flex-direction: column; min-height: 100vh; animation: appFadeIn 300ms ease-out forwards; }
+@media (prefers-reduced-motion: reduce) { .app { animation: none; opacity: 1; } }
 
 /* ---- Topbar ---- */
 .topbar {
@@ -914,10 +949,14 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* Mobile: sidebar se convierte en drawer */
 @media (max-width: 768px) {
-  .hero { display: none; }
-  .auth-stage.with-hero { align-items: center; justify-content: center; padding: 20px; }
-  .panel { padding: 24px 20px; }
-  .card { padding: 28px 22px; }
+  .auth-stage.with-hero { flex-direction: column; align-items: stretch; padding: 0; }
+  .hero { flex: none; min-height: auto; padding: 40px 20px 30px; align-items: center; text-align: center; }
+  .hero .arches, .hero .hero-glow, .hero .footer-min-edu, .hero .headline-block p, .hero .medallion-wrap { display: none; }
+  .hero .headline-block h1 { font-size: 1.5rem; margin-top: 8px; }
+  .hero .brand-logo { margin: 0 auto; height: 32px; }
+  .pause-particles-btn { display: none; } /* Ocultar control de particulas en movil para ahorrar espacio */
+  .panel { flex: 1; padding: 20px 16px; margin-top: -15px; position: relative; z-index: 5; }
+  .card { padding: 24px 20px; }
 
   .sidebar-toggle { display: flex; }
   .topbar-breadcrumb { display: none; } /* Se muestra solo desktop */
