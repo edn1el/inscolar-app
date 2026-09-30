@@ -296,7 +296,15 @@
       }
       try {
         currentMap = L.map(mapContainer).setView([18.7357, -70.1627], 8);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(currentMap);
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(currentMap);
+        
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        if (isDark) {
+          tileLayer.on('add', () => {
+            const tilePane = mapContainer.querySelector('.leaflet-tile-pane');
+            if (tilePane) tilePane.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
+          });
+        }
       } catch (e) {
         console.warn('Leaflet error', e);
         mapContainer.innerHTML = '<div style="padding:20px; color:#666;">Mapa no disponible.</div>';
@@ -2390,13 +2398,23 @@
           });
         }
 
-        const mapEl = qs('#enroll-map-container');
+          const mapEl = qs('#enroll-map-container');
         if (mapEl) {
           mapEl.innerHTML = '';
           mapObj = L.map(mapEl).setView([18.7357, -70.1627], 8);
           const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-          const tileUrl = isDark ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-          L.tileLayer(tileUrl, { maxZoom: 19, attribution: '© OpenStreetMap, © CartoDB' }).addTo(mapObj);
+          
+          const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapObj);
+          
+          if (isDark) {
+            // Apply CSS filter to OSM tiles for a dark mode effect
+            tileLayer.on('add', () => {
+              const tilePane = mapEl.querySelector('.leaflet-tile-pane');
+              if (tilePane) {
+                tilePane.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
+              }
+            });
+          }
 
           // Custom Marker Icon (Premium visual)
           const createIcon = (color) => L.divIcon({
