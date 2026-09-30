@@ -157,14 +157,16 @@
     if (state.setupNeeded && segs[0] !== 'setup') return navigate('#/setup');
     if (!state.setupNeeded && segs[0] === 'setup') return navigate('#/login');
 
-    const publicRoutes = ['login', 'mfa', 'force-change', 'register', 'forgot', 'reset', 'setup'];
+    const publicRoutes = ['', 'buscar', 'login', 'mfa', 'force-change', 'register', 'forgot', 'reset', 'setup'];
     if (!publicRoutes.includes(segs[0])) {
-      if (!state.user) return navigate('#/login');
-    } else if (state.user && segs[0] !== 'setup') {
+      if (!state.user) return navigate('#/');
+    } else if (state.user && segs[0] !== 'setup' && segs[0] !== '' && segs[0] !== 'buscar') {
       return navigate('#/app/perfil');
     }
 
     switch (segs[0]) {
+      case '':
+      case 'buscar': return viewBuscar(segs.slice(1));
       case 'setup': return viewSetup();
       case 'login': return viewLogin();
       case 'mfa': return viewMfa();
@@ -173,7 +175,7 @@
       case 'forgot': return viewForgot();
       case 'reset': return viewReset(query.token || '');
       case 'app': return viewApp(segs.slice(1), query);
-      default: return navigate('#/login');
+      default: return navigate('#/');
     }
   }
 
@@ -206,6 +208,204 @@
         `}
       </div>
     `;
+  }
+
+  // ---------------- HU020-026 búsqueda pública ----------------
+  async function viewBuscar(subsegs = []) {
+    if (subsegs[0]) {
+      // Detalle de institución público
+      try {
+        const { institution: i } = await api('/institutions/' + subsegs[0]);
+        root.innerHTML = `
+          <div class="top-nav" style="background:#fff; border-bottom:1px solid var(--border-color); padding:10px 20px;">
+            <a href="#/buscar" class="btn btn-ghost btn-small">← Volver a resultados</a>
+            <a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>
+          </div>
+          <div style="padding:20px; max-width:800px; margin:0 auto;">
+            <h2>${escapeHtml(i.nombre)}</h2>
+            <div class="badge-chip">${escapeHtml(i.tipo)}</div>
+            <p><strong>Provincia:</strong> ${escapeHtml(i.provincia)}<br>
+               <strong>Municipio:</strong> ${escapeHtml(i.municipio || '—')}<br>
+               <strong>Distrito:</strong> ${escapeHtml(i.distrito)}<br>
+               <strong>Dirección:</strong> ${escapeHtml(i.direccion || '—')}<br>
+               <strong>Teléfono:</strong> ${escapeHtml(i.telefono || '—')}</p>
+            <p><strong>Calificación promedio:</strong> ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) + ' estrellas (' + i.totalCalificaciones + ' opiniones)' : 'Sin calificaciones'}</p>
+            ${i.foto ? `<img src="/api/institutions/${i.id}/foto" style="max-width:100%; border-radius:8px; margin-top:20px;" alt="Foto">` : ''}
+          </div>
+        `;
+      } catch (e) {
+        root.innerHTML = `<div class="notice err">Error: ${escapeHtml(e.message)} <a href="#/buscar">Volver</a></div>`;
+      }
+      return;
+    }
+
+    root.innerHTML = `
+      <div class="search-layout">
+        <div class="search-sidebar">
+          <div class="plain-brand" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <img class="brand-logo" src="/assets/brand/inscolar-logo-horizontal-primary.svg" alt="Inscolar">
+            <a href="#/login" class="btn btn-ghost btn-small">Acceder</a>
+          </div>
+          <form id="search-form">
+            <div class="field"><label>Nombre o distrito</label><input type="text" name="q" placeholder="Ej. Politécnico..."></div>
+            <div style="display:flex; gap:10px;">
+              <div class="field" style="flex:1"><label>Provincia</label><select name="provincia" id="s-prov"><option value="">Todas</option></select></div>
+              <div class="field" style="flex:1"><label>Municipio</label><select name="municipio" id="s-mun"><option value="">Todos</option></select></div>
+            </div>
+            <div class="field"><label>Calificación mínima</label><select name="calificacionMin"><option value="">Cualquiera</option><option value="4">4+ estrellas</option><option value="3">3+ estrellas</option></select></div>
+            <button type="button" class="btn btn-secondary btn-small" id="btn-location" style="width:100%; margin-bottom:15px;">📍 Usar mi ubicación</button>
+            <button type="submit" class="btn btn-primary btn-block">Aplicar filtros</button>
+          </form>
+          <div id="search-results" style="margin-top:20px; overflow-y:auto; flex:1;"></div>
+        </div>
+        <div class="search-map" id="map-container"></div>
+      </div>
+    `;
+
+    const provSelect = qs('#s-prov');
+    const munSelect = qs('#s-mun');
+    const provincias = Object.keys(window.DR_PROVINCES || {}).sort();
+    provincias.forEach(p => provSelect.insertAdjacentHTML('beforeend', `<option value="${p}">${p}</option>`));
+    
+    provSelect.addEventListener('change', () => {
+      munSelect.innerHTML = '<option value="">Todos</option>';
+      const p = provSelect.value;
+      if (p && window.DR_PROVINCES[p]) {
+        window.DR_PROVINCES[p].forEach(m => munSelect.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`));
+      }
+    });
+
+    let currentMap = null;
+    let currentMarkers = [];
+    let userCoords = null;
+    const mapContainer = qs('#map-container');
+
+    async function initMap() {
+      if (typeof L === 'undefined') {
+        qs('#search-results').innerHTML = '<div class="loading" style="padding:20px">Cargando mapa...</div>';
+        await new Promise((resolve) => {
+          const css = document.createElement('link');
+          css.rel = 'stylesheet';
+          css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(css);
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
+      }
+      try {
+        currentMap = L.map(mapContainer).setView([18.7357, -70.1627], 8);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(currentMap);
+      } catch (e) {
+        console.warn('Leaflet error', e);
+        mapContainer.innerHTML = '<div style="padding:20px; color:#666;">Mapa no disponible.</div>';
+      }
+    }
+
+    await initMap();
+
+    async function performSearch(extraQuery = '') {
+      qs('#search-results').innerHTML = '<div class="loading" style="padding:20px">Cargando...</div>';
+      const fd = new FormData(qs('#search-form'));
+      const q = new URLSearchParams();
+      if (fd.get('q')) q.set('q', fd.get('q'));
+      if (fd.get('provincia')) q.set('provincia', fd.get('provincia'));
+      if (fd.get('municipio')) q.set('municipio', fd.get('municipio'));
+      if (fd.get('calificacionMin')) q.set('calificacionMin', fd.get('calificacionMin'));
+      if (userCoords) { q.set('lat', userCoords.lat); q.set('lng', userCoords.lng); q.set('radioKm', 50); }
+      
+      try {
+        const data = await api('/institutions?' + q.toString() + extraQuery);
+        
+        currentMarkers.forEach(m => m.remove());
+        currentMarkers = [];
+        
+        if (!data.institutions || data.institutions.length === 0) {
+          qs('#search-results').innerHTML = '<div class="notice">No se encontraron instituciones.</div>';
+          return;
+        }
+
+        qs('#search-results').innerHTML = data.institutions.map(i => `
+          <div class="inst-card" data-id="${i.id}" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
+            <h4 style="margin:0 0 5px 0; color:var(--primary-color);">${escapeHtml(i.nombre)}</h4>
+            <div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">
+              ${escapeHtml(i.municipio || '')}${i.provincia && i.municipio ? ', ' : ''}${escapeHtml(i.provincia || '')}
+            </div>
+            ${i.distanciaKm !== undefined && i.distanciaKm !== null ? `<div style="font-size:12px; font-weight:600; color:var(--primary-color);">📍 A ${i.distanciaKm} km</div>` : ''}
+            <div style="margin-top:10px;">
+              <a href="#/buscar/${i.id}" class="btn btn-ghost btn-small view-inst" style="padding:4px 8px; text-decoration:none;">Ver detalles</a>
+            </div>
+          </div>
+        `).join('');
+
+        const bounds = [];
+        if (currentMap) {
+          data.institutions.forEach(i => {
+            if (typeof i.lat === 'number' && typeof i.lng === 'number') {
+              const marker = L.marker([i.lat, i.lng]).addTo(currentMap);
+              marker.bindPopup(`<strong>${escapeHtml(i.nombre)}</strong><br><a href="#/buscar/${i.id}">Ver detalles</a>`);
+              marker.instId = i.id;
+              
+              marker.on('click', () => {
+                const card = qs(`.inst-card[data-id="${i.id}"]`);
+                if (card) {
+                  qsa('.inst-card').forEach(c => c.style.borderColor = 'var(--border-color)');
+                  card.style.borderColor = 'var(--primary-color)';
+                  card.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+                }
+              });
+              
+              currentMarkers.push(marker);
+              bounds.push([i.lat, i.lng]);
+            }
+          });
+          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (bounds.length > 0) {
+            currentMap.fitBounds(bounds, { animate: !prefersReduced });
+          }
+        }
+
+        qsa('.inst-card').forEach(c => {
+          c.addEventListener('mouseenter', () => {
+            const m = currentMarkers.find(mx => mx.instId === c.dataset.id);
+            if (m && currentMap) {
+               m.openPopup();
+            }
+          });
+          c.addEventListener('focus', () => {
+            const m = currentMarkers.find(mx => mx.instId === c.dataset.id);
+            if (m && currentMap) m.openPopup();
+          });
+        });
+      } catch (err) {
+        qs('#search-results').innerHTML = '<div class="notice err">Error al buscar: ' + escapeHtml(err.message) + '</div>';
+      }
+    }
+
+    qs('#search-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      performSearch();
+    });
+
+    qs('#btn-location').addEventListener('click', () => {
+      if ('geolocation' in navigator) {
+        qs('#btn-location').textContent = '📍 Obteniendo...';
+        navigator.geolocation.getCurrentPosition((pos) => {
+          userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          qs('#btn-location').textContent = '📍 Ubicación activa';
+          qs('#btn-location').classList.replace('btn-secondary', 'btn-primary');
+          performSearch();
+        }, (err) => {
+          toast('Permiso denegado. Busca manualmente.', 'err');
+          qs('#btn-location').textContent = '📍 Usar mi ubicación';
+        });
+      } else {
+        toast('Geolocalización no soportada.', 'err');
+      }
+    });
+
+    performSearch();
   }
 
   // ---------------- HU006 login ----------------
@@ -674,6 +874,7 @@
             ` : ''}
             ${isOnlyAdmin() ? `
             <div class="sec-label">Módulos</div>
+            <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
             <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">${ICONS.building} Instituciones</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
@@ -690,6 +891,7 @@
             </button>
             ` : isSupport() ? `
             <div class="sec-label">Módulos</div>
+            <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
@@ -699,6 +901,7 @@
             </button>
             ` : (isTutor() || isStaff()) ? `
             <div class="sec-label">Módulos</div>
+            <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
             </button>
@@ -707,6 +910,7 @@
             </button>
             ` : (u.role === 'Auditoría') ? `
             <div class="sec-label">Módulos</div>
+            <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
             <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
             </button>

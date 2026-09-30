@@ -9,7 +9,6 @@ const path = require('path');
 const multer = require('multer');
 
 const router = express.Router();
-router.use(requireAuth);
 
 const DISTRITO_RE = /^\d{2}-\d{2}$/;
 
@@ -35,7 +34,7 @@ function normalizeTipo(v) {
   return v === 'Privado' ? 'Privado' : 'Público';
 }
 
-// ---- listado (cualquier usuario autenticado la puede consultar, p.ej. para formularios) ----
+// ---- listado (público) ----
 function withRating(inst, db) {
   const ratings = db.ratings.filter((r) => r.institucionId === inst.id);
   const promedio = ratings.length ? ratings.reduce((s, r) => s + r.estrellas, 0) / ratings.length : null;
@@ -43,16 +42,34 @@ function withRating(inst, db) {
 }
 
 router.get('/', (req, res) => {
-  const db = req.db;
+  const { load } = require('../lib/db');
+  const db = load();
+  let currentUser = null;
+  if (req.session && req.session.userId) {
+    currentUser = db.users.find((u) => u.id === req.session.userId && u.estado !== 'Inactivo');
+  }
+
   const { q, provincia, estado, calificacionMin, municipio, lat, lng, radioKm } = req.query;
+  
+  // Extraer todos los municipios antes de filtrar, para que los selects de UI tengan la lista completa
+  // o filtrada si deciden hacerlo dinámico.
   const municipios = Array.from(new Set(db.institutions.map((i) => i.municipio).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
+  
   let list = db.institutions.slice();
+  
+  // Filtro de estado: si no hay sesión iniciada, o no es admin/soporte, forzar 'Activo'.
+  const isAdminOrSupport = currentUser && ['Administrador', 'Soporte'].includes(currentUser.role);
+  if (!isAdminOrSupport) {
+    list = list.filter((i) => (i.estado || 'Activo') === 'Activo');
+  } else if (estado && estado !== 'Todos') {
+    list = list.filter((i) => (i.estado || 'Activo') === estado);
+  }
+
   if (q) {
     const qq = q.toLowerCase();
     list = list.filter((i) => i.nombre.toLowerCase().includes(qq) || (i.distrito || '').toLowerCase().includes(qq));
   }
   if (provincia && provincia !== 'Todas') list = list.filter((i) => i.provincia === provincia);
-  if (estado && estado !== 'Todos') list = list.filter((i) => (i.estado || 'Activo') === estado);
   if (municipio && municipio !== 'Todos') list = list.filter((i) => i.municipio === municipio);
   list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   let withRatings = list.map((i) => withRating(i, db));
@@ -85,16 +102,17 @@ router.get('/', (req, res) => {
   res.json({ total: db.institutions.length, institutions: withRatings, municipios });
 });
 
-// HU026: vista de detalle de una institución (cualquier usuario autenticado la puede consultar).
+// HU026: vista de detalle de una institución (público).
 router.get('/:id', (req, res) => {
-  const db = req.db;
+  const { load } = require('../lib/db');
+  const db = load();
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
   res.json({ institution: withRating(institution, db) });
 });
 
 // ---- administración de instituciones (solo Administrador/Soporte) ----
-router.post('/', requireAdmin, (req, res) => {
+router.post('/', requireAuth, requireAdmin, (req, res) => {
   const db = req.db;
   const { nombre, provincia, distrito, tipo, direccion, telefono, municipio } = req.body || {};
   const errors = [];
@@ -125,7 +143,7 @@ router.post('/', requireAdmin, (req, res) => {
   res.json({ institution });
 });
 
-router.put('/:id', requireAdmin, (req, res) => {
+router.put('/:id', requireAuth, requireAdmin, (req, res) => {
   const db = req.db;
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
@@ -152,7 +170,7 @@ router.put('/:id', requireAdmin, (req, res) => {
   res.json({ institution });
 });
 
-router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
+router.post('/:id/toggle-estado', requireAuth, requireAdmin, (req, res) => {
   const db = req.db;
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
@@ -166,7 +184,7 @@ router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
 // lo puede consultar; el personal de esa institución y Administración ven el detalle
 // completo, los demás roles ven solo cuántas citas hay cada día).
 const CALENDAR_DETAIL_ROLES = ['Administrador', 'Soporte'];
-router.get('/:id/calendar', (req, res) => {
+router.get('/:id/calendar', requireAuth, (req, res) => {
   const db = req.db;
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
@@ -216,7 +234,7 @@ router.get('/:id/calendar', (req, res) => {
 
 
 // ---- foto/portada de una institución (solo Administrador/Soporte la pueden cambiar) ----
-router.post('/:id/foto', requireAdmin, (req, res, next) => {
+router.post('/:id/foto', requireAuth, requireAdmin, (req, res, next) => {
   uploadFoto.single('foto')(req, res, (err) => {
     if (err instanceof multer.MulterError || err) {
       const msg = err.code === 'LIMIT_FILE_SIZE' ? 'La imagen no puede pesar más de 5 MB.' : 'No se pudo subir la imagen. Usa JPG o PNG.';
@@ -247,7 +265,7 @@ router.post('/:id/foto', requireAdmin, (req, res, next) => {
   res.json({ institution: withRating(institution, db) });
 });
 
-router.delete('/:id/foto', requireAdmin, (req, res) => {
+router.delete('/:id/foto', requireAuth, requireAdmin, (req, res) => {
   const db = req.db;
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
@@ -261,7 +279,8 @@ router.delete('/:id/foto', requireAdmin, (req, res) => {
 });
 
 router.get('/:id/foto', (req, res) => {
-  const db = req.db;
+  const { load } = require('../lib/db');
+  const db = load();
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution || !institution.foto || !institution.foto.storageFile) {
     return res.status(404).json({ error: 'Esta institución no tiene una foto registrada.' });
