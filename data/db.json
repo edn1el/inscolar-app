@@ -382,7 +382,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-11-05T13:58:00.000Z",
-      "lastAccess": "2026-09-30T23:03:22.830Z",
+      "lastAccess": "2026-09-30T23:07:35.578Z",
       "notifyByEmail": true
     },
     {
@@ -402,7 +402,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-09-30T23:02:32.930Z",
+      "lastAccess": "2026-09-30T23:07:42.965Z",
       "notifyByEmail": true
     },
     {
@@ -2518,6 +2518,50 @@
       "accion": "Inicio de sesión exitoso",
       "entidad": "Usuario",
       "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log130",
+      "fecha": "2026-09-30T23:07:32.004Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log131",
+      "fecha": "2026-09-30T23:07:35.578Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log132",
+      "fecha": "2026-09-30T23:07:40.409Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log133",
+      "fecha": "2026-09-30T23:07:42.965Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
       "detalle": ""
     }
   ],

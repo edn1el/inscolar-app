@@ -514,10 +514,13 @@
 
     root.innerHTML = `
       <div class="search-layout">
+        ${state.user ? `<a href="#/app" class="map-close-btn" aria-label="Cerrar mapa" style="position:absolute; top:16px; right:16px; z-index:1000; background:white; color:var(--c-ink); width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 10px rgba(0,0,0,0.1); text-decoration:none;">${ICONS.close || '✖'}</a>` : ''}
         <div class="search-sidebar">
           <div class="plain-brand" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <img class="brand-logo" src="/assets/brand/inscolar-logo-horizontal-primary.svg" alt="Inscolar">
-            <a href="#/login" class="btn btn-ghost btn-small">Acceder</a>
+            ${state.user 
+              ? `<a href="#/app" class="btn btn-ghost btn-small">Volver al panel</a>`
+              : `<a href="#/login" class="btn btn-ghost btn-small">Acceder</a>`}
           </div>
           <form id="search-form">
             <div class="field"><label>Nombre o distrito</label><input type="text" name="q" placeholder="Ej. Politécnico..."></div>
