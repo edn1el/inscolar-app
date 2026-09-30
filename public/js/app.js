@@ -582,39 +582,78 @@
     const [avBg, avFg] = avatarColor(0);
     const topbarAvatarStyle = u.foto ? `background-image:url('/api/users/${u.id}/foto?v=${encodeURIComponent(u.foto.uploadedAt)}');background-size:cover;background-position:center;` : `background:${avBg};color:${avFg}`;
     const admin = isAdmin();
+    const instName = u.institucionNombre ? escapeHtml(u.institucionNombre) : '';
+
+    const sectionNames = {
+      'usuarios': 'Usuarios', 'instituciones': 'Instituciones',
+      'inscripciones': 'Inscripciones', 'citas': 'Citas', 'analiticas': 'Analíticas',
+      'auditoria': 'Auditoría', 'perfil': 'Mi perfil', 'seguridad': 'Seguridad',
+      'configuracion': 'Configuración', 'manual': 'Instrucciones'
+    };
+    const currentName = sectionNames[activeSection] || 'Inicio';
+
     return `
       <div class="app">
         <div class="topbar">
+          <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Abrir menú" aria-expanded="false">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+          </button>
           <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
+          <div class="topbar-breadcrumb"><span class="sep">/</span> <span class="current">${currentName}</span></div>
           <div class="topbar-right">
+            <button class="theme-toggle" id="theme-toggle" title="Cambiar tema">
+              ${ICONS.contrast}
+            </button>
             ${(admin || u.role === 'Tutor') ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
             <span class="who"><span class="avatar" style="${topbarAvatarStyle}">${u.foto ? '' : initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></span>
             <button class="logout" id="logout-btn">Cerrar sesión</button>
           </div>
         </div>
         <div class="body">
-          <div class="sidebar">
+          <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+          <div class="sidebar" id="sidebar">
+            ${u.role === 'Personal de institución' && instName ? `
+            <div class="sidebar-inst-badge">
+              ${ICONS.building} <span>${instName}</span>
+            </div>
+            ` : ''}
             ${admin ? `
             <div class="sec-label">Módulos</div>
-            <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">Usuarios</button>
-            <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">Instituciones</button>
-            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
-            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">Citas</button>
-            <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">Analíticas</button>
-            <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">Auditoría</button>
+            <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
+            <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">${ICONS.building} Instituciones</button>
+            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
+            </button>
+            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
+            </button>
+            <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Analíticas
+            </button>
+            <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
+            </button>
             ` : (u.role === 'Tutor' || u.role === 'Personal de institución') ? `
             <div class="sec-label">Módulos</div>
-            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">Inscripciones</button>
-            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">Citas</button>
+            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
+            </button>
+            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
+            </button>
             ` : (u.role === 'Auditoría') ? `
             <div class="sec-label">Módulos</div>
-            <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">Auditoría</button>
+            <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
+            </button>
             ` : ''}
             <div class="sec-label">Mi cuenta</div>
-            <button class="nav-item ${activeSection === 'perfil' ? 'active' : ''}" data-nav="#/app/perfil">Mi perfil</button>
-            <button class="nav-item ${activeSection === 'seguridad' ? 'active' : ''}" data-nav="#/app/seguridad">Seguridad</button>
-            <button class="nav-item ${activeSection === 'configuracion' ? 'active' : ''}" data-nav="#/app/configuracion">Configuración</button>
-            <button class="nav-item ${activeSection === 'manual' ? 'active' : ''}" data-nav="#/app/manual">Manual de instrucciones</button>
+            <button class="nav-item ${activeSection === 'perfil' ? 'active' : ''}" data-nav="#/app/perfil">${ICONS.users} Mi perfil</button>
+            <button class="nav-item ${activeSection === 'seguridad' ? 'active' : ''}" data-nav="#/app/seguridad">${ICONS.shield} Seguridad</button>
+            <button class="nav-item ${activeSection === 'configuracion' ? 'active' : ''}" data-nav="#/app/configuracion">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Configuración
+            </button>
+            <button class="nav-item ${activeSection === 'manual' ? 'active' : ''}" data-nav="#/app/manual">${ICONS.check} Instrucciones</button>
             <div class="sidebar-footer">v0.4 · Ambiente de pruebas</div>
           </div>
           <div class="main">${innerMain}</div>
@@ -624,7 +663,57 @@
   }
 
   function bindShellEvents() {
-    qsa('[data-nav]').forEach((btn) => btn.addEventListener('click', () => navigate(btn.getAttribute('data-nav'))));
+    qsa('[data-nav]').forEach((btn) => btn.addEventListener('click', () => {
+      const sidebar = qs('#sidebar');
+      const backdrop = qs('#sidebar-backdrop');
+      if (sidebar && backdrop && sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('visible');
+        qs('#sidebar-toggle').setAttribute('aria-expanded', 'false');
+      }
+      navigate(btn.getAttribute('data-nav'));
+    }));
+
+    const sidebarToggle = qs('#sidebar-toggle');
+    const sidebar = qs('#sidebar');
+    const backdrop = qs('#sidebar-backdrop');
+    if (sidebarToggle && sidebar && backdrop && !sidebarToggle.dataset.bound) {
+      sidebarToggle.dataset.bound = '1';
+      sidebarToggle.addEventListener('click', () => {
+        const isOpen = sidebar.classList.contains('open');
+        if (isOpen) {
+          sidebar.classList.remove('open');
+          backdrop.classList.remove('visible');
+        } else {
+          sidebar.classList.add('open');
+          backdrop.classList.add('visible');
+        }
+        sidebarToggle.setAttribute('aria-expanded', !isOpen);
+      });
+      backdrop.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        backdrop.classList.remove('visible');
+        sidebarToggle.setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    const themeToggleBtn = qs('#theme-toggle');
+    if (themeToggleBtn && !themeToggleBtn.dataset.bound) {
+      themeToggleBtn.dataset.bound = '1';
+      themeToggleBtn.addEventListener('click', () => {
+        const modes = ['system', 'light', 'dark'];
+        const current = localStorage.getItem('ins-theme') || 'system';
+        const next = modes[(modes.indexOf(current) + 1) % modes.length];
+        localStorage.setItem('ins-theme', next);
+        
+        document.documentElement.removeAttribute('data-theme');
+        if (next === 'dark' || (next === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+        toast('Tema: ' + (next === 'system' ? 'Automático' : (next === 'dark' ? 'Oscuro' : 'Claro')), 'info');
+      });
+    }
+
     const logoutBtn = qs('#logout-btn');
     logoutBtn && logoutBtn.addEventListener('click', async () => {
       await api('/auth/logout', { method: 'POST' });
