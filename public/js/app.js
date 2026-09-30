@@ -59,6 +59,25 @@
     setTimeout(() => el.remove(), 3800);
   }
 
+  function confirmAction(title, desc, confirmBtnText, onConfirm) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal">
+        <h3>${escapeHtml(title)}</h3>
+        <p>${escapeHtml(desc)}</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="confirm-cancel">Cancelar</button>
+          <button type="button" class="btn btn-primary danger" id="confirm-ok">${escapeHtml(confirmBtnText)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+    const close = () => { backdrop.remove(); };
+    qs('#confirm-cancel', backdrop).addEventListener('click', close);
+    qs('#confirm-ok', backdrop).addEventListener('click', () => { close(); onConfirm(); });
+  }
+
   function fieldErrorsBlock(errors) {
     if (!errors || !errors.length) return '';
     return `<div class="field-errors"><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
@@ -849,15 +868,17 @@
       }
     });
     const fotoRemoveBtn = qs('#foto-remove-btn');
-    fotoRemoveBtn && fotoRemoveBtn.addEventListener('click', async () => {
-      try {
-        const data = await api('/users/me/foto', { method: 'DELETE' });
-        state.user = data.user;
-        toast('Foto eliminada.', 'ok');
-        await viewApp(['perfil'], {});
-      } catch (err) {
-        toast(err.message || 'No se pudo eliminar la imagen.', 'err');
-      }
+    fotoRemoveBtn && fotoRemoveBtn.addEventListener('click', () => {
+      confirmAction('¿Eliminar foto de perfil?', 'Tu foto será eliminada permanentemente y volverá a mostrarse la inicial de tu nombre.', 'Eliminar foto', async () => {
+        try {
+          const data = await api('/users/me/foto', { method: 'DELETE' });
+          state.user = data.user;
+          toast('Foto eliminada.', 'ok');
+          await viewApp(['perfil'], {});
+        } catch (err) {
+          toast(err.message || 'No se pudo eliminar la imagen.', 'err');
+        }
+      });
     });
   }
 
@@ -1174,8 +1195,8 @@
                 <td>${fmtDate(u.lastAccess)}</td>
                 <td><span class="actions-cell">
                   <button class="neutral" data-edit="${u.id}">Modificar</button>
-                  <button class="neutral" data-reset="${u.id}">Resetear</button>
-                  <button class="${active ? 'danger' : 'ok'}" data-toggle="${u.id}">${active ? 'Desactivar' : 'Activar'}</button>
+                  <button class="neutral" data-reset="${u.id}" data-name="${escapeHtml(u.nombre)}">Resetear</button>
+                  <button class="${active ? 'danger' : 'ok'}" data-toggle="${u.id}" data-name="${escapeHtml(u.nombre)}" data-active="${active}">${active ? 'Desactivar' : 'Activar'}</button>
                 </span></td>
               </tr>`;
             }).join('')}
@@ -1199,12 +1220,21 @@
 
     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/usuarios/' + b.dataset.edit + '/editar')));
     qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
-      await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
-      renderUsuarios(query);
+      if (b.dataset.active === 'true') {
+        confirmAction('¿Desactivar usuario?', `¿Desactivar el acceso del usuario ${b.dataset.name}? No podrá iniciar sesión.`, 'Desactivar usuario', async () => {
+          await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
+          renderUsuarios(query);
+        });
+      } else {
+        await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
+        renderUsuarios(query);
+      }
     }));
-    qsa('[data-reset]').forEach((b) => b.addEventListener('click', async () => {
-      const data = await api('/users/' + b.dataset.reset + '/reset-password', { method: 'POST' });
-      alert('Contraseña temporal generada (modo de prueba, sin envío real de correo):\n\n' + data.devTempPassword);
+    qsa('[data-reset]').forEach((b) => b.addEventListener('click', () => {
+      confirmAction('¿Resetear contraseña?', `Se invalidará la contraseña actual de ${b.dataset.name} y se generará una temporal.`, 'Resetear contraseña', async () => {
+        const data = await api('/users/' + b.dataset.reset + '/reset-password', { method: 'POST' });
+        alert('Contraseña temporal generada (modo de prueba, sin envío real de correo):\n\n' + data.devTempPassword);
+      });
     }));
   }
 
@@ -1327,7 +1357,7 @@
                 <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${inst.estado || 'Activo'}</span></td>
                 <td><span class="actions-cell">
                   <button class="neutral" data-edit="${inst.id}">Modificar</button>
-                  <button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>
+                  <button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}" data-name="${escapeHtml(inst.nombre)}" data-active="${active}">${active ? 'Desactivar' : 'Activar'}</button>
                   <button class="neutral" data-ver-detalle="${inst.id}">Detalle</button>
                   <button class="neutral" data-ver-calificaciones="${inst.id}">Calificaciones</button>
                   <button class="neutral" data-ver-reportes="${inst.id}">Reportes</button>
@@ -1373,8 +1403,15 @@
 
     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + b.dataset.edit + '/editar')));
     qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
-      await api('/institutions/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
-      renderInstituciones(query);
+      if (b.dataset.active === 'true') {
+        confirmAction('¿Desactivar institución?', `¿Desactivar la institución ${b.dataset.name}? Sus usuarios no podrán ingresar y las inscripciones se pausarán.`, 'Desactivar institución', async () => {
+          await api('/institutions/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
+          renderInstituciones(query);
+        });
+      } else {
+        await api('/institutions/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
+        renderInstituciones(query);
+      }
     }));
 
     // HU021: usar la ubicación actual del dispositivo para filtrar/ordenar por cercanía.
@@ -1813,7 +1850,7 @@
                 <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}${e.estado === 'Abandonada' ? '<div class="help">Sin respuesta durante 30 días.</div>' : ''}</td>
                 <td>${fmtDate(e.createdAt)}</td>
                 <td><span class="actions-cell">
-                  ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
+                  ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}" data-name="${escapeHtml(e.estudianteNombre)}">Cancelar</button>` : ''}
                   ${!tutor && e.estado === 'Pendiente' ? `<button class="ok" data-approve="${e.id}">Aprobar</button><button class="danger" data-reject="${e.id}">Rechazar</button>` : ''}
                   ${tutor && e.estado === 'Aprobada' ? `<button class="neutral" data-nav="#/app/calificar/${e.institucionId}">Calificar</button><button class="neutral" data-nav="#/app/reportar/${e.institucionId}">Reportar</button>` : ''}
                   <button class="neutral" data-nav="#/app/inscripciones/${e.id}/documentos">Documentos</button>
@@ -1838,13 +1875,14 @@
     if (admin && qs('#f-institucion')) qs('#f-institucion').addEventListener('change', applyFilters);
 
     qsa('[data-comprobante]').forEach((b) => b.addEventListener('click', () => navigate('#/app/inscripciones/comprobante/' + b.dataset.comprobante)));
-    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('¿Cancelar esta solicitud de inscripción?')) return;
-      try {
-        await api('/enrollments/' + b.dataset.cancel + '/cancelar', { method: 'POST' });
-        toast('Solicitud cancelada.', 'ok');
-        renderInscripciones(query);
-      } catch (err) { toast(err.message, 'err'); }
+    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
+      confirmAction('¿Cancelar inscripción?', `¿Cancelar la solicitud de inscripción de ${b.dataset.name}? Esta acción no se puede deshacer.`, 'Cancelar inscripción', async () => {
+        try {
+          await api('/enrollments/' + b.dataset.cancel + '/cancelar', { method: 'POST' });
+          toast('Solicitud cancelada.', 'ok');
+          renderInscripciones(query);
+        } catch (err) { toast(err.message, 'err'); }
+      });
     }));
     qsa('[data-approve]').forEach((b) => b.addEventListener('click', async () => {
       try {
@@ -2077,13 +2115,14 @@
     `;
     bindShellEvents();
     qsa('[data-editar-periodo]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + institucionId + '/periodos/' + b.dataset.editarPeriodo + '/editar')));
-    qsa('[data-eliminar-periodo]').forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('\u00bfEliminar por completo la configuraci\u00f3n de este ciclo? Esta acci\u00f3n no se puede deshacer.')) return;
-      try {
-        await api('/institutions/' + institucionId + '/periods/' + b.dataset.eliminarPeriodo, { method: 'DELETE' });
-        toast('Configuraci\u00f3n eliminada.', 'ok');
-        renderPeriodosList(institucionId);
-      } catch (err) { toast(err.message, 'err'); }
+    qsa('[data-eliminar-periodo]').forEach((b) => b.addEventListener('click', () => {
+      confirmAction('¿Eliminar ciclo?', '¿Eliminar por completo la configuración de este ciclo? Esta acción no se puede deshacer.', 'Eliminar ciclo', async () => {
+        try {
+          await api('/institutions/' + institucionId + '/periods/' + b.dataset.eliminarPeriodo, { method: 'DELETE' });
+          toast('Configuración eliminada.', 'ok');
+          renderPeriodosList(institucionId);
+        } catch (err) { toast(err.message, 'err'); }
+      });
     }));
   }
 
@@ -2294,14 +2333,20 @@
       if (!tutor) {
         motivo = prompt('Motivo de la cancelación:');
         if (!motivo || !motivo.trim()) return;
-      } else if (!confirm('¿Cancelar esta cita?')) {
-        return;
+        try {
+          await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo } });
+          toast('Cita cancelada.', 'ok');
+          renderCitas(query);
+        } catch (err) { toast(err.message, 'err'); }
+      } else {
+        confirmAction('¿Cancelar cita?', '¿Cancelar esta cita programada? No podrá recuperarse.', 'Cancelar cita', async () => {
+          try {
+            await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo: '' } });
+            toast('Cita cancelada.', 'ok');
+            renderCitas(query);
+          } catch (err) { toast(err.message, 'err'); }
+        });
       }
-      try {
-        await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo } });
-        toast('Cita cancelada.', 'ok');
-        renderCitas(query);
-      } catch (err) { toast(err.message, 'err'); }
     }));
     qsa('[data-reject]').forEach((b) => b.addEventListener('click', async () => {
       const motivo = prompt('Motivo del rechazo:');
