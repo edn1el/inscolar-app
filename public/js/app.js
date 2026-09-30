@@ -1637,9 +1637,9 @@
         <div id="err"></div>
         <form id="user-form">
           <div class="field"><label>Rol</label>
-            <select name="role" id="role-select">${roles.map((r) => `<option ${editing && editing.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+            ${editing ? `<input type="text" value="${escapeHtml(editing.role)}" disabled class="input" style="background:#f1f3f4; color:#5f6368;" /><input type="hidden" name="role" id="role-select" value="${escapeHtml(editing.role)}" />` : `<select name="role" id="role-select">${roles.map((r) => `<option>${r}</option>`).join('')}</select>`}
           </div>
-          <div class="field"><label>Nombre completo</label><input type="text" name="nombre" value="${escapeHtml(editing ? editing.nombre : '')}" required></div>
+          <div class="field"><label>Nombre completo</label><input type="text" name="nombre" value="${escapeHtml(editing ? editing.nombre : '')}" required class="input"></div>
           <div class="field"><label>Correo electrónico</label><input type="email" name="email" value="${escapeHtml(editing ? editing.email : '')}" required></div>
           <div class="field" id="inst-field"><label>Institución vinculada</label>
             <select name="institucionId">${institutions.map((i) => `<option value="${i.id}" ${editing && editing.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)} — ${escapeHtml(i.provincia)}</option>`).join('')}</select>

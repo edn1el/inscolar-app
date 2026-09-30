@@ -267,44 +267,23 @@ router.put('/:id', requireAdminOrSupport, (req, res) => {
   if (isSupport && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(user.role)) {
     return res.status(403).json({ error: 'Soporte solo puede modificar usuarios de tipo Personal de institución o Tutor.' });
   }
-  // Soporte no puede cambiar el rol a uno privilegiado
-  const { nombre, email, role, institucionId } = req.body || {};
-  if (isSupport && role && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(role)) {
-    return res.status(403).json({ error: 'Soporte no puede asignar ese rol.' });
+  // Soporte no puede editar otros roles privilegiados
+  const { nombre, email, institucionId, role } = req.body || {};
+  if (role && role !== user.role) {
+    return res.status(403).json({ error: 'La modificación de roles de usuarios existentes no está permitida.' });
   }
   const errors = [];
   if (email && !isEmail(email)) errors.push('Correo electrónico inválido.');
   if (email && db.users.some((u) => u.id !== user.id && u.email.toLowerCase() === String(email).toLowerCase())) {
     errors.push('Este correo ya está en uso por otro usuario.');
   }
-  if (errors.length) return res.status(400).json({ errors });
-
-  const wasAdmin = user.role === 'Administrador';
-  const roleChanged = role && role !== user.role;
-  const prevRole = user.role;
-
-  if (roleChanged && wasAdmin && user.estado === 'Activo') {
-    if (user.id === req.currentUser.id) {
-      return res.status(403).json({ error: 'No puedes cambiar tu propio rol de Administrador.' });
-    }
-    const activeAdmins = db.users.filter(u => u.role === 'Administrador' && u.estado === 'Activo' && u.id !== user.id);
-    if (activeAdmins.length === 0) {
-      return res.status(403).json({ error: 'No puedes cambiar el rol del último Administrador activo del sistema.' });
-    }
-  }
-
   if (nombre) user.nombre = nombre.trim();
   if (email) user.email = email.trim().toLowerCase();
-  if (role) user.role = role;
-  if (institucionId !== undefined) user.institucionId = role === 'Personal de institución' ? institucionId : null;
-  const camposEditados = [nombre && 'nombre', email && 'correo', roleChanged && 'rol', institucionId !== undefined && 'institución'].filter(Boolean);
+  if (institucionId !== undefined) user.institucionId = user.role === 'Personal de institución' ? institucionId : null;
+  const camposEditados = [nombre && 'nombre', email && 'correo', institucionId !== undefined && 'institución'].filter(Boolean);
   logEvent(db, { actor: req.currentUser, accion: 'Usuario modificado', entidad: 'Usuario', entidadId: user.id, detalle: camposEditados.length ? `Campos: ${camposEditados.join(', ')}` : '' });
   save(db);
 
-  if (roleChanged && (wasAdmin || user.role === 'Administrador')) {
-    notifyAdmins(db, { affectedUser: user, campo: 'Rol', anterior: prevRole, nuevo: user.role, actor: req.currentUser });
-    save(db);
-  }
   res.json({ user: publicUser(user, db) });
 });
 
