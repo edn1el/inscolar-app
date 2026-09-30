@@ -979,3 +979,35 @@ tbody tr:last-child td { border-bottom: none; }
 .flex-wrap     { flex-wrap: wrap; }
 .w-full        { width: 100%; }
 .sr-only       { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+.search-layout {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+}
+.search-sidebar {
+  width: 400px;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: hidden;
+}
+.search-map {
+  flex: 1;
+  background: var(--bg-body);
+}
+@media (max-width: 768px) {
+  .search-layout {
+    flex-direction: column-reverse;
+  }
+  .search-sidebar {
+    width: 100%;
+    height: 60vh;
+  }
+  .search-map {
+    height: 40vh;
+    flex: none;
+  }
+}
