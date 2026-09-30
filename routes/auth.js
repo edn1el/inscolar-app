@@ -95,18 +95,24 @@ router.post('/login', (req, res) => {
   }
 
   if (user.mfaEnabled) {
-    const code = genCode();
-    db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== user.id);
-    db.mfaCodes.push({ userId: user.id, code, expiresAt: new Date(Date.now() + MFA_TTL_MS).toISOString() });
-    save(db);
-    req.session.pendingUserId = user.id;
-    req.session.pendingPurpose = 'mfa';
-    return res.json({
-      status: 'mfa_required',
-      method: user.mfaMethod,
-      maskedEmail: user.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '•'.repeat(Math.min(b.length, 3)) + c),
-      devCode: code, // sin servicio real de correo/SMS: se muestra en la respuesta para poder probar el flujo
-    });
+    const { deviceToken } = req.body || {};
+    db.trustedDevices = db.trustedDevices || [];
+    const isTrusted = db.trustedDevices.find(d => d.userId === user.id && d.token === deviceToken && new Date(d.expiresAt) > new Date());
+    
+    if (!isTrusted) {
+      const code = genCode();
+      db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== user.id);
+      db.mfaCodes.push({ userId: user.id, code, expiresAt: new Date(Date.now() + MFA_TTL_MS).toISOString() });
+      save(db);
+      req.session.pendingUserId = user.id;
+      req.session.pendingPurpose = 'mfa';
+      return res.json({
+        status: 'mfa_required',
+        method: user.mfaMethod,
+        maskedEmail: user.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '•'.repeat(Math.min(b.length, 3)) + c),
+        devCode: code, // sin servicio real de correo/SMS: se muestra en la respuesta para poder probar el flujo
+      });
+    }
   }
 
   req.session.userId = user.id;
@@ -120,7 +126,7 @@ router.post('/mfa/verify', (req, res) => {
   const db = load();
   const userId = req.session.pendingUserId;
   if (!userId || req.session.pendingPurpose !== 'mfa') return res.status(400).json({ error: 'No hay una verificación pendiente.' });
-  const { code } = req.body || {};
+  const { code, rememberDevice } = req.body || {};
   const entry = db.mfaCodes.find((c) => c.userId === userId);
   const pendingUser = db.users.find((u) => u.id === userId);
   if (!entry || entry.code !== String(code || '') || new Date(entry.expiresAt) < new Date()) {
@@ -129,6 +135,14 @@ router.post('/mfa/verify', (req, res) => {
     return res.status(400).json({ error: 'Código inválido o expirado.' });
   }
   db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== userId);
+  
+  let newDeviceToken = null;
+  if (rememberDevice) {
+    newDeviceToken = crypto.randomBytes(32).toString('hex');
+    db.trustedDevices = db.trustedDevices || [];
+    db.trustedDevices.push({ userId, token: newDeviceToken, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() });
+  }
+
   const user = db.users.find((u) => u.id === userId);
   user.lastAccess = new Date().toISOString();
   logEvent(db, { actor: user, accion: 'Inicio de sesión exitoso', entidad: 'Usuario', entidadId: user.id, detalle: 'Con verificación en dos pasos' });
@@ -136,7 +150,7 @@ router.post('/mfa/verify', (req, res) => {
   req.session.userId = userId;
   delete req.session.pendingUserId;
   delete req.session.pendingPurpose;
-  res.json({ status: 'ok', user: publicUser(user) });
+  res.json({ status: 'ok', user: publicUser(user), deviceToken: newDeviceToken });
 });
 
 router.post('/mfa/resend', (req, res) => {
@@ -225,12 +239,12 @@ router.post('/register', (req, res) => {
 router.post('/forgot', (req, res) => {
   const db = load();
   const { email } = req.body || {};
-  const user = findByEmail(db, email);
-  // Respuesta genérica aunque el correo no exista, para no filtrar qué cuentas existen.
-  if (!user) return res.json({ status: 'sent', attemptsUsed: 1, attemptsMax: RESET_MAX_ATTEMPTS });
-
+  const emailLower = String(email || '').toLowerCase();
+  
+  if (!db.forgotAttempts) db.forgotAttempts = {};
+  
   const now = Date.now();
-  const attempts = user.recoveryAttempts || { count: 0, windowStart: new Date(now).toISOString() };
+  const attempts = db.forgotAttempts[emailLower] || { count: 0, windowStart: new Date(now).toISOString() };
   if (now - new Date(attempts.windowStart).getTime() > RESET_WINDOW_MS) {
     attempts.count = 0;
     attempts.windowStart = new Date(now).toISOString();
@@ -239,7 +253,12 @@ router.post('/forgot', (req, res) => {
     return res.status(429).json({ error: `Máximo ${RESET_MAX_ATTEMPTS} intentos de recuperación cada 24 horas.` });
   }
   attempts.count += 1;
-  user.recoveryAttempts = attempts;
+  db.forgotAttempts[emailLower] = attempts;
+  save(db);
+
+  const user = findByEmail(db, email);
+  // Respuesta genérica aunque el correo no exista, para no filtrar qué cuentas existen.
+  if (!user) return res.json({ status: 'sent', attemptsUsed: attempts.count, attemptsMax: RESET_MAX_ATTEMPTS });
 
   const token = crypto.randomBytes(16).toString('hex');
   db.resetTokens = db.resetTokens.filter((t) => t.userId !== user.id);

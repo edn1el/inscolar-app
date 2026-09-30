@@ -1,0 +1,311 @@
+Inscolar Plan integral de cambios del frontend
+----------------------------------------------
+
+Versión de trabajo · 29 de septiembre de 2026
+Destinatarios: equipo Inscolar y agente de desarrollo.
+Fuentes: 134 historias activas del CSV de Azure, versión 2 de «Inscolar Historias Azure Pendientes» y registro de siete hallazgos observados. Se excluye por instrucción del equipo ROADMAP_REQUISITOS.md. El SRS antiguo no determina el alcance.
+Propósito: ejecutar mejoras visuales, funcionales y de calidad por fases, mantener trazabilidad por ID y demostrar conformidad con pruebas. Este plan no afirma que una función ausente del listado de hallazgos falte en el código; «verificar y corregir» significa comprobar su comportamiento antes de modificarla.
+
+Decisiones vigentes y alcance
+-----------------------------
+
+Regla | Especificación para implementar
+Archivos de inscripción | PDF, JPG, JPEG o PNG. Cada requisito documental define formatos permitidos y máximo entero de 1 a 10 MB; 1 MB = 1.048.576 bytes. Validar extensión, contenido, tamaño y permisos en servidor. Sustituir la regla antigua de HU047 de PDF/JPG y 5 MB.
+Citas | Se reservan como Pendientes y ocupan cupo; solo personal autorizado las acepta/rechaza. Aceptar conserva cupo; cancelar/rechazar lo libera una vez. Reprogramar cambia de franja atómicamente y vuelve a Pendiente.
+Borrador inactivo | Aviso accesible «¿Sigues aquí?» a los 10 minutos sin actividad válida. A los 20 minutos el servidor abandona solo Borradores y libera cualquier cupo retenido. «Continuar» antes del vencimiento reinicia el plazo.
+Solicitudes | Borrador → Enviada → En revisión → Aceptada/Rechazada; un rechazo documental da Documentos pendientes y su recarga vuelve a En revisión. Aceptada, Rechazada y Abandonada son terminales. Enviar no equivale a aprobar.
+Calificaciones y quejas | Una calificación por tutor e institución, editable con nuevo evento de auditoría. Queja y evidencia originales visibles al autor y personal autorizado; versión pública visible después de revisión y depuración de datos personales.
+Auditoría | Audit.NET en backend definitivo; eventos tras confirmación, asincronía con cola durable o bandeja de salida, control de duplicados y acceso restringido. Política de retención propuesta de 24 meses, sujeta a decisión institucional.
+
+Evidencia disponible y límites
+------------------------------
+
+ID | Hecho registrado en la demo | Trabajo asociado
+VIS-01 | Texto claro del login se pierde sobre el símbolo blanco a ciertos tamaños. | Fase 1; HU006, ID 87.
+FUN-01 | Según prueba comunicada, buscar instituciones solicita cuenta. | Fase 3; HU021, ID 168.
+FUN-02 | Según prueba comunicada, Soporte pudo crear Administradores. | Fase 2; HU002/HU003, IDs 336/337.
+FUN-03 | Captura del formulario sin RNC, correo, estado, logo/fondo y con teléfono/dirección opcionales. | Fase 3; HU019, ID 347.
+FUN-04 | Captura del listado sin RNC/correo/teléfono/fecha ni paginación visible. | Fase 3; HU020, ID 160.
+FUN-05 | Captura con Elías Piña como provincia y Distrito Nacional como municipio. | Fase 3; HU023/HU025, IDs 349/351 y filtros de listado.
+FUN-06 | Menú de Personal de institución sin Períodos ni institución asignada visible. | Fase 4; HU034–HU036, IDs 360–362.
+
+Las capturas prueban la pantalla mostrada, no todas las rutas ni las validaciones del servidor. Los reportes de prueba del equipo se marcan como tales. El backend definitivo no estaba integrado en la demo al documentar esos hallazgos. La revisión del repositorio incluida en el registro anterior corresponde al 29/09/2026 y debe verificarse de nuevo; el acceso web a GitHub no permitió confirmarla durante esta actualización.
+
+Forma de trabajo y ramas
+------------------------
+
+1. Verificar rama principal, commit, estado del repositorio, endpoints, scripts y permisos de escritura antes de modificar. Preparar copia aislada de datos de demo; no usar datos productivos en pruebas.
+2. Crear una rama de integración, por ejemplo integration/ui-quality-testing, desde la rama principal actual. La rama no se considera creada por este documento. Crear una rama feature/phase-XX-* por fase desde integración actualizada.
+3. Abrir PR pequeño por fase hacia integración. Incluir IDs de Azure, cambios, pruebas, capturas cuando afecte UI, contratos pendientes, riesgos y resultados por rol. Revisar antes de incorporar.
+4. Al completar las fases y la matriz de 134 IDs, ejecutar regresión de extremo a extremo en integración. Abrir PR hacia main; el equipo revisa y hace el merge después de aceptar resultados. Mantener las historias incompletas como abiertas.
+
+Regla de estado por historia: «Pendiente de verificar» → «Cumple con prueba» o «Corregida con prueba»; «Bloqueada» si falta definición o backend. Una pantalla existente no demuestra cumplimiento. Cada registro de prueba guarda ID, rol, datos, pasos, resultado, commit/PR y evidencia. No cerrar historias bloqueadas ni declarar cobertura total con la demo solamente.
+
+Fase 0 Preparación y línea base
+-------------------------------
+
+Objetivo: establecer una base reproducible para que las fases posteriores no rompan la demo ni confundan mock con backend real.
+
+Paquete | Cambio concreto | Evidencia de salida
+F0.1 Inventario | Confirmar estado GitHub, roles/rutas, arquitectura, fuente de datos, scripts, dependencias y API de demo. Registrar SHA nuevo; no reutilizar como actual el SHA citado en el informe anterior. | Inventario versionado y rama de integración visible.
+F0.2 Contratos | Documentar por recurso endpoints, esquema, errores, paginación, permisos, zona horaria e idempotencia. Separar adaptadores de API de renderizado; el backend final validará autoridad y reglas. | Contrato por módulo y lista de endpoints faltantes.
+F0.3 Datos de prueba | Fixtures para tutor, personal de dos instituciones, Soporte y Administrador; instituciones activas/inactivas, filtros, citas con cupos, documentos y eventos. Reset solo en copia aislada. | Demo reproducible sin modificar datos compartidos.
+F0.4 Puertas de calidad | Añadir scripts de lint/formato y una prueba de humo útil en CI; documentar cómo levantar frontend/API de demo. Elegir pruebas de integración por riesgo, sin crear pruebas que solo repitan el marcado. | PR de línea base verde, con instrucciones ejecutables.
+
+Fase 1 Fundamentos visuales y experiencia global
+------------------------------------------------
+
+Objetivo: mejorar toda la interfaz antes de rehacer flujos. La identidad conserva el granate y el logotipo de Inscolar; la presentación usa superficies legibles, jerarquía clara, brillo contenido y movimiento con propósito.
+
+Paquete | Cambio concreto | Cierre verificable
+F1.1 Sistema visual | Tokens de color, tipografía, espaciado, radios, sombra y estados. Componentes reutilizables para botón, campo, select, tarjeta, tabla, modal, badge, mensaje y navegación. | Una modificación de token se refleja en pantallas representativas sin estilos contradictorios.
+F1.2 Temas | Toggle Claro/Oscuro/Sistema persistente y aplicado antes del primer render; alto contraste existente como preferencia independiente. | Recarga sin destello de tema equivocado; estados, tablas, mapa y modales legibles en ambas paletas.
+F1.3 Estructura por rol | Sidebar/cabecera responsivas, foco visible, ubicación actual, navegación por permisos y nombre de institución asignada para Personal. Inicio institucional con tareas reales. | Todos los roles encuentran sus rutas; ninguna acción prohibida se ofrece, pero el servidor conserva la autoridad.
+F1.4 Login VIS-01 | Reubicar decoración o apoyar la descripción en superficie sólida; acceso visible a búsqueda pública. | Texto legible en 320, 375, 768 y 1280 px, teclado y lectores de pantalla.
+F1.5 Motion y rasgo distintivo | Transiciones de 180–240 ms entre módulos, sin espera artificial; glow discreto en foco/acción; mapa y lista con selección sincronizada, y línea temporal de períodos/citas cuando sus datos existan. | Preferencia de movimiento reducido elimina desplazamientos/pulsos; navegación rápida no bloquea interacción.
+F1.6 Estados universales | Carga localizada, vacío inicial, filtros sin resultados, error y reintento, guardar en progreso/éxito/fallo, confirmación de acciones, conservación de entradas. | Red lenta, doble clic, error de servidor y pérdida de conexión dejan estados comprensibles y recuperables.
+F1.7 Adaptabilidad | Filtros compactos en escritorio y panel móvil; tablas con columnas priorizadas o tarjetas sin ocultar acciones. | Sin cortes o desbordamiento no intencional a 320/375/768/1280 px; toque y teclado funcionales.
+
+Salida: PR de UI global con capturas comparativas de login, institución, formulario y panel Personal en claro/oscuro, revisión de contraste, foco y movimiento reducido. Los controles visuales futuros no se marcan funcionales hasta sus fases.
+
+Fase 2 Cuentas permisos y autenticación
+---------------------------------------
+
+Historias: HU001–HU018, IDs 346, 336–345, 86, 87, 106, 128, 200, 272, 332, 339, 340. Hallazgo: FUN-02.
+
+Paquete | Cambio concreto | Cierre verificable
+F2.1 Matriz de permisos | Permisos por acción y ámbito, no isAdmin() compartido: crear Admin/Soporte solo Admin; Soporte sí crea Personal según HU004; activar/desactivar/editar/resetear usuarios solo según historia; Personal limitado a institución. | UI oculta acciones no autorizadas y API devuelve rechazo a petición directa; Admin y Soporte conservan las acciones permitidas.
+F2.2 Ciclo de cuenta | Crear usuario inicial/Admin/Soporte/Personal, registro tutor, activación, desactivación, edición y reset. Validaciones por campo y avisos a Admin al modificar una cuenta administrativa. | Casos positivos/negativos de cada rol, duplicados, usuario inactivo y efectos de estado.
+F2.3 Sesión y recuperación | Login, cierre, recuperar/cambiar contraseña, perfil y edición. «Recordar usuario» conserva solo identificador permitido, no contraseña ni sesión implícita. | Sesión expira/cierra de forma coherente; errores no revelan cuentas; perfil persiste y pertenece al titular.
+F2.4 MFA | Selección de método según HU008, desafío HU009 y dispositivo confiable conectado a servicio de identidad real; definir proveedor y contrato antes de activar. No tratar la casilla como protección real sin backend. | Dispositivo nuevo/confiable, método alternativo, códigos erróneos y recuperación probados contra servicio integrado.
+
+Dependencia: autenticación real y seguridad de sesión dependen del backend/proveedor de identidad. La demo puede reproducir estados, pero no acreditar seguridad de producción.
+
+Fase 3 Instituciones búsqueda pública y moderación
+--------------------------------------------------
+
+Historias: HU019–HU033, incluyendo HU020 ID 334 (filtro público) y HU020 ID 160 (listado administrativo). Hallazgos: FUN-01, FUN-03, FUN-04, FUN-05.
+
+Paquete | Cambio concreto | Cierre verificable
+F3.1 Búsqueda pública | Sin cuenta: nombre, provincia y municipio dependiente por ID, calificación mínima, ubicación con permiso y alternativa manual, mapa/lista sincronizados y detalle. Solo instituciones activas; cercanía calculada solo con coordenadas válidas. | Ventana privada, permiso aceptado/denegado, filtros combinados, sin resultados y mapa/lista concordantes.
+F3.2 Datos de institución | Alta HU019 con nombre/RNC/correo/teléfono/dirección/estado/logo/fondo y reglas exactas de HU019; edición HU033 con valores precargados, unicidad excluyendo el propio registro, imagen previa. | RNC 9 dígitos, teléfono 10, formatos/tamaños de imagen, duplicados, cancelación y persistencia probados en UI/API.
+F3.3 Listado y estado | HU020 ID160 muestra RNC, correo, teléfono formateado, fecha, estado y paginación real. Activar/desactivar HU031/032 solo Admin, con confirmación e historial conservado. | Más de una página, filtros persistentes; inactivas fuera de búsqueda pública y dentro de gestión administrativa.
+F3.4 Calificaciones | Una puntuación 1–5 por tutor/institución, editable sin crear otra; promedio/listado y fecha conforme HU027/028. | Editar cambia promedio sin aumentar conteo; rechazo de usuario no autorizado; historial auditado.
+F3.5 Reportes | HU029 valida motivo/descripcion/evidencia; HU030 muestra expediente a autor y personal autorizado. Moderación con estados Pendiente, Publicado y Retirado; publicar descripción/evidencia depuradas de datos personales y metadatos. | Archivo privado inaccesible por URL pública; solo versión aprobada visible en detalle público; error de envío conserva formulario.
+
+Tareas nuevas a registrar en Azure: revisión/publicación/retiro de reportes y transformación segura de evidencias, porque HU029–HU030 describen envío y listado pero no un flujo de moderación completo. No cerrar el requisito público solo por mostrar evidencia sin revisión.
+
+Fase 4 Ciclos períodos cupos y requisitos documentales
+------------------------------------------------------
+
+Historias: HU034–HU045, IDs 360–371. Hallazgo: FUN-06.
+
+Paquete | Cambio concreto | Cierre verificable
+F4.1 Períodos | Crear/editar/eliminar inscripción, envío de documentos y agenda de citas; fecha/hora y zona horaria, cierre posterior a apertura, conflictos y confirmación al borrar. Personal solo su institución en UI y API. | Personal ve menú Períodos y su institución en solo lectura; URL de otra institución denegada; rangos inválidos fallan junto al campo.
+F4.2 Límite HU043 | Cupo entero positivo por franja; Pendiente/Aceptada consumen, Rechazada/Cancelada no. Bloquear reducción inferior a ocupación vigente. | Intentos simultáneos no exceden el máximo; edición muestra disponibilidad actual sin duplicar cupos.
+F4.3 Documentos HU044–045 | Editor por institución con nombre, niveles educativos múltiples, descripción, formatos permitidos y límite entero 1–10 MB. Lista temporal para agregar/editar/quitar, confirmación al quitar, Guardar/Cancelar/Resetear. | Tutor solo ve tipos para su nivel; lista no vacía, duplicados y formatos/tamaño válidos; error conserva cambios, guardar es íntegro.
+
+Dependencia: el guardado atómico de la lista, el cálculo de ocupación y permisos por institución requieren API. Documentar contratos incluso mientras se prueban contra la demo.
+
+Fase 5 Inscripción documentos y citas
+-------------------------------------
+
+Historias: HU046–HU061, IDs 192, 144, 374–386 y 184. Reglas: estados y temporizador acordados en este documento.
+
+Paquete | Cambio concreto | Cierre verificable
+F5.1 Solicitud | Flujo estudiante → tutor → institución/grado → documentos → revisión. Borrador recuperable mientras siga vigente; enviar crea Enviada una vez, luego personal marca En revisión. | Navegación conserva datos; revisión coincide con envío; doble envío no duplica expediente.
+F5.2 Inactividad | Reloj servidor por Borrador; aviso a 10 minutos, vencimiento a 20, presencia/edición válida reinicia; abandonar libera cupos retenidos exactamente una vez. | Pruebas con reloj controlado a 9:59, 10:00, 19:59, 20:00, dos pestañas y envío concurrente; solicitud enviada no expira.
+F5.3 Archivos y revisión | Subida por tipo conforme configuración PDF/JPG/JPEG/PNG y máximo 1–10 MB; validar contenido real. Personal acepta/rechaza con motivo; rechazo pasa a Documentos pendientes, recarga a En revisión. | Tamaño límite exacto aceptado, un byte extra rechazado; permisos de expediente, archivo inválido, reintento y estados probados.
+F5.4 Solicitudes | Listado tutor/institución, filtros y detalle; rechazo con motivo, aceptación solo En revisión con todos los requisitos aprobados. | Transiciones inválidas bloqueadas por API; Aceptada/Rechazada terminales y notificaciones correctas.
+F5.5 Citas | Selección de franja y resumen; creación Pendiente ocupa cupo. Personal acepta/rechaza; tutor/personal autorizado cancela o reprograma; calendario institucional y listado por ámbito. | Dos clientes compitiendo por último cupo, rechazo/cancelación/reprogramación y aviso; no sobreventa ni doble liberación.
+
+Tareas nuevas a registrar en Azure: reprogramación de cita como acción propia con permiso, disponibilidad y estado; definición del borrador y su retención temporal. HU050 la menciona, pero el flujo completo merece prueba específica.
+
+Fase 6 Notificaciones configuración y ayuda
+-------------------------------------------
+
+Historias: HU062–HU066 y HU133, IDs 208, 387–389, 176 y 136.
+
+Paquete | Cambio concreto | Cierre verificable
+F6.1 Avisos web | Bandeja con contador no leídas, estado, fecha, enlace al expediente/cita y marcar leída; permisos por destinatario. | Cambio real de cita/solicitud crea aviso una vez; lector de pantalla recibe actualización comprensible.
+F6.2 Correo | Plantillas para cambios de documentos, solicitud y citas; entrega asíncrona, preferencias independientes por tipo y botón Guardar. Definir avisos indispensables que no se desactivan sin afectar el trámite. | Preferencia de un tipo no modifica otras; falla del proveedor no revierte operación; envío y error auditables.
+F6.3 Configuración y manual | Menú de configuración por rol con estado persistido; manual de instrucciones orientado a Tutor y Personal, enlaces contextuales en pasos complejos. | Las instrucciones coinciden con UI vigente, rol y reglas de formatos/tiempo; navegación por teclado.
+
+Fase 7 Analíticas verificables
+------------------------------
+
+Historias: HU067–HU095, IDs 392–420 (29 historias). Las tarjetas usan métricas calculadas sobre datos controlados, no cifras ficticias.
+
+Paquete | Cambio concreto | Cierre verificable
+F7.1 Contrato de métricas | Definir para cada indicador numerador, denominador, período, ámbito institucional, zona horaria, estado incluido y actualización. «Sin datos» cuando un promedio/tasa no sea calculable; cero si el conteo real es cero. | Tabla de fórmulas y fixtures con valor esperado aprobados por equipo.
+F7.2 Usuarios | Dashboard de HU068–HU072: por rol, año, recuperación de contraseña y provincia. | Totales conciliados con usuarios del fixture; tasa con denominador documentado.
+F7.3 Instituciones | HU073–HU079: total, distribución provincial, calificación promedio y reportes por institución/provincia. | Promedios y cantidad de reportes reproducibles; excluidos/incluidos por estado según contrato definido.
+F7.4 Trámite | HU080–HU095: solicitudes, documentos, citas, correos y notificaciones leídas por estado/ámbito. | Estados mutuamente consistentes, filtros y período iguales entre tarjetas; recarga actualiza.
+F7.5 Presentación | Gráficos con etiquetas y alternativa tabular, estados de carga/error, permisos y contraste en claro/oscuro. | Valores accesibles sin depender de color/hover; usuario sin permiso no consulta datos por API.
+
+Fase 8 Auditoría y consulta de eventos
+--------------------------------------
+
+Historias: HU096–HU132, IDs 421–457 (37 historias). Audit.NET pertenece al backend; el frontend solo origina acciones y muestra la consulta a roles autorizados. Las reglas ya definidas en HU096–HU113 y el documento de historias actualizado son la fuente funcional.
+
+Paquete | Cambio concreto | Cierre verificable
+F8.1 Modelo y captura | Eventos por usuarios, instituciones, calificaciones, reportes, inscripción, documentos, citas, cupos y períodos. Actor/«Sistema», UTC, correlación, entidad, transición, resultado y motivo seguro. Emitir tras commit; no guardar binarios, contraseñas, tokens o cédulas completas. | Matriz evento → acción → HU; prueba de éxito, fallo y reintento sin duplicados.
+F8.2 Persistencia | Escritura asíncrona con bandeja de salida/cola durable, reintentos acotados y alerta si almacén de auditoría falla; fallo no revierte negocio confirmado. Eventos apendiculares, acceso separado y retención propuesta de 24 meses revisable. | Simular caída del almacén; operación principal consistente, evento recuperable y alerta observable.
+F8.3 Correo y lecturas | Registrar intento, aceptación de proveedor, entrega confirmada si existe, error y lectura web de aviso importante, sin equiparar esos estados. | Mensaje de prueba y falla controlada producen eventos correctos sin afirmar entrega no comprobada.
+F8.4 Visor HU129–HU132 | Solo Auditor o Admin habilitado; listado paginado, filtros por fecha, tipo y actor, detalle depurado y registro separado de consultas. | Filtrar combina criterios antes de paginar; acceso directo sin permiso denegado; exportación si existe también depurada.
+
+Fase 9 Integración y aceptación
+-------------------------------
+
+Control | Comprobación para cerrar | Evidencia
+Regresión | Tutor, Personal, Soporte y Admin recorren cuenta, búsqueda, institución, períodos, inscripción, documentos, cita, avisos, analíticas y auditoría según rol. | Pruebas automatizadas de flujos críticos y acta de revisión manual.
+Seguridad | Denegación por API, aislamiento por institución/solicitud, archivos privados, sesión/MFA real, logs sin secretos y entradas de usuario seguras. | Casos negativos, revisión de configuración y diff.
+Accesibilidad/visual | Claro, oscuro, alto contraste, 320/375/768/1280 px, teclado, foco, etiquetas, estados, errores y movimiento reducido. | Capturas y recorrido de teclado por pantallas clave.
+Concurrencia | Último cupo, doble clic, dos pestañas, expiración frente a envío, reprogramación y reintentos de notificación. | Pruebas reproducibles con reloj y datos controlados.
+Trazabilidad | Los 134 IDs activos tienen resultado y evidencia; los 6 Removed no cuentan como alcance. Distinguir prototipo de backend definitivo. | Matriz de cobertura, PR por fase, bloqueos explícitos y aprobación del equipo.
+
+Matriz de cobertura de las 134 historias
+----------------------------------------
+
+La siguiente matriz se genera del CSV y usa ID como clave, porque HU020 tiene dos registros distintos. «Cambio / verificación» es la capacidad que debe existir y probarse; no afirma que esté ausente. La descripción y criterios completos residen en Azure y en el documento de las 45 historias completadas. El agente debe añadir a cada fila su resultado real y enlace a prueba/PR antes de cerrar la fase.
+
+Fase | ID | HU | Cambio / verificación
+2 | 346 | HU001 | Crear usuario administrativo inicial
+2 | 336 | HU002 | Crear un usuario administrativo
+2 | 337 | HU003 | Crear un usuario de soporte
+2 | 338 | HU004 | Crear un usuario personal de institucion
+2 | 86 | HU005 | Registrar tutor
+2 | 87 | HU006 | Iniciar sesión
+2 | 106 | HU007 | Recuperar contraseña
+2 | 339 | HU008 | Configurar autentificación multi factor
+2 | 340 | HU009 | Requerir autentificación multi factor
+2 | 128 | HU010 | Cambiar contraseña
+2 | 272 | HU011 | Visualizar perfil de usuario
+2 | 332 | HU012 | Editar perfil de usuario
+2 | 341 | HU013 | Activar un usuario
+2 | 342 | HU014 | Desactivar un usuario
+2 | 343 | HU015 | Modificar un usuario
+2 | 345 | HU016 | Reset de la contraseña de un usuario
+2 | 344 | HU017 | Notificar a administradores cuando se modifique un usuario administrador
+2 | 200 | HU018 | Cerrar sesión
+3 | 347 | HU019 | Agregar una institucion
+3 | 334 | HU020 | Filtrar Búsqueda de Liceo por Provincia
+3 | 160 | HU020 | Listar instituciones
+3 | 168 | HU021 | Filtrar instituciones por ubicacion actual del dispositivo
+3 | 348 | HU022 | Filtrar instituciones por nombre
+3 | 349 | HU023 | Filtrar instituciones por provincia
+3 | 350 | HU024 | Filtrar instituciones por calificación
+3 | 351 | HU025 | Filtrar instituciones por municipio
+3 | 352 | HU026 | Visualizar detalles sobre una institución
+3 | 216 | HU027 | Calificar una institución
+3 | 353 | HU028 | Listar calificaciones dadas a una institución
+3 | 354 | HU029 | Reportar una institución
+3 | 355 | HU030 | Listar reportes hechos contra una institución
+3 | 356 | HU031 | Activar una institución
+3 | 357 | HU032 | Desactivar una institución
+3 | 358 | HU033 | Modificar una institución
+4 | 360 | HU034 | Agregar periodo de inscripción de una institución
+4 | 361 | HU035 | Agregar periodo de envio de documentos en un ciclo de inscripción
+4 | 362 | HU036 | Agregar periodo para agendar citas en un ciclo de inscripción
+4 | 363 | HU037 | Modificar periodo de inscripcion de una institucion
+4 | 364 | HU038 | Modificar periodo de envio de documentos en un ciclo de inscripcion
+4 | 365 | HU039 | Modificar periodo para agendar citas en un ciclo de inscripcion
+4 | 366 | HU040 | Eliminar periodo de inscripcion de una institucion
+4 | 367 | HU041 | Eliminar periodo de envio de documentos en un ciclo de inscripcion
+4 | 368 | HU042 | Eliminar periodo para agendar citas en un ciclo de inscripcion
+4 | 369 | HU043 | Agregar limite de citas para un periodo
+4 | 370 | HU044 | Agregar lista de documentos requerido para inscripcion
+4 | 371 | HU045 | Modificar lista de documentos requeridos para inscripcion
+5 | 192 | HU046 | Iniciar proceso de inscripcion
+5 | 144 | HU047 | Subir documentos requeridos para inscripcion
+5 | 374 | HU048 | Rechazar un documento entregado
+5 | 375 | HU049 | Aceptar un documento entregado
+5 | 184 | HU050 | Agendar cita
+5 | 376 | HU051 | Cancelar cita
+5 | 377 | HU052 | Listar citas agendadas
+5 | 378 | HU053 | Aceptar una cita
+5 | 379 | HU054 | Rechazar una cita
+5 | 380 | HU055 | Notificar sobre cambios en el estado de una cita
+5 | 381 | HU056 | Listar solicitudes de inscripcion
+5 | 382 | HU057 | Rechazar una solicitud de inscripcion
+5 | 383 | HU058 | Abandonar solicitud de inscripcion por inactividad
+5 | 384 | HU059 | Aceptar una solicitud de inscripcion
+5 | 385 | HU060 | Notificar de cambios de estatus de una solicitud de inscripcion
+5 | 386 | HU061 | Mostrar calendario de una institucion
+6 | 208 | HU062 | Recibir notificaciones por correo electronico
+6 | 387 | HU063 | Presentar notificaciones de cambio de estatus del proceso de inscripcion por la interfaz web
+6 | 388 | HU064 | Presentar notificaciones de cambios en el estado de una cita por la interfaz web
+6 | 176 | HU065 | Mostrar menú de configuración
+6 | 389 | HU066 | Configurar preferencias para notificaciones por correo
+7 | 392 | HU067 | Mostrar dashboard de analiticas
+7 | 393 | HU068 | Mostrar analiticas de usuarios
+7 | 394 | HU069 | Mostrar grafico de cantidad de usuarios registrados por rol
+7 | 395 | HU070 | Mostrar gráfico de usuarios registrados por año
+7 | 396 | HU071 | Mostrar indicador de tasa de recuperación de contraseña
+7 | 397 | HU072 | Mostrar gráfico de distribución geográfica de usuarios
+7 | 398 | HU073 | Mostrar analíticas de instituciones
+7 | 399 | HU074 | Mostrar indicador de cantidad de instituciones
+7 | 400 | HU075 | Mostrar gráfico de instituciones por provincia
+7 | 401 | HU076 | Mostrar indicador de promedio de calificación de instituciones
+7 | 402 | HU077 | Mostrar gráfico de calificaciones promedio de instituciones por provincia
+7 | 403 | HU078 | Mostrar indicador de promedio de reportes (quejas) sobre instituciones
+7 | 404 | HU079 | Mostrar gráfico de reportes (quejas) sobre instituciones por provincia
+7 | 405 | HU080 | Mostrar analíticas de solicitudes de inscripción
+7 | 406 | HU081 | Mostrar indicador de total de solicitudes de inscripción
+7 | 407 | HU082 | Mostrar indicador de total solicitudes aceptadas
+7 | 408 | HU083 | Mostrar indicador de total solicitudes rechazadas
+7 | 409 | HU084 | Mostrar indicador de total solicitudes pendientes
+7 | 410 | HU085 | Mostrar indicador de total cantidad de documentos subidos
+7 | 411 | HU086 | Mostrar indicador de total documentos aprobados
+7 | 412 | HU087 | Mostrar indicador de total documentos rechazados
+7 | 413 | HU088 | Mostrar indicador de total documentos pendientes de revisión
+7 | 414 | HU089 | Mostrar indicador de total de citas agendadas
+7 | 415 | HU090 | Mostrar indicador de total de citas por institución
+7 | 416 | HU091 | Mostrar indicador de total de citas aceptadas
+7 | 417 | HU092 | Mostrar indicador de total de citas rechazadas
+7 | 418 | HU093 | Mostrar indicador de total de citas pendientes
+7 | 419 | HU094 | Mostrar indicador de total de correos enviados
+7 | 420 | HU095 | Mostrar indicador de total de notificaciones leídas
+8 | 421 | HU096 | Registrar la creación de usuarios
+8 | 422 | HU097 | Registrar la modificación de usuarios
+8 | 423 | HU098 | Registrar la activación de usuarios
+8 | 424 | HU099 | Registrar la desactivación de usuarios
+8 | 425 | HU100 | Registrar el reseteo de contraseña de usuarios
+8 | 426 | HU101 | Registrar cambios de contraseña
+8 | 427 | HU102 | Registrar inicios de sesión
+8 | 428 | HU103 | Registrar cierres de sesión
+8 | 429 | HU104 | Registrar intentos fallidos de inicio de sesión
+8 | 430 | HU105 | Registrar la creación de instituciones
+8 | 431 | HU106 | Registrar la modificación de instituciones
+8 | 432 | HU107 | Registrar la activación de instituciones
+8 | 433 | HU108 | Registrar la desactivación de instituciones
+8 | 434 | HU109 | Registrar calificaciones realizadas a instituciones
+8 | 435 | HU110 | Registrar reportes realizados contra instituciones
+8 | 436 | HU111 | Registrar el inicio de un proceso de inscripción
+8 | 437 | HU112 | Registrar la subida de documentos
+8 | 438 | HU113 | Registrar la aprobación de documentos
+8 | 439 | HU114 | Registrar el rechazo de documentos
+8 | 440 | HU115 | Registrar cambios de estado de la inscripción
+8 | 441 | HU116 | Registrar la aceptación de solicitudes de inscripción
+8 | 442 | HU117 | Registrar el rechazo de solicitudes de inscripción
+8 | 443 | HU118 | Registrar el agendamiento de citas
+8 | 444 | HU119 | Registrar la modificación de citas
+8 | 445 | HU120 | Registrar la aceptación de citas
+8 | 446 | HU121 | Registrar el rechazo de citas
+8 | 447 | HU122 | Registrar la cancelación de citas
+8 | 448 | HU123 | Registrar cambios en límites de citas
+8 | 449 | HU124 | Registrar cambios en documentos requeridos
+8 | 450 | HU125 | Registrar cambios en periodos de inscripción
+8 | 451 | HU126 | Registrar envío de correos electrónicos
+8 | 452 | HU127 | Registrar errores en el envío de notificaciones
+8 | 453 | HU128 | Registrar lectura de notificaciones importantes
+8 | 454 | HU129 | Listar logs
+8 | 455 | HU130 | Filtrar logs por fecha
+8 | 456 | HU131 | Filtrar logs por tipo de acción
+8 | 457 | HU132 | Filtrar logs por usuario
+6 | 136 | HU133 | Mostrar manual de instrucciones
+
+Instrucción final para el agente
+--------------------------------
+
+Trabaja una fase por PR. Antes de codificar, compara cada criterio de Azure con el comportamiento actual y conserva lo que ya cumple. Entrega implementación, prueba que falla antes y pasa después cuando el riesgo lo amerite, capturas de UI, contratos de backend y matriz de IDs actualizada. Mantén la demo operativa durante las fases. Solicita decisión al equipo solo cuando un criterio no permita determinar comportamiento; registra el bloqueo y continúa con trabajo independiente. Nunca marques «completo» un control de autenticación, cupos, notificaciones o auditoría si solo funciona en la UI sin el backend que lo valida.

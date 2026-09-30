@@ -1,0 +1,568 @@
+Inscolar: historias de usuario pendientes de completar en Azure
+---------------------------------------------------------------
+
+Versión 2 · decisiones del equipo incorporadas · 29 de septiembre de 2026
+Fuente: exportación de Azure DevOps data.csv entregada por el equipo.
+Alcance: 45 historias activas cuya columna «Acceptance Criteria» está vacía; en 40 también está vacía «Description». Los números de ID identifican los work items exactos.
+
+Este texto se puede copiar por historia en los campos Description y Acceptance Criteria. Es una especificación propuesta para desarrollar y probar; no prueba que la función esté implementada. Las cinco historias que tenían descripción (HU027, HU029, HU046, HU047 y HU050) se sintetizan y actualizan con las decisiones posteriores del equipo. Las demás se infieren del título y de historias relacionadas. Las reglas de alcance común de la siguiente sección forman parte de los criterios de las historias que citan.
+
+Decisiones del equipo y reglas operativas propuestas
+----------------------------------------------------
+
+Tema | Historias | Regla que se aplicará
+Archivos de inscripción | HU044–HU045, HU046–HU047 | PDF, JPG, JPEG o PNG. Cada requisito configura un tamaño máximo entero entre 1 y 10 MB y uno o varios de esos formatos. El archivo no puede exceder el límite ni usar un formato excluido para ese requisito. 1 MB = 1.048.576 bytes; el límite exacto se acepta. HU047 debe reemplazar su antigua regla PDF/JPG de 5 MB.
+Citas | HU050–HU055 | Una reserva válida nace Pendiente y ocupa cupo; solo el personal autorizado de la institución puede Aceptarla o Rechazarla. Aceptar mantiene el cupo. Rechazar o cancelar lo libera de forma atómica. Reprogramar mueve la reserva a una nueva franja disponible y la devuelve a Pendiente; el movimiento de cupos es atómico.
+Inactividad | HU046, HU058 | El formulario iniciado, todavía sin enviar, vence tras 20 minutos sin actividad válida. A los 10 minutos aparece «¿Sigues aquí?»; confirmar presencia o editar un campo reinicia el contador. Abandonar libera cualquier cupo retenido por ese borrador. La autoridad sobre la expiración reside en el servidor.
+Ciclo de inscripción | HU046, HU048–HU049, HU056–HU060 | Borrador → Enviada → En revisión → Aceptada/Rechazada. Un documento rechazado lleva la solicitud a Documentos pendientes; tras una nueva carga vuelve a En revisión. Solo Borrador puede pasar a Abandonada por inactividad. Aceptada, Rechazada y Abandonada son terminales; finalizar el formulario significa Enviada, nunca aceptación automática.
+Calificaciones y reportes | HU027–HU030 | Una calificación por tutor e institución, editable; cada edición conserva historial en auditoría y actualiza el promedio. La queja y su evidencia pueden consultarse: el autor y personal autorizado ven el expediente completo; el público ve las quejas publicadas después de revisión y depuración de datos personales, incluida evidencia publicable.
+Auditoría | HU114–HU132 | Audit.NET para eventos de negocio confirmados, escritura asíncrona y tolerancia al fallo del almacén de auditoría; detalles profesionales de acceso, retención, integridad y datos sensibles en la sección de auditoría.
+
+Decisiones de diseño adoptadas aquí: el aviso de inactividad y los estados del ciclo, la visibilidad pública posterior a revisión, y la política de auditoría son propuestas del asistente dentro de lo delegado por el equipo. Si cambian, actualizar los work items relacionados y sus pruebas de aceptación en conjunto. «MB» en todas las reglas de carga significa 1.048.576 bytes.
+
+Descubrimiento de instituciones
+-------------------------------
+
+HU023 · ID 349 · Filtrar instituciones por provincia
+----------------------------------------------------
+
+Descripción propuesta: Como visitante o tutor que busca una institución, quiero filtrar las instituciones activas por provincia para encontrar opciones en el área que me interesa, sin necesitar una cuenta para consultar los resultados públicos.
+
+Criterios de aceptación propuestos
+
+1. El buscador público muestra un selector de provincias y permite buscar sin iniciar sesión.
+2. Al seleccionar una provincia, el listado y los marcadores del mapa muestran únicamente instituciones activas ubicadas en esa provincia; el nombre de la provincia seleccionada permanece visible.
+3. El filtro puede combinarse con los demás criterios disponibles; al cambiar la provincia se limpia cualquier municipio que no pertenezca a ella.
+4. Si no hay resultados, se muestra un estado vacío con opción de quitar o cambiar el filtro. Si la consulta falla, se informa el error y se puede reintentar.
+
+HU025 · ID 351 · Filtrar instituciones por municipio
+----------------------------------------------------
+
+Descripción propuesta: Como visitante o tutor, quiero restringir la búsqueda a un municipio de la provincia seleccionada para encontrar instituciones cercanas a la zona correcta.
+
+Criterios de aceptación propuestos
+
+1. El selector de municipio presenta únicamente municipios de la provincia seleccionada; si no hay provincia, solicita elegirla antes de filtrar.
+2. La búsqueda nunca acepta una combinación provincia/municipio incompatible, incluso si se manipulan parámetros de la URL o la petición.
+3. Al cambiar o quitar la provincia se elimina el municipio previamente elegido y se actualizan juntos el mapa y el listado para incluir solo instituciones activas del área válida.
+4. Se distinguen claramente ausencia de resultados, carga y error de consulta; el usuario puede corregir los filtros o reintentar.
+
+HU027 · ID 216 · Calificar una institución
+------------------------------------------
+
+Descripción propuesta: Como madre, padre o tutor autenticado, quiero asignar de una a cinco estrellas a una institución para expresar mi experiencia y contribuir a su calificación visible en la plataforma.
+
+Criterios de aceptación propuestos
+
+1. Desde el detalle de una institución, un tutor autenticado puede seleccionar exactamente una puntuación entera de 1 a 5 estrellas; la selección y el significado de cada estrella son comprensibles también con teclado y lector de pantalla.
+2. No se envía una calificación sin institución válida ni puntuación; el sistema asocia la acción al tutor autenticado y confirma el resultado o permite reintentar ante un error.
+3. Cada tutor mantiene una sola calificación por institución; al volver, puede editar sus estrellas. Guardar una edición reemplaza su puntuación vigente, actualiza el promedio y cantidad mostrados por HU028 y no crea una segunda valoración.
+4. La edición se registra como evento nuevo de auditoría según HU109, con puntuación anterior y nueva; un fallo o reenvío no altera el promedio ni duplica eventos efectivos.
+
+HU029 · ID 354 · Reportar una institución
+-----------------------------------------
+
+Descripción propuesta: Como tutor autenticado, quiero reportar una institución registrada indicando el motivo y una descripción, con evidencia opcional, para que el equipo administrativo pueda revisar información incorrecta o una irregularidad.
+
+Criterios de aceptación propuestos
+
+1. Desde el detalle se abre un formulario con la institución existente en solo lectura, un motivo obligatorio entre «Información incorrecta», «Información desactualizada», «Institución inexistente», «Ubicación incorrecta», «Contenido inapropiado», «Incumplimiento de información publicada» y «Otro», y una descripción obligatoria de 10 a 1.000 caracteres.
+2. La evidencia es opcional; si se adjunta, solo se acepta JPG, JPEG, PNG o PDF de hasta 10 MB. Los errores de validación se muestran junto al campo y no se envía un reporte inválido.
+3. Al enviar correctamente se guarda una sola vez la institución, el tutor, motivo, descripción, evidencia si existe y fecha/hora; el estado inicial es «Pendiente» y se muestra confirmación.
+4. El reporte se remite a revisión, sin modificar automáticamente los datos ni el estado de la institución. Su autor y personal autorizado pueden consultar descripción y evidencia originales; la versión pública se habilita solo después de moderar contenido y eliminar datos personales, ubicaciones privadas y metadatos del archivo que no deban divulgarse. Si falla el envío, se conservan los datos ingresados.
+5. Una queja publicada muestra motivo, descripción y evidencia aprobada desde el detalle de la institución; se ofrece aviso de contenido retirado cuando una evidencia no pueda hacerse pública. La revisión y publicación requieren permiso y quedan auditadas.
+
+HU030 · ID 355 · Listar reportes hechos contra una institución
+--------------------------------------------------------------
+
+Descripción propuesta: Como administrador del sistema o usuario de soporte autorizado, quiero consultar los reportes vinculados a una institución para revisar las quejas y darles seguimiento.
+
+Criterios de aceptación propuestos
+
+1. Desde el detalle público de una institución se listan los reportes publicados y moderados, con fecha, motivo, descripción y enlace o vista de la evidencia aprobada. El autor y personal autorizado también consultan sus reportes pendientes y la evidencia original en el expediente privado.
+2. El listado no mezcla reportes de otras instituciones, se ordena por fecha reciente y ofrece paginación; cada reporte indica claramente si está publicado, pendiente o retirado para quienes puedan ver ese estado.
+3. El servidor comprueba el ámbito y sirve únicamente la versión depurada al público; las evidencias privadas no deben ser accesibles por URL directa, y se aplican comprobaciones de tipo seguro, escaneo y retiro de metadatos antes de publicar.
+4. Se muestran estados distintos para lista vacía, carga y fallo, con opción de reintento sin duplicar registros.
+
+HU031 · ID 356 · Activar una institución
+----------------------------------------
+
+Descripción propuesta: Como administrador del sistema, quiero activar una institución inactiva para que vuelva a figurar en las búsquedas públicas y pueda participar en los procesos habilitados.
+
+Criterios de aceptación propuestos
+
+1. Solo el administrador puede activar una institución inactiva; la acción muestra la institución y solicita confirmación antes de ejecutarse.
+2. Tras el éxito, el estado pasa a «Activa» en el detalle y listado, y la institución aparece en las búsquedas públicas según sus filtros; una institución ya activa no recibe una segunda transición.
+3. Se verifica el permiso y el estado en el servidor; si falla la operación, el estado visible se revierte o recarga y se ofrece un error recuperable.
+4. La activación deja el evento de auditoría correspondiente según HU107, sin registrar una transición que no se confirmó.
+
+HU032 · ID 357 · Desactivar una institución
+-------------------------------------------
+
+Descripción propuesta: Como administrador del sistema, quiero desactivar una institución para retirarla de la búsqueda pública y evitar nuevos trámites cuando ya no deba operar en la plataforma.
+
+Criterios de aceptación propuestos
+
+1. Solo el administrador puede iniciar la acción sobre una institución activa; se muestra una confirmación que explica la consecuencia para nuevas búsquedas y solicitudes.
+2. Al confirmar, el estado cambia a «Inactiva», desaparece de resultados públicos y permanece visible en la gestión administrativa con su historial conservado.
+3. Las solicitudes y citas existentes no se borran ni se cambian silenciosamente; si existe una regla de negocio que impida desactivar por trámites en curso, se explica y se bloquea la operación.
+4. El servidor valida permiso y transición; ante un error se conserva el estado anterior y se muestra una acción de reintento. Se audita el cambio confirmado según HU108.
+
+HU033 · ID 358 · Modificar una institución
+------------------------------------------
+
+Descripción propuesta: Como administrador del sistema, quiero actualizar los datos de una institución registrada para corregir su identidad, contacto, ubicación e imágenes, manteniendo coherente su información pública y administrativa.
+
+Criterios de aceptación propuestos
+
+1. El formulario carga los valores actuales y permite editar los datos definidos en HU019: nombre, RNC, correo institucional, teléfono, dirección, logo y fondo; el estado se gestiona por las acciones de HU031/HU032 o por una regla acordada.
+2. Se aplican al editar las mismas validaciones de formato, longitud, unicidad y tamaño de imagen de HU019, excluyendo del chequeo de duplicados el registro que se está editando.
+3. La vista previa de imágenes permite conservar o sustituir cada archivo; cancelar descarta cambios locales y un error de guardado mantiene los valores para corregir o reintentar.
+4. Al guardar correctamente, detalle y listado muestran la información actualizada; solo un administrador autorizado puede modificarla y la transición queda registrada según HU106.
+
+Inscripción, documentos y citas
+-------------------------------
+
+HU043 · ID 369 · Agregar límite de citas para un período
+--------------------------------------------------------
+
+Descripción propuesta: Como administrador, usuario de soporte o personal de la institución asignada, quiero establecer el cupo de citas de un período de agendamiento para controlar la disponibilidad ofrecida a los tutores.
+
+Criterios de aceptación propuestos
+
+1. La institución y el período de citas existentes son visibles; el personal solo modifica los de su institución y el servidor verifica ese límite de acceso.
+2. El formulario solicita un límite entero positivo de citas por franja horaria para ese período e indica fecha, hora y zona horaria. Una cita Pendiente o Aceptada ocupa un cupo; una Rechazada o Cancelada no lo ocupa.
+3. No se permite guardar un límite menor que las citas vigentes ya confirmadas para la unidad elegida; las disponibilidades se recalculan después de guardar sin crear reservas duplicadas.
+4. Se confirma el guardado o se muestra error conservando el valor ingresado; cada cambio efectivo genera auditoría según HU123.
+
+HU046 · ID 192 · Iniciar proceso de inscripción
+-----------------------------------------------
+
+Descripción propuesta: Como madre, padre, tutor o personal administrativo autorizado, quiero completar en línea los datos del estudiante y tutor, elegir institución y grado, adjuntar los documentos requeridos y revisar todo antes de enviar una solicitud de inscripción.
+
+Criterios de aceptación propuestos
+
+1. El flujo presenta secciones para estudiante, tutor (nombre, apellido y cédula), institución y grado, documentos, y una revisión final; se puede avanzar y regresar sin perder datos ya introducidos.
+2. Antes del envío se validan los campos obligatorios de cada sección, la relación entre institución y grado y los documentos exigidos para el nivel conforme a HU044–HU045; el error indica sección y campo.
+3. La pantalla final permite revisar y corregir los datos antes de confirmar; una confirmación válida crea una única solicitud y muestra su identificador y estado inicial.
+4. Al confirmar se crea una solicitud Enviada, no una inscripción aprobada; la pantalla y el correo muestran identificador y estado. Un error de red o de servidor no debe presentarse como éxito ni borrar datos, y un reenvío no crea otra solicitud.
+5. Cada documento respeta los formatos PDF/JPG/JPEG/PNG y el máximo de 1–10 MB configurado para su tipo en HU044–HU045; el servidor vuelve a validar ambos antes de aceptar la carga.
+6. Mientras el formulario esté en Borrador, tras 10 minutos sin actividad válida aparece «¿Sigues aquí?» con cuenta regresiva; confirmar presencia o editar reinicia los 20 minutos. Al vencer, pasa a Abandonada y libera cupos retenidos, conforme a HU058.
+
+HU047 · ID 144 · Subir documentos requeridos para inscripción
+-------------------------------------------------------------
+
+Descripción propuesta: Como madre, padre, tutor o personal administrativo autorizado, quiero seleccionar el tipo de documento requerido y subir el archivo a una solicitud para completar o actualizar su expediente.
+
+Criterios de aceptación propuestos
+
+1. El formulario muestra solo tipos de documento requeridos para el nivel del aspirante conforme a HU044–HU045, permite elegir un archivo por tipo y muestra nombre, formato y tamaño antes de confirmar.
+2. Los formatos posibles son PDF, JPG, JPEG y PNG. Para cada tipo de documento se aplican los formatos seleccionados y el máximo configurado entre 1 y 10 MB; un archivo del tamaño máximo exacto se acepta y uno de un byte más se rechaza. No se aceptan archivos vacíos, extensiones simuladas ni contenido que no coincida con su tipo.
+3. La carga se asocia únicamente a la solicitud autorizada; el servidor valida permisos, formato, tamaño y período de envío configurado, y no marca un archivo fallido como entregado.
+4. El éxito muestra confirmación y el estado del documento actualizado; un fallo permite reintentar sin duplicar la entrega ni perder la referencia de los archivos ya cargados. El evento se registra según HU112.
+
+HU048 · ID 374 · Rechazar un documento entregado
+------------------------------------------------
+
+Descripción propuesta: Como personal de la institución correspondiente o administrador autorizado, quiero rechazar un documento entregado con un motivo para que el tutor sepa qué debe corregir.
+
+Criterios de aceptación propuestos
+
+1. Solo un revisor autorizado de la solicitud puede rechazar un documento entregado que aún sea revisable; la vista muestra tipo, solicitud y versión del archivo.
+2. Antes de confirmar se exige un motivo de rechazo claro, que luego queda asociado al documento y visible para el tutor de esa solicitud.
+3. Después de guardar, el documento pasa a Rechazado y la solicitud En revisión pasa a Documentos pendientes; el tutor puede corregirlo y volver a cargarlo, lo que devuelve la solicitud a En revisión. Se notifica el motivo sin publicar el archivo de inscripción.
+4. Si falla la operación, no se anuncia un rechazo ni se pierde el motivo escrito; se evita aplicar dos veces la misma acción. La transición confirmada se audita según HU114.
+
+HU049 · ID 375 · Aceptar un documento entregado
+-----------------------------------------------
+
+Descripción propuesta: Como personal de la institución correspondiente o administrador autorizado, quiero aprobar un documento entregado que cumple los requisitos para avanzar la revisión de la solicitud.
+
+Criterios de aceptación propuestos
+
+1. La acción solo aparece para un revisor autorizado y un documento en estado revisable; se muestran el tipo, la solicitud y la versión que se está evaluando.
+2. Al confirmar, el documento pasa a «Aprobado» una sola vez y el resumen del expediente refleja el nuevo estado sin cambiar otros documentos. Una solicitud con documentos aún pendientes no queda aceptada automáticamente.
+3. Un intento sin permiso, sobre una versión obsoleta o sobre un estado incompatible no cambia la información; se muestra un mensaje que permite actualizar la vista.
+4. La aprobación confirmada se audita según HU113; no se registra el archivo binario en el evento.
+
+HU050 · ID 184 · Agendar cita
+-----------------------------
+
+Descripción propuesta: Como madre, padre, tutor o personal administrativo autorizado, quiero elegir una fecha y hora disponibles para una cita de inscripción, confirmar los detalles y recibir constancia de la reserva.
+
+Criterios de aceptación propuestos
+
+1. El calendario presenta solo fechas y franjas disponibles dentro del período y de los límites por franja; el usuario revisa institución, solicitud, fecha, hora y zona horaria antes de confirmar.
+2. El servidor vuelve a comprobar y reserva el cupo de forma atómica; si se ocupó mientras se elegía, muestra alternativas sin crear cita ni superar el límite.
+3. Al guardar, la cita queda Pendiente y ya ocupa un cupo hasta que el personal la acepte, rechace o alguien autorizado la cancele. Se confirma el estado Pendiente en pantalla y por correo; un fallo de correo no anula la cita.
+4. Desde el detalle se puede cancelar (HU051) o reprogramar a otra franja libre: la operación libera el cupo anterior, ocupa el nuevo y devuelve la cita a Pendiente en una sola transacción. Un error no mueve ningún cupo. La modificación se audita según HU119 y el agendamiento según HU118.
+
+HU051 · ID 376 · Cancelar cita
+------------------------------
+
+Descripción propuesta: Como tutor responsable de una cita o personal autorizado, quiero cancelarla cuando no pueda asistir para que el estado y la disponibilidad queden actualizados.
+
+Criterios de aceptación propuestos
+
+1. La acción está disponible solo para el titular o personal con permiso sobre una cita cancelable; se muestran fecha, hora e institución y se solicita confirmación.
+2. Al confirmar, una cita Pendiente o Aceptada pasa a «Cancelada», deja de presentarse como próxima y libera exactamente un cupo en la misma transacción; una segunda cancelación no libera otro cupo.
+3. La persona afectada ve el nuevo estado y recibe la notificación prevista en HU055; si falla la operación, se conserva la cita sin anunciar la cancelación.
+4. El evento confirmado se audita conforme a HU122 y el historial conserva la cita y sus cambios.
+
+HU052 · ID 377 · Listar citas agendadas
+---------------------------------------
+
+Descripción propuesta: Como tutor o personal autorizado, quiero consultar las citas de inscripción que me corresponden para conocer sus fechas, estados y posibles acciones.
+
+Criterios de aceptación propuestos
+
+1. El tutor solo ve citas de sus solicitudes; el personal de institución solo las de su institución, y los roles con acceso ampliado se rigen por permisos explícitos comprobados en el servidor.
+2. Cada fila muestra institución, estudiante o solicitud, fecha y hora, estado y acceso al detalle; próximas y pasadas se identifican claramente.
+3. El listado admite paginación y filtros por estado/fecha cuando haya varios resultados; no repite citas al cambiar de página.
+4. Lista vacía, carga y error tienen mensajes distintos con opción de reintentar; solo se ofrecen acciones válidas para el estado y rol actuales.
+
+HU053 · ID 378 · Aceptar una cita
+---------------------------------
+
+Descripción propuesta: Como personal de la institución correspondiente o administrador autorizado, quiero aceptar una cita pendiente para confirmar al tutor que será atendido en el horario acordado.
+
+Criterios de aceptación propuestos
+
+1. Solo personal autorizado de la institución puede aceptar una cita «Pendiente»; se muestran fecha, hora y solicitud antes de confirmar.
+2. La transición a «Aceptada» se guarda una sola vez, actualiza listado y detalle y mantiene el cupo ya reservado desde Pendiente, sin volver a descontarlo.
+3. Se notifica al tutor según HU055; si la cita ya fue cancelada, rechazada o modificada por otra persona, se informa el conflicto sin sobrescribir su estado.
+4. La aceptación confirmada se registra en la auditoría según HU120.
+
+HU054 · ID 379 · Rechazar una cita
+----------------------------------
+
+Descripción propuesta: Como personal de la institución correspondiente o administrador autorizado, quiero rechazar una cita pendiente indicando el motivo para informar al tutor y permitirle gestionar otra fecha.
+
+Criterios de aceptación propuestos
+
+1. Solo personal autorizado de la institución puede rechazar una cita Pendiente; el motivo es obligatorio y se solicita confirmación.
+2. Tras guardar, el estado «Rechazada» y el motivo aparecen en el detalle del tutor, y el cupo se libera exactamente una vez en la misma transacción.
+3. Se notifica al tutor según HU055 y se ofrece acceso al agendamiento de otra franja si el período sigue abierto; un error no altera la cita ni borra el motivo ingresado.
+4. El rechazo confirmado se audita según HU121 y no se registra dos veces por reenvío.
+
+HU055 · ID 380 · Notificar cambios en el estado de una cita
+-----------------------------------------------------------
+
+Descripción propuesta: Como titular de una cita, quiero enterarme cuando su estado o horario cambie para ajustar mis planes y consultar el detalle vigente.
+
+Criterios de aceptación propuestos
+
+1. La creación Pendiente, aceptación, rechazo, cancelación o reprogramación confirmadas generan una notificación al tutor asociado con institución, fecha/hora vigente, estado y enlace al detalle; cuando exista rechazo, incluye o enlaza el motivo.
+2. La notificación web cumple HU064 y el correo, cuando corresponda, respeta las preferencias de HU066 sin ocultar en la aplicación el cambio de estado.
+3. No se envía por cambios fallidos ni se duplica ante reintentos de la misma transición; no expone datos de otra solicitud.
+4. Un fallo de entrega queda registrado conforme a HU127 y no revierte una cita ya guardada; la vista permite consultar el estado actual.
+
+HU056 · ID 381 · Listar solicitudes de inscripción
+--------------------------------------------------
+
+Descripción propuesta: Como tutor o personal autorizado, quiero ver las solicitudes que me corresponden para consultar su progreso y abrir el expediente pertinente.
+
+Criterios de aceptación propuestos
+
+1. El tutor ve únicamente sus solicitudes y el personal solo las de su institución; otros accesos requieren permiso explícito y verificación en servidor.
+2. Cada elemento muestra identificador, aspirante, institución, grado, fecha de envío y estado actual, con enlace al detalle; los datos provienen de solicitudes persistidas.
+3. Existen paginación y filtros por estado o institución cuando sean aplicables, sin mezclar datos de otros usuarios.
+4. La pantalla distingue carga, vacío y error, permite reintentar y presenta únicamente acciones válidas para cada estado.
+
+HU057 · ID 382 · Rechazar una solicitud de inscripción
+------------------------------------------------------
+
+Descripción propuesta: Como personal de la institución correspondiente o administrador autorizado, quiero rechazar una solicitud evaluada indicando el motivo para cerrar la revisión e informar al tutor.
+
+Criterios de aceptación propuestos
+
+1. Solo quien tenga permiso sobre la institución puede rechazar una solicitud en estado evaluable; el formulario muestra el expediente y exige un motivo.
+2. Solo una solicitud Enviada, En revisión o Documentos pendientes puede pasar a Rechazada. Tras confirmar, el estado es terminal, el motivo queda disponible al tutor y se impiden ediciones y aprobaciones posteriores.
+3. Se genera una notificación conforme a HU060; ante conflicto de estado o error de guardado no se cambia el expediente y se permite revisar/reintentar.
+4. El rechazo efectivo se registra según HU117, además del cambio de estado según la política de HU115, sin duplicar eventos por reenvío.
+
+HU058 · ID 383 · Abandonar solicitud de inscripción por inactividad
+-------------------------------------------------------------------
+
+Descripción propuesta: Como responsable de la gestión de inscripciones, quiero que un borrador sin actividad válida se avise a los 10 minutos y se abandone a los 20 para liberar recursos reservados y distinguirlo de los trámites enviados.
+
+Criterios de aceptación propuestos
+
+1. El servidor guarda el instante de última actividad válida de cada Borrador: confirmación de presencia en «¿Sigues aquí?» o interacción que cambie datos/cargue documentos. Mover el ratón, tráfico en segundo plano o un reloj del dispositivo no extienden la sesión. Al cumplirse 10 minutos sin actividad aparece aviso accesible «¿Sigues aquí?» con tiempo restante y botón «Continuar».
+2. Al cumplirse 20 minutos sin actividad válida, el servidor cambia solo el Borrador a «Abandonada» una vez y libera atómicamente los cupos retenidos por ese borrador. Un envío confirmado antes del vencimiento produce Enviada y ya no puede abandonarse por este temporizador.
+3. «Continuar» antes del vencimiento confirma actividad al servidor, reinicia los 20 minutos y cierra el aviso; si otro dispositivo ya lo abandonó, se informa que el borrador expiró sin recuperar silenciosamente el cupo. El tutor ve la razón y puede iniciar una nueva solicitud, según las reglas de duplicados.
+4. Enviada, En revisión, Documentos pendientes, Aceptada y Rechazada nunca cambian a Abandonada por este temporizador. La transición se audita con actor «Sistema» según HU115; se notifica conforme a HU060 sin permitir eventos duplicados.
+
+HU059 · ID 384 · Aceptar una solicitud de inscripción
+-----------------------------------------------------
+
+Descripción propuesta: Como personal de la institución correspondiente o administrador autorizado, quiero aceptar una solicitud que cumple los requisitos para comunicar al tutor el resultado de la evaluación.
+
+Criterios de aceptación propuestos
+
+1. La acción exige permiso sobre la institución y una solicitud En revisión; antes de confirmar, se muestran estudiante, grado y estado de todos los documentos requeridos.
+2. El sistema bloquea la aceptación si falta algún documento obligatorio, hay uno pendiente de revisión o rechazado, o falta un requisito del proceso; no se permite omitir esa validación desde la API.
+3. Al confirmar, el expediente pasa a «Aceptada» una sola vez; tutor y personal ven el nuevo estado y se genera la notificación de HU060.
+4. Si la solicitud cambió mientras se revisaba, se muestra el conflicto y no se sobrescribe; el éxito se registra según HU116 y HU115 conforme a la política de auditoría.
+
+HU060 · ID 385 · Notificar cambios de estatus de una solicitud de inscripción
+------------------------------------------------------------------------
+
+Descripción propuesta: Como tutor de un aspirante, quiero recibir avisos cuando cambie el estado de su solicitud para saber si debo corregir documentos o consultar el resultado.
+
+Criterios de aceptación propuestos
+
+1. Cada cambio de estado persistido (Enviada, En revisión, Documentos pendientes, Aceptada, Rechazada o Abandonada) genera una notificación web para el tutor conforme a HU063, con identificador, estado y enlace al detalle; si hay rechazo o documentos pendientes, muestra el motivo o acceso a él.
+2. El correo sigue HU062 y las preferencias de HU066 cuando correspondan; las comunicaciones indispensables para el trámite se definen explícitamente antes de aplicar preferencias.
+3. Un fallo de entrega no revierte la transición y se audita según HU127; no se notifica un cambio que fracasó ni se duplica el mismo evento por reintentos.
+4. Solo el titular autorizado puede consultar el detalle asociado al aviso y la interfaz muestra el estado vigente aunque una notificación llegue tarde.
+
+HU061 · ID 386 · Mostrar calendario de una institución
+------------------------------------------------------
+
+Descripción propuesta: Como tutor o personal autorizado, quiero consultar el calendario de citas de una institución para identificar fechas disponibles o revisar las citas que me corresponde gestionar.
+
+Criterios de aceptación propuestos
+
+1. La vista identifica institución, zona horaria, período vigente y franjas con cupo disponible para el tutor; las citas Pendientes y Aceptadas ya ocupan cupo, sin mostrar datos personales de otros tutores.
+2. El personal autorizado ve las citas de su institución con fecha, hora, estado y enlace al detalle, según sus permisos; el servidor impide consultar otra institución por manipular la URL.
+3. Al navegar entre fechas o después de agendar/cancelar/reprogramar, el calendario refleja los cupos y límites por franja vigentes; el rechazo, cancelación o abandono libera el cupo que corresponda exactamente una vez. No ofrece franjas pasadas o completas.
+4. Se muestran estados de carga, período sin disponibilidad y error de consulta, con un camino para cambiar fecha o reintentar.
+
+Analíticas
+----------
+
+HU073 · ID 398 · Mostrar analíticas de instituciones
+----------------------------------------------------
+
+Descripción propuesta: Como usuario con permiso de acceso al dashboard, quiero ver juntas las métricas de instituciones para comprender cuántas participan, cómo se distribuyen y qué calificaciones y reportes reciben.
+
+Criterios de aceptación propuestos
+
+1. El módulo reúne las tarjetas y gráficos definidos en HU074–HU079: cantidad, distribución por provincia, promedio de calificación y reportes, con etiquetas, unidades y períodos de datos claros.
+2. Todas las métricas del mismo dashboard usan una base temporal y filtros consistentes; al actualizar o filtrar la vista, cambian de manera coordinada sin mezclar datos de diferentes consultas.
+3. Una métrica sin datos se presenta como «Sin datos» y no como cero cuando el promedio no pueda calcularse; cada gráfico dispone de alternativa textual o tabular accesible.
+4. Solo usuarios autorizados acceden a la vista y a sus datos; la carga y los fallos se comunican sin mostrar cifras antiguas como actuales.
+
+Auditoría de documentos, solicitudes, citas y configuración
+-----------------------------------------------------------
+
+Política transversal propuesta para HU114–HU132: los eventos de negocio de HU114–HU125 se generan después de confirmar la operación principal, con ID de evento y correlación únicos, fecha/hora UTC, actor (ID o «Sistema»), acción, entidad e ID, estado anterior/nuevo y resultado cuando aplique. Audit.NET escribe en forma asíncrona; la cola durable o bandeja de salida conserva el evento hasta confirmar su persistencia. Un fallo del almacén de auditoría no revierte la operación principal: se reintenta con límite y se alerta en el log general, evitando duplicados por ID. No se incluyen contraseñas, tokens, contenido de archivos/Base64, cédulas completas ni más datos personales que los imprescindibles. Los eventos se agregan sin edición o borrado por la UI y su integridad se comprueba mediante control de acceso y trazabilidad de almacenamiento. Acceso de lectura: rol específico de Auditor o Administrador expresamente habilitado; Soporte, personal de institución y tutores no ven el módulo. Toda consulta del módulo se registra por separado. Retención propuesta: 24 meses para eventos consultables, con archivo o eliminación controlados según la política institucional aprobada; nunca prometer una retención legal sin validarla. Las operaciones de notificación HU126–HU128 distinguen intento, aceptación por proveedor, entrega confirmada si el proveedor la informa, fallo y lectura web. Los criterios específicos siguientes se suman a esta política.
+
+HU114 · ID 439 · Registrar el rechazo de documentos
+---------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar cada rechazo efectivo de un documento para conocer quién tomó la decisión, cuándo y sobre qué versión.
+
+Criterios de aceptación propuestos
+
+1. Tras confirmar HU048 se genera un evento con ID de solicitud, documento y versión, actor, fecha/hora y transición desde el estado previo a «Rechazado».
+2. Se registra el motivo de rechazo como texto seguro y necesario para la trazabilidad, sin incluir el archivo físico ni su Base64.
+3. Un rechazo denegado o fallido no genera evento de éxito; una repetición de la misma operación no crea dos eventos equivalentes.
+
+HU115 · ID 440 · Registrar cambios de estado de la inscripción
+--------------------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero conservar cada transición de estado de una solicitud para reconstruir su evolución.
+
+Criterios de aceptación propuestos
+
+1. Cada transición persistida guarda ID de solicitud, institución, estado anterior y nuevo, fecha/hora, actor o «Sistema» y origen de la acción.
+2. Se conserva el motivo cuando la transición lo exige; no se guarda una transición si la operación fue rechazada o falló.
+3. Los eventos permiten ordenar la historia cronológicamente y distinguirla de eventos específicos de aceptación o rechazo sin duplicar la misma transición.
+
+HU116 · ID 441 · Registrar la aceptación de solicitudes de inscripción
+----------------------------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar las aceptaciones confirmadas de solicitudes para identificar la decisión y su responsable.
+
+Criterios de aceptación propuestos
+
+1. Tras HU059, el evento incluye solicitud, institución, actor, fecha/hora y estado anterior/nuevo «Aceptada».
+2. Se registra solo después de confirmarse el cambio en la base principal; una solicitud no aprobada o sin permiso no produce evento de aceptación.
+3. El registro omite archivos y datos sensibles y se puede correlacionar con la transición general de HU115.
+
+HU117 · ID 442 · Registrar el rechazo de solicitudes de inscripción
+-------------------------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar los rechazos de solicitudes para investigar la decisión y el motivo comunicado.
+
+Criterios de aceptación propuestos
+
+1. Tras HU057, el evento incluye solicitud, institución, actor, fecha/hora, estado anterior/nuevo «Rechazada» y motivo registrado.
+2. Solo se registra si el rechazo quedó confirmado; una validación fallida no crea evento de éxito.
+3. El motivo se almacena y presenta como texto seguro, sin archivos ni credenciales, y el evento se correlaciona con HU115.
+
+HU118 · ID 443 · Registrar el agendamiento de citas
+---------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar cada nueva cita confirmada para saber quién reservó qué franja.
+
+Criterios de aceptación propuestos
+
+1. Después de HU050, el evento contiene ID real de cita, solicitud, institución, actor, fecha/hora de la acción y franja reservada con zona horaria.
+2. No se registra una reserva si falló la comprobación de disponibilidad o el guardado; el evento se correlaciona con una sola cita creada.
+3. El evento no incluye contenido de documentos ni información ajena al expediente.
+
+HU119 · ID 444 · Registrar la modificación de citas
+---------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar cambios efectivos en una cita, incluida la reprogramación, para reconstruir sus condiciones anteriores y nuevas.
+
+Criterios de aceptación propuestos
+
+1. Tras una modificación confirmada se capturan ID de cita, solicitud, actor, fecha/hora y los valores anterior/nuevo de fecha, hora o estado realmente cambiados.
+2. Una edición cancelada, inválida o fallida no genera evento de modificación; cambiar una cita no reescribe su evento de creación de HU118.
+3. Las fechas conservan la zona horaria y el evento puede correlacionarse con el aviso de HU055.
+
+HU120 · ID 445 · Registrar la aceptación de citas
+-------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar quién aceptó cada cita y su transición de estado.
+
+Criterios de aceptación propuestos
+
+1. Tras HU053 se guarda ID de cita, institución, actor, fecha/hora y estado anterior/nuevo «Aceptada».
+2. El evento se crea solo después de persistir la aceptación y no se repite por reenviar la misma petición.
+3. No se incluyen datos privados que no sean necesarios para identificar la cita y el cambio.
+
+HU121 · ID 446 · Registrar el rechazo de citas
+----------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar los rechazos de citas para conocer responsable, transición y motivo.
+
+Criterios de aceptación propuestos
+
+1. Tras HU054 se guarda ID de cita, institución, actor, fecha/hora, estado anterior/nuevo «Rechazada» y motivo.
+2. Se registra solamente una decisión confirmada; los intentos sin permiso o con estado obsoleto no figuran como rechazos realizados.
+3. El motivo se trata como texto seguro y el evento permite correlacionar el aviso enviado al tutor.
+
+HU122 · ID 447 · Registrar la cancelación de citas
+--------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar la cancelación confirmada de una cita para conservar la trazabilidad del cupo y del responsable.
+
+Criterios de aceptación propuestos
+
+1. Tras HU051 se captura ID de cita, solicitud, actor, fecha/hora, estado anterior/nuevo «Cancelada» y franja que se liberó.
+2. Una cancelación fallida o duplicada no genera un segundo evento efectivo; el historial de la cita permanece consultable.
+3. El registro evita datos sensibles innecesarios y puede correlacionarse con la actualización de disponibilidad.
+
+HU123 · ID 448 · Registrar cambios en límites de citas
+------------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar ajustes de cupo para explicar por qué cambió la disponibilidad de un período.
+
+Criterios de aceptación propuestos
+
+1. Tras guardar HU043 o editar el límite, el evento contiene institución, período, unidad del cupo, valor anterior/nuevo, actor y fecha/hora.
+2. Un valor inválido o una edición no guardada no se audita como cambio efectivo; repetir el mismo valor no inventa una transición.
+3. El evento es consultable para investigar cambios de disponibilidad sin exponer información de tutores.
+
+HU124 · ID 449 · Registrar cambios en documentos requeridos
+-----------------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar los cambios confirmados en requisitos documentales para explicar qué se pedía en cada institución.
+
+Criterios de aceptación propuestos
+
+1. Tras HU044/HU045 se guarda institución, actor, fecha/hora y la diferencia entre documentos agregados, editados y retirados, incluidos niveles, formatos y tamaños configurados.
+2. Un guardado parcial o fallido no produce un evento que afirme éxito; la versión anterior sigue identificable para revisar expedientes históricos.
+3. El evento no incluye archivos subidos por los tutores ni datos personales ajenos a la configuración.
+
+HU125 · ID 450 · Registrar cambios en períodos de inscripción
+-------------------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero registrar altas, ediciones y eliminaciones confirmadas de períodos para reconstruir cuándo estuvo abierto cada trámite.
+
+Criterios de aceptación propuestos
+
+1. Las acciones de HU034–HU042 generan eventos con institución, ciclo, tipo de período, operación, fechas/horas anteriores y nuevas cuando correspondan, actor y fecha/hora.
+2. El evento de eliminación identifica el período y sus valores previos; una acción fallida o cancelada no se registra como cambio confirmado.
+3. Las fechas incluyen zona horaria y los eventos permiten ordenar el historial de una institución sin modificar eventos previos.
+
+HU126 · ID 451 · Registrar envío de correos electrónicos
+--------------------------------------------------------
+
+Descripción propuesta: Como responsable de operaciones, quiero registrar los resultados de entrega de los correos de notificación para verificar qué se intentó enviar y qué aceptó el proveedor.
+
+Criterios de aceptación propuestos
+
+1. Por cada intento se registran identificador de notificación, plantilla o tipo, destinatario protegido, fecha/hora UTC, proveedor, ID de intento y resultado «Intentado», «Aceptado por proveedor», «Entregado» si llega confirmación verificable, o «Fallido».
+2. «Aceptado por proveedor» no significa leído ni entregado; los reintentos conservan el ID lógico de mensaje y usan distintos ID de intento para permitir detectar duplicados.
+3. No se almacenan contraseñas, tokens de enlace, adjuntos ni el cuerpo completo cuando no sea necesario; el registro respeta la preferencia aplicable de HU066.
+
+HU127 · ID 452 · Registrar errores en el envío de notificaciones
+----------------------------------------------------------------
+
+Descripción propuesta: Como responsable de operaciones, quiero registrar fallos al generar o entregar notificaciones web o por correo para investigarlos y reintentar cuando corresponda.
+
+Criterios de aceptación propuestos
+
+1. El fallo registra ID de notificación o evento, canal, fecha/hora UTC, etapa, código y mensaje técnico depurado, además del número de intento cuando exista.
+2. No se expone el error técnico al destinatario ni se incluyen secretos o datos completos del mensaje; el registro permite diferenciar fallo temporal de fallo definitivo.
+3. Un error de notificación no revierte una cita, documento o solicitud ya guardados; la operación fallida puede reintentarse sin duplicar la transición original.
+
+HU128 · ID 453 · Registrar lectura de notificaciones importantes
+----------------------------------------------------------------
+
+Descripción propuesta: Como responsable de auditoría, quiero conservar constancia de cuándo el destinatario marcó como leída una notificación importante para dar seguimiento a avisos del proceso.
+
+Criterios de aceptación propuestos
+
+1. Solo para tipos marcados explícitamente como importantes, la primera lectura web confirmada registra ID de notificación, destinatario, fecha/hora UTC y actor que la marcó.
+2. Volver a abrir o marcar la misma notificación no altera la primera fecha de lectura ni crea eventos duplicados.
+3. El usuario solo puede marcar como leídas sus notificaciones; el registro no equivale a confirmar que leyó el correo ni a aceptar el contenido del aviso.
+
+Consulta de auditoría
+---------------------
+
+HU129 · ID 454 · Listar logs
+----------------------------
+
+Descripción propuesta: Como usuario autorizado para auditoría, quiero consultar los eventos registrados para investigar acciones y fallos del sistema.
+
+Criterios de aceptación propuestos
+
+1. Solo el Auditor o Administrador habilitado ve eventos paginados con fecha/hora UTC y representación local, acción, actor, entidad, identificador y resultado; el detalle muestra solo datos permitidos para ese rol.
+2. Se ordena del más reciente al más antiguo y permite abrir el detalle sin alterar eventos; los filtros de HU130–HU132 operan sobre el mismo conjunto autorizado.
+3. El servidor valida el permiso incluso con URL o parámetros manipulados y oculta contraseñas, tokens, archivos, cédulas completas y demás campos sensibles también en API o exportación. Cada acceso a logs registra auditor, filtros y fecha/hora en un registro protegido de acceso.
+4. Se distinguen lista vacía, carga y error; un fallo de consulta no muestra información de otra cuenta ni cifras incompletas como totales definitivos.
+
+HU130 · ID 455 · Filtrar logs por fecha
+---------------------------------------
+
+Descripción propuesta: Como usuario autorizado para auditoría, quiero limitar los eventos a un intervalo de fechas para investigar una incidencia concreta.
+
+Criterios de aceptación propuestos
+
+1. Se pueden indicar fecha inicial, final o ambas, con zona horaria visible; se rechaza un rango cuyo final preceda al inicio.
+2. El filtro se aplica en el servidor a todos los resultados autorizados y a la paginación, incluidos correctamente los límites del día seleccionado.
+3. Al cambiar el rango se vuelve a la primera página, se conserva el criterio visible y se puede limpiar; no se confunden «sin eventos» con «error de consulta».
+
+HU131 · ID 456 · Filtrar logs por tipo de acción
+------------------------------------------------
+
+Descripción propuesta: Como usuario autorizado para auditoría, quiero filtrar los eventos por su tipo de acción para revisar una clase de operaciones.
+
+Criterios de aceptación propuestos
+
+1. El selector usa el catálogo de acciones realmente registradas y etiquetas entendibles; cada evento filtrado coincide con el tipo elegido.
+2. El filtro puede combinarse con fecha y usuario; se aplica antes de paginar y restablece la primera página al cambiarse.
+3. Una opción no reconocida no omite el control de acceso ni devuelve eventos de otros tipos; vacío y error se presentan por separado.
+
+HU132 · ID 457 · Filtrar logs por usuario
+-----------------------------------------
+
+Descripción propuesta: Como usuario autorizado para auditoría, quiero localizar acciones realizadas por una persona o por procesos del sistema para reconstruir su actividad.
+
+Criterios de aceptación propuestos
+
+1. El filtro permite seleccionar un usuario por identificador estable y muestra una etiqueta legible; «Sistema» se distingue de una cuenta humana cuando existan eventos automáticos.
+2. Solo aparecen eventos del actor elegido dentro del ámbito autorizado, con combinación posible de fecha y tipo; la búsqueda no se basa únicamente en nombres que puedan repetirse o cambiar.
+3. El filtro se aplica antes de la paginación, se puede quitar y no revela perfiles o eventos a usuarios sin permiso; un usuario sin eventos produce estado vacío claro.
+
+Nota para la carga en Azure
+---------------------------
+
+Cada sección incluye texto para los dos campos. Al actualizar HU047 en Azure, reemplazar explícitamente el antiguo PDF/JPG de 5 MB; al actualizar HU046 y HU050, eliminar las frases antiguas que impliquen aceptación inmediata o reserva confirmada por personal. El acuerdo de formatos ya es PDF/JPG/JPEG/PNG con tamaño máximo configurable por documento de 1 a 10 MB. Las historias de auditoría HU114–HU132 usan la política transversal de su sección: copiarla en cada work item o crear y enlazar una historia técnica común con criterios verificables. La moderación/publicación de reportes y evidencias, la reprogramación de citas, el control de cupos y la expiración del borrador deben tener tareas técnicas y pruebas de integración explícitas, porque abarcan varias historias.

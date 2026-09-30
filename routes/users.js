@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { load, save, nextId } = require('../lib/db');
-const { requireAuth, requireAdmin } = require('../lib/middleware');
+const { requireAuth, requireAdminOnly, requireAdminOrSupport, requireCanManageRole, ROLES_QUE_SOPORTE_PUEDE_GESTIONAR } = require('../lib/middleware');
 const { notifyAdmins } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
 const { isEmail, passwordRules, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
@@ -40,8 +40,8 @@ function publicUser(u, db) {
 
 function genTempPassword() {
   const words = ['Insc', 'Esco', 'Aula', 'Beca'];
-  const w = words[Math.floor(Math.random() * words.length)];
-  const digits = String(Math.floor(1000 + Math.random() * 9000));
+  const w = words[crypto.randomInt(0, words.length)];
+  const digits = String(crypto.randomInt(1000, 10000));
   return `${w}-2026-${digits}`;
 }
 
@@ -188,10 +188,14 @@ router.get('/:id/foto', (req, res) => {
 });
 
 // ---- administración de usuarios ----
-router.get('/', requireAdmin, (req, res) => {
+// HU013/HU014: listado - Admin ve todos; Soporte solo ve Personal e institución y Tutor
+router.get('/', requireAdminOrSupport, (req, res) => {
   const db = req.db;
   const { q, role, estado, institucionId } = req.query;
+  const isSupport = req.currentUser.role === 'Soporte';
   let list = db.users.slice();
+  // Soporte no puede ver ni gestionar Admin, Soporte ni Auditoría (HU015 reglas de negocio)
+  if (isSupport) list = list.filter((u) => ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(u.role));
   if (q) {
     const qq = q.toLowerCase();
     list = list.filter((u) => u.nombre.toLowerCase().includes(qq) || u.email.toLowerCase().includes(qq));
@@ -200,15 +204,26 @@ router.get('/', requireAdmin, (req, res) => {
   if (estado && estado !== 'Todos') list = list.filter((u) => u.estado === estado);
   if (institucionId && institucionId !== 'Todas') list = list.filter((u) => u.institucionId === institucionId);
   list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json({ total: db.users.length, users: list.map((u) => publicUser(u, db)) });
+  res.json({ total: list.length, users: list.map((u) => publicUser(u, db)) });
 });
 
-router.post('/', requireAdmin, (req, res) => {
+// HU002 (Admin crea Admin), HU003 (Admin crea Soporte), HU004 (Admin o Soporte crean Personal).
+// FUN-02 FIX: validar aquí explícitamente quién puede crear qué rol.
+router.post('/', requireAdminOrSupport, (req, res) => {
   const db = req.db;
   const { role, nombre, email, institucionId } = req.body || {};
+  const isSupport = req.currentUser.role === 'Soporte';
   const errors = [];
-  const validRoles = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
-  if (!validRoles.includes(role)) errors.push('Rol inválido.');
+
+  // FUN-02: Soporte solo puede crear Personal de institución (no Admin, Soporte ni Auditoría)
+  if (isSupport && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(role)) {
+    return res.status(403).json({ error: 'Soporte solo puede crear usuarios de tipo Personal de institución.' });
+  }
+
+  const validRoles = isSupport
+    ? ['Personal de institución'] // Soporte solo ve y crea Personal (HU004)
+    : ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
+  if (!validRoles.includes(role)) errors.push('Rol inválido o no permitido para tu nivel de acceso.');
   if (!nombre || nombre.trim().length < 3) errors.push('El nombre completo es obligatorio.');
   if (!isEmail(email)) errors.push('Correo electrónico inválido.');
   if (db.users.some((u) => u.email.toLowerCase() === String(email || '').toLowerCase())) errors.push('Ese correo ya está en uso.');
@@ -238,44 +253,58 @@ router.post('/', requireAdmin, (req, res) => {
   db.users.push(user);
   logEvent(db, { actor: req.currentUser, accion: 'Usuario creado', entidad: 'Usuario', entidadId: user.id, detalle: `${user.nombre} (${user.role})` });
   save(db);
-  res.json({ user: publicUser(user, db), devTempPassword: tempPassword });
+  res.json({ user: publicUser(user, db), emailStatus: 'pendiente de envío (simulado en demo)', devTempPassword: tempPassword });
 });
 
-router.put('/:id', requireAdmin, (req, res) => {
+// HU015: Admin edita cualquier usuario; Soporte solo edita Personal o Tutor.
+router.put('/:id', requireAdminOrSupport, (req, res) => {
   const db = req.db;
   const user = db.users.find((u) => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
-  const { nombre, email, role, institucionId } = req.body || {};
+
+  // Verificar que Soporte no intente modificar Admin, otro Soporte o Auditoría
+  const isSupport = req.currentUser.role === 'Soporte';
+  if (isSupport && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(user.role)) {
+    return res.status(403).json({ error: 'Soporte solo puede modificar usuarios de tipo Personal de institución o Tutor.' });
+  }
+  // Soporte no puede editar otros roles privilegiados
+  const { nombre, email, institucionId, role } = req.body || {};
+  if (role && role !== user.role) {
+    return res.status(403).json({ error: 'La modificación de roles de usuarios existentes no está permitida.' });
+  }
   const errors = [];
   if (email && !isEmail(email)) errors.push('Correo electrónico inválido.');
   if (email && db.users.some((u) => u.id !== user.id && u.email.toLowerCase() === String(email).toLowerCase())) {
     errors.push('Este correo ya está en uso por otro usuario.');
   }
-  if (errors.length) return res.status(400).json({ errors });
-
-  const wasAdmin = user.role === 'Administrador';
-  const roleChanged = role && role !== user.role;
-  const prevRole = user.role;
-
   if (nombre) user.nombre = nombre.trim();
   if (email) user.email = email.trim().toLowerCase();
-  if (role) user.role = role;
-  if (institucionId !== undefined) user.institucionId = role === 'Personal de institución' ? institucionId : null;
-  const camposEditados = [nombre && 'nombre', email && 'correo', roleChanged && 'rol', institucionId !== undefined && 'institución'].filter(Boolean);
+  if (institucionId !== undefined) user.institucionId = user.role === 'Personal de institución' ? institucionId : null;
+  const camposEditados = [nombre && 'nombre', email && 'correo', institucionId !== undefined && 'institución'].filter(Boolean);
   logEvent(db, { actor: req.currentUser, accion: 'Usuario modificado', entidad: 'Usuario', entidadId: user.id, detalle: camposEditados.length ? `Campos: ${camposEditados.join(', ')}` : '' });
   save(db);
 
-  if (roleChanged && (wasAdmin || user.role === 'Administrador')) {
-    notifyAdmins(db, { affectedUser: user, campo: 'Rol', anterior: prevRole, nuevo: user.role, actor: req.currentUser });
-    save(db);
-  }
   res.json({ user: publicUser(user, db) });
 });
 
-router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
+// HU013/HU014: solo Admin puede activar o desactivar usuarios.
+router.post('/:id/toggle-estado', requireAdminOnly, (req, res) => {
   const db = req.db;
   const user = db.users.find((u) => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+  
+  if (user.estado === 'Activo') {
+    if (user.id === req.currentUser.id) {
+      return res.status(403).json({ error: 'No puedes desactivar tu propia cuenta.' });
+    }
+    if (user.role === 'Administrador') {
+      const activeAdmins = db.users.filter(u => u.role === 'Administrador' && u.estado === 'Activo' && u.id !== user.id);
+      if (activeAdmins.length === 0) {
+        return res.status(403).json({ error: 'No puedes desactivar al último Administrador activo del sistema.' });
+      }
+    }
+  }
+
   const prev = user.estado;
   user.estado = prev === 'Activo' ? 'Inactivo' : 'Activo';
   logEvent(db, { actor: req.currentUser, accion: user.estado === 'Activo' ? 'Usuario activado' : 'Usuario desactivado', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
@@ -287,10 +316,15 @@ router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
   res.json({ user: publicUser(user, db) });
 });
 
-router.post('/:id/reset-password', requireAdmin, (req, res) => {
+// HU016: Admin y Soporte pueden resetear contraseñas; Soporte solo para Personal/Tutor.
+router.post('/:id/reset-password', requireAdminOrSupport, (req, res) => {
   const db = req.db;
   const user = db.users.find((u) => u.id === req.params.id);
   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
+  // Soporte no puede resetear contraseña de Admin/Soporte/Auditoría
+  if (req.currentUser.role === 'Soporte' && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(user.role)) {
+    return res.status(403).json({ error: 'Soporte solo puede restablecer contraseñas de Personal de institución o Tutor.' });
+  }
   const tempPassword = genTempPassword();
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(tempPassword, 10);
@@ -301,7 +335,7 @@ router.post('/:id/reset-password', requireAdmin, (req, res) => {
     notifyAdmins(db, { affectedUser: user, campo: 'Contraseña restablecida', actor: req.currentUser });
     save(db);
   }
-  res.json({ status: 'ok', devTempPassword: tempPassword });
+  res.json({ status: 'ok', emailStatus: 'pendiente de envío (simulado en demo)', devTempPassword: tempPassword });
 });
 
 module.exports = router;

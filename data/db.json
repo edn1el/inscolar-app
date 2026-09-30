@@ -314,14 +314,26 @@
       "nombre": "Colegio Cristo Rey",
       "provincia": "Distrito Nacional",
       "distrito": "15-04",
-      "municipio": "Distrito Nacional",
+      "municipio": "Santo Domingo de Guzmán",
       "tipo": "Privado",
       "direccion": "Av. Cristo Rey #150",
       "telefono": "(809) 555-2122",
       "estado": "Activo",
       "createdAt": "2025-08-01T09:00:00.000Z",
       "lat": 18.485157952787628,
-      "lng": -69.94917533162558
+      "lng": -69.94917533162558,
+      "rnc": "993491294",
+      "correo": "cristorey@edu.do",
+      "logo": {
+        "storageFile": "1790802402195-353442892.jpg",
+        "mimeType": "image/jpeg",
+        "uploadedAt": "2026-09-30T21:06:42.204Z"
+      },
+      "fondo": {
+        "storageFile": "1790802402196-778010964.png",
+        "mimeType": "image/png",
+        "uploadedAt": "2026-09-30T21:06:42.204Z"
+      }
     },
     {
       "id": "i023",
@@ -370,7 +382,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-11-05T13:58:00.000Z",
-      "lastAccess": "2026-08-25T09:00:00.000Z"
+      "lastAccess": "2026-09-30T23:03:22.830Z",
+      "notifyByEmail": true
     },
     {
       "id": "u002",
@@ -389,7 +402,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-08-24T09:12:00.000Z"
+      "lastAccess": "2026-09-30T23:02:32.930Z",
+      "notifyByEmail": true
     },
     {
       "id": "u003",
@@ -408,7 +422,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-02-14T11:00:00.000Z",
-      "lastAccess": "2026-08-24T08:40:00.000Z"
+      "lastAccess": "2026-09-30T22:56:05.594Z",
+      "notifyByEmail": true
     },
     {
       "id": "u004",
@@ -425,9 +440,10 @@
       "cedula": null,
       "mfaEnabled": false,
       "mfaMethod": "correo",
-      "mustChangePassword": false,
+      "mustChangePassword": true,
       "createdAt": "2025-09-01T09:00:00.000Z",
-      "lastAccess": "2026-08-12T15:03:00.000Z"
+      "lastAccess": "2026-09-30T17:20:40.271Z",
+      "notifyByEmail": true
     },
     {
       "id": "u005",
@@ -446,7 +462,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-03-20T09:00:00.000Z",
-      "lastAccess": "2026-08-23T17:55:00.000Z"
+      "lastAccess": "2026-08-23T17:55:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u006",
@@ -465,7 +482,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-02-14T09:00:00.000Z",
-      "lastAccess": "2026-08-25T08:41:00.000Z"
+      "lastAccess": "2026-08-25T08:41:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u007",
@@ -484,7 +502,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-06-01T09:00:00.000Z",
-      "lastAccess": "2026-08-01T11:20:00.000Z"
+      "lastAccess": "2026-08-01T11:20:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u008",
@@ -503,7 +522,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-04-08T10:00:00.000Z",
-      "lastAccess": "2026-08-20T09:30:00.000Z"
+      "lastAccess": "2026-09-30T22:57:48.851Z",
+      "notifyByEmail": true
     },
     {
       "id": "u009",
@@ -522,7 +542,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-05-15T10:00:00.000Z",
-      "lastAccess": "2026-08-22T14:10:00.000Z"
+      "lastAccess": "2026-08-22T14:10:00.000Z",
+      "notifyByEmail": true
     }
   ],
   "students": [
@@ -567,10 +588,10 @@
       "institucionId": "i001",
       "gradoSolicitado": "4to de Primaria",
       "cicloEscolar": "2026-2027",
-      "estado": "Pendiente",
+      "estado": "Abandonada",
       "motivoRechazo": "",
       "createdAt": "2026-08-20T09:00:00.000Z",
-      "decidedAt": null,
+      "decidedAt": "2026-09-30T17:20:41.042Z",
       "decidedBy": null
     },
     {
@@ -619,11 +640,11 @@
       "institucionId": "i009",
       "gradoSolicitado": "Pre-Primario",
       "cicloEscolar": "2026-2027",
-      "estado": "Pendiente",
+      "estado": "Aprobada",
       "motivoRechazo": "",
       "createdAt": "2026-09-18T09:00:00.000Z",
-      "decidedAt": null,
-      "decidedBy": null
+      "decidedAt": "2026-09-30T21:14:20.710Z",
+      "decidedBy": "u001"
     }
   ],
   "appointments": [
@@ -730,9 +751,9 @@
       "tutorId": "u002",
       "tutorNombre": "Ana Beltré Peña",
       "estrellas": 5,
-      "comentario": "Muy contenta con el seguimiento que le dan a mi hija.",
+      "comentario": "okay",
       "createdAt": "2026-07-20T10:00:00.000Z",
-      "updatedAt": null
+      "updatedAt": "2026-09-30T23:02:10.715Z"
     },
     {
       "id": "r004",
@@ -1431,9 +1452,1164 @@
       "entidad": "Usuario",
       "entidadId": "u001",
       "detalle": ""
+    },
+    {
+      "id": "log033",
+      "fecha": "2026-09-30T17:20:40.203Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log034",
+      "fecha": "2026-09-30T17:20:40.271Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": ""
+    },
+    {
+      "id": "log035",
+      "fecha": "2026-09-30T17:20:40.332Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u010",
+      "detalle": "Admin Test F2 (Administrador)"
+    },
+    {
+      "id": "log036",
+      "fecha": "2026-09-30T17:20:40.392Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u011",
+      "detalle": "Soporte Test F2 (Soporte)"
+    },
+    {
+      "id": "log037",
+      "fecha": "2026-09-30T17:20:40.451Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u012",
+      "detalle": "Personal Test F2 (Personal de institución)"
+    },
+    {
+      "id": "log038",
+      "fecha": "2026-09-30T17:20:40.518Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u013",
+      "detalle": "Personal Soporte F2 (Personal de institución)"
+    },
+    {
+      "id": "log039",
+      "fecha": "2026-09-30T17:20:40.529Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario desactivado",
+      "entidad": "Usuario",
+      "entidadId": "u010",
+      "detalle": "Admin Test F2"
+    },
+    {
+      "id": "log040",
+      "fecha": "2026-09-30T17:20:40.534Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario activado",
+      "entidad": "Usuario",
+      "entidadId": "u010",
+      "detalle": "Admin Test F2"
+    },
+    {
+      "id": "log041",
+      "fecha": "2026-09-30T17:20:40.543Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Usuario modificado",
+      "entidad": "Usuario",
+      "entidadId": "u012",
+      "detalle": "Campos: nombre"
+    },
+    {
+      "id": "log042",
+      "fecha": "2026-09-30T17:20:40.611Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Contraseña de usuario restablecida",
+      "entidad": "Usuario",
+      "entidadId": "u012",
+      "detalle": "Personal Editado F2"
+    },
+    {
+      "id": "log043",
+      "fecha": "2026-09-30T17:20:40.615Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario desactivado",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Yorlenny Sánchez"
+    },
+    {
+      "id": "log044",
+      "fecha": "2026-09-30T17:20:40.676Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Contraseña de usuario restablecida",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Yorlenny Sánchez"
+    },
+    {
+      "id": "log045",
+      "fecha": "2026-09-30T17:20:40.765Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log046",
+      "fecha": "2026-09-30T17:20:40.835Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": "Intento con: maria.rosario@inscolar.do"
+    },
+    {
+      "id": "log047",
+      "fecha": "2026-09-30T17:20:40.904Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Cuenta desactivada"
+    },
+    {
+      "id": "log048",
+      "fecha": "2026-09-30T17:20:40.972Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log049",
+      "fecha": "2026-09-30T17:20:41.042Z",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "actorRole": null,
+      "accion": "Inscripción abandonada por inactividad",
+      "entidad": "Inscripción",
+      "entidadId": "e001",
+      "detalle": "Ciclo 2026-2027 · 30 días sin respuesta"
+    },
+    {
+      "id": "log050",
+      "fecha": "2026-09-30T20:59:17.554Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log051",
+      "fecha": "2026-09-30T20:59:54.643Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción creada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Colegio Cristo Rey · Pre-Primario"
+    },
+    {
+      "id": "log052",
+      "fecha": "2026-09-30T21:00:13.189Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción cancelada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Ciclo 2026-2027"
+    },
+    {
+      "id": "log053",
+      "fecha": "2026-09-30T21:00:31.151Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log054",
+      "fecha": "2026-09-30T21:00:34.026Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log055",
+      "fecha": "2026-09-30T21:06:42.204Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución modificada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log056",
+      "fecha": "2026-09-30T21:10:08.838Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución desactivada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log057",
+      "fecha": "2026-09-30T21:10:09.986Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución activada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log058",
+      "fecha": "2026-09-30T21:10:10.605Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución desactivada",
+      "entidad": "Institución",
+      "entidadId": "i004",
+      "detalle": "Colegio Loyola"
+    },
+    {
+      "id": "log059",
+      "fecha": "2026-09-30T21:10:11.359Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución activada",
+      "entidad": "Institución",
+      "entidadId": "i004",
+      "detalle": "Colegio Loyola"
+    },
+    {
+      "id": "log060",
+      "fecha": "2026-09-30T21:10:57.404Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log061",
+      "fecha": "2026-09-30T21:11:04.234Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log062",
+      "fecha": "2026-09-30T21:11:14.908Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción creada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Colegio Cristo Rey · Pre-Primario"
+    },
+    {
+      "id": "log063",
+      "fecha": "2026-09-30T21:11:17.575Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción cancelada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Ciclo 2026-2027"
+    },
+    {
+      "id": "log064",
+      "fecha": "2026-09-30T21:14:05.726Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log065",
+      "fecha": "2026-09-30T21:14:10.273Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log066",
+      "fecha": "2026-09-30T21:14:20.710Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inscripción aprobada",
+      "entidad": "Inscripción",
+      "entidadId": "e005",
+      "detalle": ""
+    },
+    {
+      "id": "log067",
+      "fecha": "2026-09-30T21:18:18.934Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log068",
+      "fecha": "2026-09-30T21:18:21.376Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log069",
+      "fecha": "2026-09-30T21:18:40.272Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución desactivada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log070",
+      "fecha": "2026-09-30T21:18:41.358Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Institución activada",
+      "entidad": "Institución",
+      "entidadId": "i022",
+      "detalle": "Colegio Cristo Rey"
+    },
+    {
+      "id": "log071",
+      "fecha": "2026-09-30T21:21:35.021Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log072",
+      "fecha": "2026-09-30T21:21:35.100Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": "Intento con: maria.rosario@inscolar.do"
+    },
+    {
+      "id": "log073",
+      "fecha": "2026-09-30T21:21:35.186Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Cuenta desactivada"
+    },
+    {
+      "id": "log074",
+      "fecha": "2026-09-30T21:21:35.256Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log075",
+      "fecha": "2026-09-30T21:22:10.955Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log076",
+      "fecha": "2026-09-30T21:22:11.025Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": "Intento con: maria.rosario@inscolar.do"
+    },
+    {
+      "id": "log077",
+      "fecha": "2026-09-30T21:22:11.090Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Cuenta desactivada"
+    },
+    {
+      "id": "log078",
+      "fecha": "2026-09-30T21:22:11.157Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log079",
+      "fecha": "2026-09-30T22:29:34.201Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log080",
+      "fecha": "2026-09-30T22:29:37.770Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log081",
+      "fecha": "2026-09-30T22:29:39.746Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log082",
+      "fecha": "2026-09-30T22:30:00.744Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log083",
+      "fecha": "2026-09-30T22:30:04.454Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log084",
+      "fecha": "2026-09-30T22:30:13.789Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log085",
+      "fecha": "2026-09-30T22:31:25.491Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log086",
+      "fecha": "2026-09-30T22:31:25.493Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log087",
+      "fecha": "2026-09-30T22:31:46.742Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log088",
+      "fecha": "2026-09-30T22:35:16.860Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log089",
+      "fecha": "2026-09-30T22:35:22.818Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log090",
+      "fecha": "2026-09-30T22:35:26.889Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log091",
+      "fecha": "2026-09-30T22:35:40.338Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log092",
+      "fecha": "2026-09-30T22:36:21.782Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log093",
+      "fecha": "2026-09-30T22:36:26.716Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log094",
+      "fecha": "2026-09-30T22:36:28.788Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log095",
+      "fecha": "2026-09-30T22:36:31.149Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log096",
+      "fecha": "2026-09-30T22:39:08.269Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log097",
+      "fecha": "2026-09-30T22:39:08.271Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log098",
+      "fecha": "2026-09-30T22:39:12.008Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log099",
+      "fecha": "2026-09-30T22:39:14.454Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log100",
+      "fecha": "2026-09-30T22:39:16.815Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log101",
+      "fecha": "2026-09-30T22:39:19.144Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log102",
+      "fecha": "2026-09-30T22:40:04.724Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log103",
+      "fecha": "2026-09-30T22:42:13.548Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log104",
+      "fecha": "2026-09-30T22:42:13.551Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log105",
+      "fecha": "2026-09-30T22:42:18.124Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log106",
+      "fecha": "2026-09-30T22:42:20.260Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log107",
+      "fecha": "2026-09-30T22:42:23.467Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log108",
+      "fecha": "2026-09-30T22:43:23.086Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log109",
+      "fecha": "2026-09-30T22:43:26.188Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log110",
+      "fecha": "2026-09-30T22:45:51.314Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log111",
+      "fecha": "2026-09-30T22:47:14.862Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log112",
+      "fecha": "2026-09-30T22:55:04.093Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log113",
+      "fecha": "2026-09-30T22:55:04.157Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log114",
+      "fecha": "2026-09-30T22:56:05.530Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log115",
+      "fecha": "2026-09-30T22:56:05.594Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log116",
+      "fecha": "2026-09-30T22:57:48.789Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log117",
+      "fecha": "2026-09-30T22:57:48.851Z",
+      "actorId": "u008",
+      "actorNombre": "Rosa Elena Almonte Vargas",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u008",
+      "detalle": ""
+    },
+    {
+      "id": "log118",
+      "fecha": "2026-09-30T22:59:05.570Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log119",
+      "fecha": "2026-09-30T22:59:13.645Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log120",
+      "fecha": "2026-09-30T23:00:28.592Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log121",
+      "fecha": "2026-09-30T23:00:32.096Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log122",
+      "fecha": "2026-09-30T23:02:12.562Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log123",
+      "fecha": "2026-09-30T23:02:15.032Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log124",
+      "fecha": "2026-09-30T23:02:25.619Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log125",
+      "fecha": "2026-09-30T23:02:32.930Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log126",
+      "fecha": "2026-09-30T23:02:36.863Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log127",
+      "fecha": "2026-09-30T23:02:42.172Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log128",
+      "fecha": "2026-09-30T23:02:57.603Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log129",
+      "fecha": "2026-09-30T23:03:22.830Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
     }
   ],
   "emailLog": [
+    {
+      "id": "em026",
+      "to": "miguel.pena@correo.do",
+      "subject": "Inscolar: actualización — Estado de inscripción",
+      "text": "Se registró un cambio en \"Estado de inscripción\". De \"Pendiente\" a \"Aprobada\".",
+      "sentAt": "2026-09-30T21:14:20.710Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em025",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de inscripción",
+      "text": "Se registró un cambio en \"Estado de inscripción\". De \"Pendiente\" a \"Abandonada\".",
+      "sentAt": "2026-09-30T17:20:41.042Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em024",
+      "to": "soportetest_f21@test.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.536Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em023",
+      "to": "admintest_f21@test.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.536Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em022",
+      "to": "c.guzman@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.535Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em021",
+      "to": "y.sanchez@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.535Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em020",
+      "to": "maria.rosario@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.535Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em019",
+      "to": "soportetest_f21@test.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.531Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em018",
+      "to": "c.guzman@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.530Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em017",
+      "to": "y.sanchez@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.530Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em016",
+      "to": "maria.rosario@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.529Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
     {
       "id": "em001",
       "to": "maria.rosario@inscolar.do",
@@ -1558,6 +2734,58 @@
   "mfaCodes": [],
   "resetTokens": [],
   "notifications": [
+    {
+      "id": "n007",
+      "recipientId": "u009",
+      "userId": "u009",
+      "userNombre": "Valentina Peña Cruz",
+      "campo": "Estado de inscripción",
+      "anterior": "Pendiente",
+      "nuevo": "Aprobada",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "createdAt": "2026-09-30T21:14:20.710Z",
+      "read": false
+    },
+    {
+      "id": "n006",
+      "recipientId": "u002",
+      "userId": "u002",
+      "userNombre": "Kelvin Beltré Peña",
+      "campo": "Estado de inscripción",
+      "anterior": "Pendiente",
+      "nuevo": "Abandonada",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "createdAt": "2026-09-30T17:20:41.042Z",
+      "read": false
+    },
+    {
+      "id": "n005",
+      "recipientId": null,
+      "userId": "u010",
+      "userNombre": "Admin Test F2",
+      "campo": "Estado",
+      "anterior": "Inactivo",
+      "nuevo": "Activo",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "createdAt": "2026-09-30T17:20:40.535Z",
+      "read": false
+    },
+    {
+      "id": "n004",
+      "recipientId": null,
+      "userId": "u010",
+      "userNombre": "Admin Test F2",
+      "campo": "Estado",
+      "anterior": "Activo",
+      "nuevo": "Inactivo",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "createdAt": "2026-09-30T17:20:40.529Z",
+      "read": false
+    },
     {
       "id": "n001",
       "userId": "u006",
