@@ -1,0 +1,738 @@
+diff --git a/lib/middleware.js b/lib/middleware.js
+index a263df4..dab1775 100644
+--- a/lib/middleware.js
++++ b/lib/middleware.js
+@@ -10,12 +10,38 @@ function requireAuth(req, res, next) {
+   next();
+ }
+ 
+-function requireAdmin(req, res, next) {
+-  const allowed = ['Administrador', 'Soporte'];
+-  if (!allowed.includes(req.currentUser.role)) {
++// Solo Administrador. Usado para acciones exclusivas: crear Admin/Soporte, activar/desactivar,
++// resetear contraseñas, ver el listado completo con todos los roles.
++function requireAdminOnly(req, res, next) {
++  if (req.currentUser.role !== 'Administrador') {
++    return res.status(403).json({ error: 'Solo un Administrador puede realizar esta acción.' });
++  }
++  next();
++}
++
++// Administrador o Soporte. Soporte solo puede operar sobre Personal de institución y Tutor.
++// El router debe llamar a esta y luego validar el rol del objetivo si aplica.
++function requireAdminOrSupport(req, res, next) {
++  if (!['Administrador', 'Soporte'].includes(req.currentUser.role)) {
+     return res.status(403).json({ error: 'No tienes permiso para esta acción.' });
+   }
+   next();
+ }
+ 
+-module.exports = { requireAuth, requireAdmin };
++// Alias legacy que equivale a requireAdminOrSupport (para rutas de instituciones, periodos, etc.)
++const requireAdmin = requireAdminOrSupport;
++
++// Verifica que Soporte no intente crear/editar un rol privilegiado (Admin, Soporte, Auditoría).
++// Llama a next() si el usuario actual es Administrador, o si el rol objetivo es Personal/Tutor.
++const ROLES_QUE_SOPORTE_PUEDE_GESTIONAR = ['Personal de institución', 'Tutor'];
++function requireCanManageRole(targetRole) {
++  return (req, res, next) => {
++    if (req.currentUser.role === 'Administrador') return next();
++    if (!ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(targetRole)) {
++      return res.status(403).json({ error: 'Soporte solo puede gestionar usuarios de tipo Personal de institución o Tutor.' });
++    }
++    next();
++  };
++}
++
++module.exports = { requireAuth, requireAdmin, requireAdminOnly, requireAdminOrSupport, requireCanManageRole, ROLES_QUE_SOPORTE_PUEDE_GESTIONAR };
+diff --git a/public/js/app.js b/public/js/app.js
+index 919e0af..0012867 100644
+--- a/public/js/app.js
++++ b/public/js/app.js
+@@ -493,19 +493,61 @@
+   }
+ 
+   // ================= APP SHELL (autenticado) =================
++  // --- F2.1 Matriz de permisos (acción × rol) ---
++  // Roles privilegiados (tienen acceso a panel de administración)
+   const ADMIN_ROLES = ['Administrador', 'Soporte'];
+ 
+-  function isAdmin() { return state.user && ADMIN_ROLES.includes(state.user.role); }
++  // Helpers por acción y ámbito (per HU002-HU016)
++  function role() { return (state.user || {}).role; }
++  function isAdmin()      { return state.user && ADMIN_ROLES.includes(role()); }
++  function isOnlyAdmin()  { return role() === 'Administrador'; }
++  function isSupport()    { return role() === 'Soporte'; }
++  function isStaff()      { return role() === 'Personal de institución'; }
++  function isTutor()      { return role() === 'Tutor'; }
++  function isAudit()      { return role() === 'Auditoría'; }
++
++  // Usuarios: quién ve el módulo
++  function canSeeUsuarios()     { return isAdmin(); }
++  // Quién puede crear usuarios (y qué roles puede asignar)
++  function canCreateUsuario()   { return isAdmin(); } // Admin y Soporte, pero Soporte solo Personal
++  // Quién puede editar: Admin todos; Soporte solo Personal/Tutor
++  function canEditUser(targetRole) {
++    if (isOnlyAdmin()) return true;
++    if (isSupport()) return ['Personal de institución', 'Tutor'].includes(targetRole);
++    return false;
++  }
++  // Solo Admin puede activar/desactivar (HU013/HU014)
++  function canToggleEstado()    { return isOnlyAdmin(); }
++  // Soporte puede resetear solo Personal/Tutor; Admin todos (HU016)
++  function canResetPassword(targetRole) {
++    if (isOnlyAdmin()) return true;
++    if (isSupport()) return ['Personal de institución', 'Tutor'].includes(targetRole);
++    return false;
++  }
++  // Roles que Soporte puede crear (solo Personal)
++  const ROLES_SOPORTE_PUEDE_CREAR = ['Personal de institución'];
++  // Roles que Admin puede crear (todos)
++  const ROLES_ADMIN_PUEDE_CREAR = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
++
+   const AUDIT_ROLES = ['Administrador', 'Auditoría'];
+-  function canSeeAuditoria() { return state.user && AUDIT_ROLES.includes(state.user.role); }
++  function canSeeAuditoria() { return state.user && AUDIT_ROLES.includes(role()); }
+ 
+ 
+   async function viewApp(segs, query) {
+     const section = segs[0] || 'perfil';
+-    const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes((state.user || {}).role);
++    const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes(role());
+     const esCalendarioInstitucion = section === 'instituciones' && segs[2] === 'calendario';
+     const esDetalleInstitucion = section === 'instituciones' && segs[2] === 'detalle';
+-    if (['usuarios', 'instituciones', 'analiticas'].includes(section) && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion) {
++    // Solo Admin y Soporte ven Usuarios e Instituciones; Analíticas solo Admin
++    if (section === 'usuarios' && !canSeeUsuarios()) {
++      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
++      return;
++    }
++    if (section === 'analiticas' && !isAdmin()) {
++      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
++      return;
++    }
++    if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion) {
+       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+       return;
+     }
+@@ -531,7 +573,7 @@
+     }
+ 
+     let unread = 0;
+-    if (isAdmin() || (state.user || {}).role === 'Tutor') {
++    if (isAdmin() || isTutor()) {
+       try { const n = await api('/notifications'); unread = n.unreadCount; } catch (e) {}
+     }
+ 
+@@ -617,7 +659,7 @@
+               ${ICONS.building} <span>${instName}</span>
+             </div>
+             ` : ''}
+-            ${admin ? `
++            ${isOnlyAdmin() ? `
+             <div class="sec-label">Módulos</div>
+             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
+             <button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones">${ICONS.building} Instituciones</button>
+@@ -633,7 +675,16 @@
+             <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
+               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
+             </button>
+-            ` : (u.role === 'Tutor' || u.role === 'Personal de institución') ? `
++            ` : isSupport() ? `
++            <div class="sec-label">Módulos</div>
++            <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
++            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
++              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
++            </button>
++            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
++              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
++            </button>
++            ` : (isTutor() || isStaff()) ? `
+             <div class="sec-label">Módulos</div>
+             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
+               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
+@@ -1150,12 +1201,13 @@
+     const estados = ['Todos', 'Activo', 'Inactivo'];
+ 
+     qs('.main').innerHTML = `
+-      <div class="page-head"><div><h2>Usuarios</h2><div class="sub">Administración de cuentas del sistema.</div></div></div>
++      <div class="page-head"><div><h2>Usuarios</h2><div class="sub">Administración de cuentas del sistema.</div></div>
++        ${canCreateUsuario() ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/usuarios/nuevo">Nuevo usuario</button>` : ''}
++      </div>
+       <div class="filters">
+         <input id="f-q" placeholder="Buscar por nombre o correo..." value="${escapeHtml(query.q || '')}">
+         <select id="f-role">${roles.map((r) => `<option ${query.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+         <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+-        <button class="btn btn-primary spacer" style="width:auto; padding:10px 18px;" data-nav="#/app/usuarios/nuevo">Nuevo usuario</button>
+       </div>
+       <div class="table-card">
+         <table>
+@@ -1173,9 +1225,9 @@
+                 <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${u.estado}</span></td>
+                 <td>${fmtDate(u.lastAccess)}</td>
+                 <td><span class="actions-cell">
+-                  <button class="neutral" data-edit="${u.id}">Modificar</button>
+-                  <button class="neutral" data-reset="${u.id}">Resetear</button>
+-                  <button class="${active ? 'danger' : 'ok'}" data-toggle="${u.id}">${active ? 'Desactivar' : 'Activar'}</button>
++                  ${canEditUser(u.role) ? `<button class="neutral" data-edit="${u.id}" data-name="${escapeHtml(u.nombre)}" data-role="${escapeHtml(u.role)}">Modificar</button>` : ''}
++                  ${canResetPassword(u.role) ? `<button class="neutral" data-reset="${u.id}" data-name="${escapeHtml(u.nombre)}" data-email="${escapeHtml(u.email)}">Resetear</button>` : ''}
++                  ${canToggleEstado() ? `<button class="${active ? 'danger' : 'ok'}" data-toggle="${u.id}" data-name="${escapeHtml(u.nombre)}" data-role="${escapeHtml(u.role)}" data-active="${active}">${active ? 'Desactivar' : 'Activar'}</button>` : ''}
+                 </span></td>
+               </tr>`;
+             }).join('')}
+@@ -1199,12 +1251,130 @@
+ 
+     qsa('[data-edit]').forEach((b) => b.addEventListener('click', () => navigate('#/app/usuarios/' + b.dataset.edit + '/editar')));
+     qsa('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
+-      await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
+-      renderUsuarios(query);
++      if (b.dataset.active === 'true') {
++        const uId = b.dataset.toggle;
++        if (uId === state.user.id) {
++          toast('No puedes desactivar tu propia cuenta.', 'err');
++          return;
++        }
++        if (b.dataset.role === 'Administrador') {
++          const activeAdmins = users.filter(u => u.role === 'Administrador' && u.estado === 'Activo');
++          if (activeAdmins.length <= 1) {
++            toast('No puedes desactivar al último Administrador activo del sistema.', 'err');
++            return;
++          }
++        }
++        const modal = document.createElement('div');
++        modal.className = 'sidebar-backdrop visible';
++        modal.style.zIndex = '9999';
++        modal.style.display = 'flex';
++        modal.style.alignItems = 'center';
++        modal.style.justifyContent = 'center';
++        modal.innerHTML = `
++          <div class="card" style="position:relative; z-index:10000; width: 400px; padding: 24px; text-align: left;">
++            <h3 style="margin-top:0;">¿Desactivar a ${escapeHtml(b.dataset.name)}?</h3>
++            <p style="margin-bottom:20px;">No podrá iniciar sesión hasta que otro Administrador reactive su cuenta.</p>
++            <div style="display:flex; gap:10px; justify-content:flex-end;">
++              <button class="btn btn-ghost" style="width:auto;" id="cancel-deact">Cancelar</button>
++              <button class="btn btn-primary" style="width:auto; background:#af112b; border-color:#af112b;" id="confirm-deact">Desactivar usuario</button>
++            </div>
++          </div>
++        `;
++        document.body.appendChild(modal);
++        
++        qs('#cancel-deact', modal).addEventListener('click', () => modal.remove());
++        qs('#confirm-deact', modal).addEventListener('click', async () => {
++          modal.remove();
++          try {
++            await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
++            renderUsuarios(query);
++          } catch(e) {
++            toast(e.message, 'err');
++          }
++        });
++      } else {
++        try {
++          await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
++          renderUsuarios(query);
++        } catch(e) {
++          toast(e.message, 'err');
++        }
++      }
+     }));
+     qsa('[data-reset]').forEach((b) => b.addEventListener('click', async () => {
+-      const data = await api('/users/' + b.dataset.reset + '/reset-password', { method: 'POST' });
+-      alert('Contraseña temporal generada (modo de prueba, sin envío real de correo):\n\n' + data.devTempPassword);
++      if (b.disabled) return;
++      
++      const modal = document.createElement('div');
++      modal.className = 'sidebar-backdrop visible';
++      modal.style.zIndex = '9999';
++      modal.style.display = 'flex';
++      modal.style.alignItems = 'center';
++      modal.style.justifyContent = 'center';
++      modal.innerHTML = `
++        <div class="card" style="position:relative; z-index:10000; width: 400px; padding: 24px; text-align: left;">
++          <h3 style="margin-top:0;">Restablecer contraseña</h3>
++          <p style="margin-bottom:10px;">¿Restablecer el acceso para <strong>${escapeHtml(b.dataset.name)}</strong> (${escapeHtml(b.dataset.email)})?</p>
++          <p style="margin-bottom:20px; font-size:0.9em; color:#666;">La contraseña anterior dejará de funcionar inmediatamente.</p>
++          <div style="display:flex; gap:10px; justify-content:flex-end;">
++            <button class="btn btn-ghost" style="width:auto;" id="cancel-reset">Cancelar</button>
++            <button class="btn btn-primary" style="width:auto;" id="confirm-reset">Restablecer contraseña</button>
++          </div>
++        </div>
++      `;
++      document.body.appendChild(modal);
++
++      qs('#cancel-reset', modal).addEventListener('click', () => modal.remove());
++      qs('#confirm-reset', modal).addEventListener('click', async () => {
++        const confirmBtn = qs('#confirm-reset', modal);
++        if (confirmBtn.disabled) return;
++        confirmBtn.disabled = true;
++        confirmBtn.textContent = 'Procesando...';
++        b.disabled = true;
++
++        try {
++          const data = await api('/users/' + b.dataset.reset + '/reset-password', { method: 'POST' });
++          modal.remove();
++          
++          const successModal = document.createElement('div');
++          successModal.className = 'sidebar-backdrop visible';
++          successModal.style.zIndex = '9999';
++          successModal.style.display = 'flex';
++          successModal.style.alignItems = 'center';
++          successModal.style.justifyContent = 'center';
++          successModal.innerHTML = `
++            <div class="card" style="position:relative; z-index:10000; width: 420px; padding: 24px; text-align: left;">
++              <h3 style="margin-top:0; color:#1c7c72;">Acceso restablecido</h3>
++              <p style="margin-bottom:15px;">Se ha generado una nueva contraseña temporal. En el entorno de producción, esta será enviada por correo electrónico.</p>
++              <div style="background:#f5f7f9; padding:12px; border-radius:4px; font-family:monospace; font-size:1.1em; display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
++                <span id="temp-pw-display">${escapeHtml(data.devTempPassword)}</span>
++                <button class="btn btn-ghost btn-small" id="copy-pw" style="width:auto; padding:4px 8px;">Copiar</button>
++              </div>
++              <p style="font-size:0.85em; color:#af112b; margin-bottom:20px;"><strong>Advertencia:</strong> Esta contraseña solo se muestra una vez. Asegúrate de copiarla ahora.</p>
++              <p style="font-size:0.85em; color:#666; margin-bottom:20px;">Estado del correo: <em>${escapeHtml(data.emailStatus || 'simulado')}</em></p>
++              <button class="btn btn-primary btn-block" id="close-success">Cerrar</button>
++            </div>
++          `;
++          document.body.appendChild(successModal);
++
++          qs('#copy-pw', successModal).addEventListener('click', () => {
++            navigator.clipboard.writeText(data.devTempPassword);
++            qs('#copy-pw', successModal).textContent = '¡Copiada!';
++            setTimeout(() => {
++              if (qs('#copy-pw', successModal)) qs('#copy-pw', successModal).textContent = 'Copiar';
++            }, 2000);
++          });
++          
++          qs('#close-success', successModal).addEventListener('click', () => {
++            successModal.remove();
++            renderUsuarios(query);
++          });
++          
++        } catch(e) {
++          modal.remove();
++          b.disabled = false;
++          toast(e.message, 'err');
++        }
++      });
+     }));
+   }
+ 
+@@ -1212,11 +1382,22 @@
+   async function renderUsuarioForm(id) {
+     const { institutions } = await api('/institutions');
+     let editing = null;
++    let allUsers = [];
+     if (id) {
+       const { users } = await api('/users');
++      allUsers = users;
+       editing = users.find((u) => u.id === id);
+     }
+-    const roles = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
++    // F2.1: roles disponibles según quién crea
++    const rolesDisponibles = isOnlyAdmin() ? ROLES_ADMIN_PUEDE_CREAR : ROLES_SOPORTE_PUEDE_CREAR;
++    // Al editar, si Soporte intenta editar un usuario privilegiado, redirigir
++    if (id && editing && !canEditUser(editing.role)) {
++      qs('.main').innerHTML = '<div class="empty-state">No tienes permiso para modificar este usuario.</div>';
++      return;
++    }
++    const roles = editing
++      ? (isOnlyAdmin() ? ROLES_ADMIN_PUEDE_CREAR : ROLES_SOPORTE_PUEDE_CREAR)
++      : rolesDisponibles;
+     qs('.main').innerHTML = `
+       <button class="back-link" data-nav="#/app/usuarios">${ICONS.back} Volver a usuarios</button>
+       <div class="page-head"><h2>${editing ? 'Modificar usuario' : 'Nuevo usuario'}</h2></div>
+@@ -1254,6 +1435,15 @@
+       qs('#err').innerHTML = '';
+       try {
+         if (editing) {
++          if (editing.role === 'Administrador' && body.role && body.role !== 'Administrador' && editing.estado === 'Activo') {
++            if (editing.id === state.user.id) {
++              return qs('#err').innerHTML = fieldErrorsBlock(['No puedes cambiar tu propio rol de Administrador.']);
++            }
++            const activeAdmins = allUsers.filter(u => u.role === 'Administrador' && u.estado === 'Activo');
++            if (activeAdmins.length <= 1) {
++              return qs('#err').innerHTML = fieldErrorsBlock(['No puedes cambiar el rol del último Administrador activo del sistema.']);
++            }
++          }
+           await api('/users/' + editing.id, { method: 'PUT', body });
+           toast('Usuario actualizado.', 'ok');
+         } else {
+diff --git a/routes/users.js b/routes/users.js
+index d8ec43a..a8a2970 100644
+--- a/routes/users.js
++++ b/routes/users.js
+@@ -5,7 +5,7 @@ const fs = require('fs');
+ const path = require('path');
+ const multer = require('multer');
+ const { load, save, nextId } = require('../lib/db');
+-const { requireAuth, requireAdmin } = require('../lib/middleware');
++const { requireAuth, requireAdminOnly, requireAdminOrSupport, requireCanManageRole, ROLES_QUE_SOPORTE_PUEDE_GESTIONAR } = require('../lib/middleware');
+ const { notifyAdmins } = require('../lib/notify');
+ const { logEvent } = require('../lib/audit');
+ const { isEmail, passwordRules, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
+@@ -40,8 +40,8 @@ function publicUser(u, db) {
+ 
+ function genTempPassword() {
+   const words = ['Insc', 'Esco', 'Aula', 'Beca'];
+-  const w = words[Math.floor(Math.random() * words.length)];
+-  const digits = String(Math.floor(1000 + Math.random() * 9000));
++  const w = words[crypto.randomInt(0, words.length)];
++  const digits = String(crypto.randomInt(1000, 10000));
+   return `${w}-2026-${digits}`;
+ }
+ 
+@@ -188,10 +188,14 @@ router.get('/:id/foto', (req, res) => {
+ });
+ 
+ // ---- administración de usuarios ----
+-router.get('/', requireAdmin, (req, res) => {
++// HU013/HU014: listado - Admin ve todos; Soporte solo ve Personal e institución y Tutor
++router.get('/', requireAdminOrSupport, (req, res) => {
+   const db = req.db;
+   const { q, role, estado, institucionId } = req.query;
++  const isSupport = req.currentUser.role === 'Soporte';
+   let list = db.users.slice();
++  // Soporte no puede ver ni gestionar Admin, Soporte ni Auditoría (HU015 reglas de negocio)
++  if (isSupport) list = list.filter((u) => ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(u.role));
+   if (q) {
+     const qq = q.toLowerCase();
+     list = list.filter((u) => u.nombre.toLowerCase().includes(qq) || u.email.toLowerCase().includes(qq));
+@@ -200,15 +204,26 @@ router.get('/', requireAdmin, (req, res) => {
+   if (estado && estado !== 'Todos') list = list.filter((u) => u.estado === estado);
+   if (institucionId && institucionId !== 'Todas') list = list.filter((u) => u.institucionId === institucionId);
+   list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+-  res.json({ total: db.users.length, users: list.map((u) => publicUser(u, db)) });
++  res.json({ total: list.length, users: list.map((u) => publicUser(u, db)) });
+ });
+ 
+-router.post('/', requireAdmin, (req, res) => {
++// HU002 (Admin crea Admin), HU003 (Admin crea Soporte), HU004 (Admin o Soporte crean Personal).
++// FUN-02 FIX: validar aquí explícitamente quién puede crear qué rol.
++router.post('/', requireAdminOrSupport, (req, res) => {
+   const db = req.db;
+   const { role, nombre, email, institucionId } = req.body || {};
++  const isSupport = req.currentUser.role === 'Soporte';
+   const errors = [];
+-  const validRoles = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
+-  if (!validRoles.includes(role)) errors.push('Rol inválido.');
++
++  // FUN-02: Soporte solo puede crear Personal de institución (no Admin, Soporte ni Auditoría)
++  if (isSupport && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(role)) {
++    return res.status(403).json({ error: 'Soporte solo puede crear usuarios de tipo Personal de institución.' });
++  }
++
++  const validRoles = isSupport
++    ? ['Personal de institución'] // Soporte solo ve y crea Personal (HU004)
++    : ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
++  if (!validRoles.includes(role)) errors.push('Rol inválido o no permitido para tu nivel de acceso.');
+   if (!nombre || nombre.trim().length < 3) errors.push('El nombre completo es obligatorio.');
+   if (!isEmail(email)) errors.push('Correo electrónico inválido.');
+   if (db.users.some((u) => u.email.toLowerCase() === String(email || '').toLowerCase())) errors.push('Ese correo ya está en uso.');
+@@ -241,11 +256,22 @@ router.post('/', requireAdmin, (req, res) => {
+   res.json({ user: publicUser(user, db), devTempPassword: tempPassword });
+ });
+ 
+-router.put('/:id', requireAdmin, (req, res) => {
++// HU015: Admin edita cualquier usuario; Soporte solo edita Personal o Tutor.
++router.put('/:id', requireAdminOrSupport, (req, res) => {
+   const db = req.db;
+   const user = db.users.find((u) => u.id === req.params.id);
+   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
++
++  // Verificar que Soporte no intente modificar Admin, otro Soporte o Auditoría
++  const isSupport = req.currentUser.role === 'Soporte';
++  if (isSupport && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(user.role)) {
++    return res.status(403).json({ error: 'Soporte solo puede modificar usuarios de tipo Personal de institución o Tutor.' });
++  }
++  // Soporte no puede cambiar el rol a uno privilegiado
+   const { nombre, email, role, institucionId } = req.body || {};
++  if (isSupport && role && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(role)) {
++    return res.status(403).json({ error: 'Soporte no puede asignar ese rol.' });
++  }
+   const errors = [];
+   if (email && !isEmail(email)) errors.push('Correo electrónico inválido.');
+   if (email && db.users.some((u) => u.id !== user.id && u.email.toLowerCase() === String(email).toLowerCase())) {
+@@ -257,6 +283,16 @@ router.put('/:id', requireAdmin, (req, res) => {
+   const roleChanged = role && role !== user.role;
+   const prevRole = user.role;
+ 
++  if (roleChanged && wasAdmin && user.estado === 'Activo') {
++    if (user.id === req.currentUser.id) {
++      return res.status(403).json({ error: 'No puedes cambiar tu propio rol de Administrador.' });
++    }
++    const activeAdmins = db.users.filter(u => u.role === 'Administrador' && u.estado === 'Activo' && u.id !== user.id);
++    if (activeAdmins.length === 0) {
++      return res.status(403).json({ error: 'No puedes cambiar el rol del último Administrador activo del sistema.' });
++    }
++  }
++
+   if (nombre) user.nombre = nombre.trim();
+   if (email) user.email = email.trim().toLowerCase();
+   if (role) user.role = role;
+@@ -272,10 +308,24 @@ router.put('/:id', requireAdmin, (req, res) => {
+   res.json({ user: publicUser(user, db) });
+ });
+ 
+-router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
++// HU013/HU014: solo Admin puede activar o desactivar usuarios.
++router.post('/:id/toggle-estado', requireAdminOnly, (req, res) => {
+   const db = req.db;
+   const user = db.users.find((u) => u.id === req.params.id);
+   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
++  
++  if (user.estado === 'Activo') {
++    if (user.id === req.currentUser.id) {
++      return res.status(403).json({ error: 'No puedes desactivar tu propia cuenta.' });
++    }
++    if (user.role === 'Administrador') {
++      const activeAdmins = db.users.filter(u => u.role === 'Administrador' && u.estado === 'Activo' && u.id !== user.id);
++      if (activeAdmins.length === 0) {
++        return res.status(403).json({ error: 'No puedes desactivar al último Administrador activo del sistema.' });
++      }
++    }
++  }
++
+   const prev = user.estado;
+   user.estado = prev === 'Activo' ? 'Inactivo' : 'Activo';
+   logEvent(db, { actor: req.currentUser, accion: user.estado === 'Activo' ? 'Usuario activado' : 'Usuario desactivado', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
+@@ -287,10 +337,15 @@ router.post('/:id/toggle-estado', requireAdmin, (req, res) => {
+   res.json({ user: publicUser(user, db) });
+ });
+ 
+-router.post('/:id/reset-password', requireAdmin, (req, res) => {
++// HU016: Admin y Soporte pueden resetear contraseñas; Soporte solo para Personal/Tutor.
++router.post('/:id/reset-password', requireAdminOrSupport, (req, res) => {
+   const db = req.db;
+   const user = db.users.find((u) => u.id === req.params.id);
+   if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' });
++  // Soporte no puede resetear contraseña de Admin/Soporte/Auditoría
++  if (req.currentUser.role === 'Soporte' && !ROLES_QUE_SOPORTE_PUEDE_GESTIONAR.includes(user.role)) {
++    return res.status(403).json({ error: 'Soporte solo puede restablecer contraseñas de Personal de institución o Tutor.' });
++  }
+   const tempPassword = genTempPassword();
+   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
+   user.passwordHash = bcrypt.hashSync(tempPassword, 10);
+@@ -301,7 +356,7 @@ router.post('/:id/reset-password', requireAdmin, (req, res) => {
+     notifyAdmins(db, { affectedUser: user, campo: 'Contraseña restablecida', actor: req.currentUser });
+     save(db);
+   }
+-  res.json({ status: 'ok', devTempPassword: tempPassword });
++  res.json({ status: 'ok', emailStatus: 'pendiente de envío (simulado en demo)', devTempPassword: tempPassword });
+ });
+ 
+ module.exports = router;
+diff --git a/test/f2_permissions.js b/test/f2_permissions.js
+new file mode 100644
+index 0000000..a048720
+--- /dev/null
++++ b/test/f2_permissions.js
+@@ -0,0 +1,211 @@
++#!/usr/bin/env node
++/**
++ * F2.1 Permission Matrix Tests
++ * Tests the API directly loading express routes without a network call,
++ * so sessions work properly within a single process.
++ */
++const http = require('http');
++const path = require('path');
++const ROOT = path.join(__dirname, '..');
++const express = require(path.join(ROOT, 'node_modules/express'));
++const session = require(path.join(ROOT, 'node_modules/express-session'));
++const { load, save } = require(path.join(ROOT, 'lib/db'));
++
++// Set up minimal express to test routes
++const app = express();
++app.use(express.json());
++app.use(session({
++  secret: 'test-secret',
++  resave: false,
++  saveUninitialized: false,
++  cookie: { secure: false }
++}));
++
++// Mount routes
++const authRouter = require(path.join(ROOT, 'routes/auth'));
++const usersRouter = require(path.join(ROOT, 'routes/users'));
++app.use('/api/auth', authRouter);
++app.use('/api/users', usersRouter);
++
++const server = http.createServer(app);
++
++// Test helper using http module with cookie jar
++function request(options, body, cookies) {
++  return new Promise((resolve, reject) => {
++    const data = body ? JSON.stringify(body) : null;
++    const opts = {
++      hostname: '127.0.0.1',
++      port: 3099,
++      method: options.method || 'GET',
++      path: options.path,
++      headers: {
++        'Content-Type': 'application/json',
++        ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}),
++        ...(cookies ? { 'Cookie': cookies } : {})
++      }
++    };
++    const req = http.request(opts, (res) => {
++      let body = '';
++      res.on('data', chunk => body += chunk);
++      res.on('end', () => {
++        try { resolve({ status: res.statusCode, body: JSON.parse(body), setCookie: res.headers['set-cookie'] }); }
++        catch(e) { resolve({ status: res.statusCode, body: {}, setCookie: res.headers['set-cookie'] }); }
++      });
++    });
++    req.on('error', reject);
++    if (data) req.write(data);
++    req.end();
++  });
++}
++
++function parseCookie(setCookieHeaders) {
++  if (!setCookieHeaders) return '';
++  return setCookieHeaders.map(c => c.split(';')[0]).join('; ');
++}
++
++let pass = 0; let fail = 0;
++function assert(label, condition, details) {
++  if (condition) { console.log(`  ✅ ${label}`); pass++; }
++  else { console.log(`  ❌ ${label}${details ? ': '+JSON.stringify(details) : ''}`); fail++; }
++}
++
++// Activate soporte for testing
++async function runTests() {
++  const db = load();
++  const soporte = db.users.find(u => u.role === 'Soporte');
++  const prevEstado = soporte.estado;
++  soporte.estado = 'Activo';
++  save(db);
++
++  server.listen(3099, async () => {
++    console.log('\n=== F2.1 MATRIZ DE PERMISOS - RESULTADOS DE PRUEBA ===\n');
++
++    // --- Login sessions ---
++    const adminLoginRes = await request({ method: 'POST', path: '/api/auth/login' },
++      { email: 'maria.rosario@inscolar.do', password: 'Inscolar#2026' });
++    const adminCookie = parseCookie(adminLoginRes.setCookie);
++    assert('Admin login (HU006)', adminLoginRes.status === 200 && adminLoginRes.body.user?.role === 'Administrador');
++
++    const soporteLoginRes = await request({ method: 'POST', path: '/api/auth/login' },
++      { email: soporte.email, password: 'Inscolar#2026' });
++    const soporteCookie = parseCookie(soporteLoginRes.setCookie);
++    assert('Soporte login (HU006)', soporteLoginRes.status === 200 && soporteLoginRes.body.user?.role === 'Soporte');
++
++    console.log('\n--- CREACIÓN DE USUARIOS ---');
++
++    // Admin crea Admin (HU002 - permitido)
++    let r = await request({ method: 'POST', path: '/api/users' },
++      { role: 'Administrador', nombre: 'Admin Test F2', email: 'admintest_f21@test.do' }, adminCookie);
++    assert('Admin puede crear Administrador (HU002)', r.status === 200 && r.body.user?.role === 'Administrador');
++
++    // Admin crea Soporte (HU003 - permitido)
++    r = await request({ method: 'POST', path: '/api/users' },
++      { role: 'Soporte', nombre: 'Soporte Test F2', email: 'soportetest_f21@test.do' }, adminCookie);
++    assert('Admin puede crear Soporte (HU003)', r.status === 200 && r.body.user?.role === 'Soporte');
++
++    const instId = load().institutions[0].id;
++
++    // Admin crea Personal (HU004 - permitido)
++    r = await request({ method: 'POST', path: '/api/users' },
++      { role: 'Personal de institución', nombre: 'Personal Test F2', email: 'personaltest_f21@test.do', institucionId: instId }, adminCookie);
++    assert('Admin puede crear Personal (HU004)', r.status === 200 && r.body.user?.role === 'Personal de institución');
++
++    // FUN-02: Soporte intenta crear Administrador → DEBE SER 403
++    r = await request({ method: 'POST', path: '/api/users' },
++      { role: 'Administrador', nombre: 'Hack Admin', email: 'hackadmin_f21@test.do' }, soporteCookie);
++    assert('FUN-02 FIX: Soporte NO puede crear Administrador (HU002)', r.status === 403, r.body);
++
++    // Soporte intenta crear Soporte → DEBE SER 403 (HU003)
++    r = await request({ method: 'POST', path: '/api/users' },
++      { role: 'Soporte', nombre: 'Hack Soporte', email: 'hacksoporte_f21@test.do' }, soporteCookie);
++    assert('Soporte NO puede crear otro Soporte (HU003)', r.status === 403, r.body);
++
++    // Soporte intenta crear Auditoría → DEBE SER 403
++    r = await request({ method: 'POST', path: '/api/users' },
++      { role: 'Auditoría', nombre: 'Hack Audit', email: 'hackaudit_f21@test.do' }, soporteCookie);
++    assert('Soporte NO puede crear Auditoría', r.status === 403, r.body);
++
++    // Soporte crea Personal → DEBE SER 200 (HU004)
++    r = await request({ method: 'POST', path: '/api/users' },
++      { role: 'Personal de institución', nombre: 'Personal Soporte F2', email: 'psoportetest_f21@test.do', institucionId: instId }, soporteCookie);
++    assert('Soporte puede crear Personal de institución (HU004)', r.status === 200 && r.body.user?.role === 'Personal de institución');
++
++    console.log('\n--- ACTIVAR / DESACTIVAR (HU013/HU014) ---');
++
++    // Solo Admin puede toggle-estado - primero probar que Soporte no puede
++    const adminId = load().users.find(u => u.email === 'maria.rosario@inscolar.do').id;
++    r = await request({ method: 'POST', path: `/api/users/${adminId}/toggle-estado` }, null, soporteCookie);
++    assert('Soporte NO puede desactivar Administrador (HU013/HU014)', r.status === 403, r.body);
++
++    const soporteId = load().users.find(u => u.email === soporte.email).id;
++    r = await request({ method: 'POST', path: `/api/users/${soporteId}/toggle-estado` }, null, soporteCookie);
++    assert('Soporte NO puede desactivar otro usuario (HU013/HU014)', r.status === 403, r.body);
++
++    // Admin intenta desactivarse a sí mismo → 403
++    r = await request({ method: 'POST', path: `/api/users/${adminId}/toggle-estado` }, null, adminCookie);
++    assert('Admin NO puede desactivarse a sí mismo', r.status === 403, r.body);
++
++    // Admin desactiva a otro Administrador (admintest_f21@test.do) cuando quedan varios → OK
++    const newAdminId = load().users.find(u => u.email === 'admintest_f21@test.do').id;
++    r = await request({ method: 'POST', path: `/api/users/${newAdminId}/toggle-estado` }, null, adminCookie);
++    assert('Admin puede desactivar a otro Administrador cuando quedan varios', r.status === 200 && r.body.user?.estado === 'Inactivo', r.body);
++
++    // Reactivación del otro Administrador
++    r = await request({ method: 'POST', path: `/api/users/${newAdminId}/toggle-estado` }, null, adminCookie);
++    assert('Admin puede reactivar a otro Administrador', r.status === 200 && r.body.user?.estado === 'Activo', r.body);
++
++    console.log('\n--- EDICIÓN DE USUARIOS (HU015) ---');
++
++    // Admin intenta cambiar su propio rol → 403
++    r = await request({ method: 'PUT', path: `/api/users/${adminId}` }, { role: 'Soporte' }, adminCookie);
++    assert('Admin NO puede cambiar su propio rol', r.status === 403, r.body);
++
++    // Soporte intenta editar Admin → 403
++    r = await request({ method: 'PUT', path: `/api/users/${adminId}` },
++      { nombre: 'Hacked' }, soporteCookie);
++    assert('Soporte NO puede editar Administrador (HU015)', r.status === 403, r.body);
++
++    // Soporte editar Personal → OK
++    const personalId = load().users.find(u => u.email === 'personaltest_f21@test.do').id;
++    r = await request({ method: 'PUT', path: `/api/users/${personalId}` },
++      { nombre: 'Personal Editado F2' }, soporteCookie);
++    assert('Soporte puede editar Personal de institución (HU015)', r.status === 200, r.body);
++
++    // Soporte no puede cambiar rol a Admin
++    r = await request({ method: 'PUT', path: `/api/users/${personalId}` },
++      { role: 'Administrador' }, soporteCookie);
++    assert('Soporte NO puede cambiar rol a Administrador (HU015)', r.status === 403, r.body);
++
++    console.log('\n--- RESET DE CONTRASEÑA (HU016) ---');
++
++    // Soporte reset Admin → 403
++    r = await request({ method: 'POST', path: `/api/users/${adminId}/reset-password` }, null, soporteCookie);
++    assert('Soporte NO puede resetear contraseña de Administrador (HU016)', r.status === 403, r.body);
++
++    // Soporte reset Personal → OK
++    r = await request({ method: 'POST', path: `/api/users/${personalId}/reset-password` }, null, soporteCookie);
++    assert('Soporte puede resetear contraseña de Personal (HU016)', r.status === 200, r.body);
++
++    // Ahora que terminamos las pruebas con Soporte, el Admin puede desactivarlo (test HU014)
++    r = await request({ method: 'POST', path: `/api/users/${soporteId}/toggle-estado` }, null, adminCookie);
++    assert('Admin puede desactivar Soporte (HU014)', r.status === 200, r.body);
++
++    // Admin reset cualquiera → OK
++    r = await request({ method: 'POST', path: `/api/users/${soporteId}/reset-password` }, null, adminCookie);
++    assert('Admin puede resetear contraseña de cualquier usuario (HU016)', r.status === 200, r.body);
++
++    // Restaurar datos
++    const db2 = load();
++    const s2 = db2.users.find(u => u.email === soporte.email);
++    s2.estado = prevEstado;
++    // Eliminar usuarios de prueba
++    db2.users = db2.users.filter(u => !u.email.endsWith('@test.do'));
++    save(db2);
++    console.log('Base de datos restaurada.');
++
++    server.close();
++    process.exit(fail > 0 ? 1 : 0);
++  });
++}
++
++runTests().catch(e => { console.error(e); process.exit(1); });

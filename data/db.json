@@ -370,7 +370,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-11-05T13:58:00.000Z",
-      "lastAccess": "2026-08-25T09:00:00.000Z"
+      "lastAccess": "2026-09-30T17:20:40.765Z",
+      "notifyByEmail": true
     },
     {
       "id": "u002",
@@ -389,7 +390,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-08-24T09:12:00.000Z"
+      "lastAccess": "2026-09-30T17:20:40.972Z",
+      "notifyByEmail": true
     },
     {
       "id": "u003",
@@ -408,7 +410,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-02-14T11:00:00.000Z",
-      "lastAccess": "2026-08-24T08:40:00.000Z"
+      "lastAccess": "2026-08-24T08:40:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u004",
@@ -425,9 +428,10 @@
       "cedula": null,
       "mfaEnabled": false,
       "mfaMethod": "correo",
-      "mustChangePassword": false,
+      "mustChangePassword": true,
       "createdAt": "2025-09-01T09:00:00.000Z",
-      "lastAccess": "2026-08-12T15:03:00.000Z"
+      "lastAccess": "2026-09-30T17:20:40.271Z",
+      "notifyByEmail": true
     },
     {
       "id": "u005",
@@ -446,7 +450,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-03-20T09:00:00.000Z",
-      "lastAccess": "2026-08-23T17:55:00.000Z"
+      "lastAccess": "2026-08-23T17:55:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u006",
@@ -465,7 +470,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-02-14T09:00:00.000Z",
-      "lastAccess": "2026-08-25T08:41:00.000Z"
+      "lastAccess": "2026-08-25T08:41:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u007",
@@ -484,7 +490,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-06-01T09:00:00.000Z",
-      "lastAccess": "2026-08-01T11:20:00.000Z"
+      "lastAccess": "2026-08-01T11:20:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u008",
@@ -503,7 +510,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-04-08T10:00:00.000Z",
-      "lastAccess": "2026-08-20T09:30:00.000Z"
+      "lastAccess": "2026-08-20T09:30:00.000Z",
+      "notifyByEmail": true
     },
     {
       "id": "u009",
@@ -522,7 +530,8 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-05-15T10:00:00.000Z",
-      "lastAccess": "2026-08-22T14:10:00.000Z"
+      "lastAccess": "2026-08-22T14:10:00.000Z",
+      "notifyByEmail": true
     }
   ],
   "students": [
@@ -567,10 +576,10 @@
       "institucionId": "i001",
       "gradoSolicitado": "4to de Primaria",
       "cicloEscolar": "2026-2027",
-      "estado": "Pendiente",
+      "estado": "Abandonada",
       "motivoRechazo": "",
       "createdAt": "2026-08-20T09:00:00.000Z",
-      "decidedAt": null,
+      "decidedAt": "2026-09-30T17:20:41.042Z",
       "decidedBy": null
     },
     {
@@ -1431,9 +1440,276 @@
       "entidad": "Usuario",
       "entidadId": "u001",
       "detalle": ""
+    },
+    {
+      "id": "log033",
+      "fecha": "2026-09-30T17:20:40.203Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log034",
+      "fecha": "2026-09-30T17:20:40.271Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": ""
+    },
+    {
+      "id": "log035",
+      "fecha": "2026-09-30T17:20:40.332Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u010",
+      "detalle": "Admin Test F2 (Administrador)"
+    },
+    {
+      "id": "log036",
+      "fecha": "2026-09-30T17:20:40.392Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u011",
+      "detalle": "Soporte Test F2 (Soporte)"
+    },
+    {
+      "id": "log037",
+      "fecha": "2026-09-30T17:20:40.451Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u012",
+      "detalle": "Personal Test F2 (Personal de institución)"
+    },
+    {
+      "id": "log038",
+      "fecha": "2026-09-30T17:20:40.518Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Usuario creado",
+      "entidad": "Usuario",
+      "entidadId": "u013",
+      "detalle": "Personal Soporte F2 (Personal de institución)"
+    },
+    {
+      "id": "log039",
+      "fecha": "2026-09-30T17:20:40.529Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario desactivado",
+      "entidad": "Usuario",
+      "entidadId": "u010",
+      "detalle": "Admin Test F2"
+    },
+    {
+      "id": "log040",
+      "fecha": "2026-09-30T17:20:40.534Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario activado",
+      "entidad": "Usuario",
+      "entidadId": "u010",
+      "detalle": "Admin Test F2"
+    },
+    {
+      "id": "log041",
+      "fecha": "2026-09-30T17:20:40.543Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Usuario modificado",
+      "entidad": "Usuario",
+      "entidadId": "u012",
+      "detalle": "Campos: nombre"
+    },
+    {
+      "id": "log042",
+      "fecha": "2026-09-30T17:20:40.611Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Contraseña de usuario restablecida",
+      "entidad": "Usuario",
+      "entidadId": "u012",
+      "detalle": "Personal Editado F2"
+    },
+    {
+      "id": "log043",
+      "fecha": "2026-09-30T17:20:40.615Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Usuario desactivado",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Yorlenny Sánchez"
+    },
+    {
+      "id": "log044",
+      "fecha": "2026-09-30T17:20:40.676Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Contraseña de usuario restablecida",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Yorlenny Sánchez"
+    },
+    {
+      "id": "log045",
+      "fecha": "2026-09-30T17:20:40.765Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log046",
+      "fecha": "2026-09-30T17:20:40.835Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": "Intento con: maria.rosario@inscolar.do"
+    },
+    {
+      "id": "log047",
+      "fecha": "2026-09-30T17:20:40.904Z",
+      "actorId": "u004",
+      "actorNombre": "Yorlenny Sánchez",
+      "actorRole": "Soporte",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u004",
+      "detalle": "Cuenta desactivada"
+    },
+    {
+      "id": "log048",
+      "fecha": "2026-09-30T17:20:40.972Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log049",
+      "fecha": "2026-09-30T17:20:41.042Z",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "actorRole": null,
+      "accion": "Inscripción abandonada por inactividad",
+      "entidad": "Inscripción",
+      "entidadId": "e001",
+      "detalle": "Ciclo 2026-2027 · 30 días sin respuesta"
     }
   ],
   "emailLog": [
+    {
+      "id": "em025",
+      "to": "ana.beltre@correo.do",
+      "subject": "Inscolar: actualización — Estado de inscripción",
+      "text": "Se registró un cambio en \"Estado de inscripción\". De \"Pendiente\" a \"Abandonada\".",
+      "sentAt": "2026-09-30T17:20:41.042Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em024",
+      "to": "soportetest_f21@test.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.536Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em023",
+      "to": "admintest_f21@test.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.536Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em022",
+      "to": "c.guzman@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.535Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em021",
+      "to": "y.sanchez@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.535Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em020",
+      "to": "maria.rosario@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Inactivo\" a \"Activo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.535Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em019",
+      "to": "soportetest_f21@test.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.531Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em018",
+      "to": "c.guzman@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.530Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em017",
+      "to": "y.sanchez@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.530Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
+    {
+      "id": "em016",
+      "to": "maria.rosario@inscolar.do",
+      "subject": "Inscolar: actualización — Estado",
+      "text": "Se registró un cambio en \"Estado\". De \"Activo\" a \"Inactivo\".\nUsuario afectado: Admin Test F2.\nRegistrado por: María Altagracia Rosario.",
+      "sentAt": "2026-09-30T17:20:40.529Z",
+      "via": "simulado (sin SMTP configurado)"
+    },
     {
       "id": "em001",
       "to": "maria.rosario@inscolar.do",
@@ -1558,6 +1834,45 @@
   "mfaCodes": [],
   "resetTokens": [],
   "notifications": [
+    {
+      "id": "n006",
+      "recipientId": "u002",
+      "userId": "u002",
+      "userNombre": "Kelvin Beltré Peña",
+      "campo": "Estado de inscripción",
+      "anterior": "Pendiente",
+      "nuevo": "Abandonada",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "createdAt": "2026-09-30T17:20:41.042Z",
+      "read": false
+    },
+    {
+      "id": "n005",
+      "recipientId": null,
+      "userId": "u010",
+      "userNombre": "Admin Test F2",
+      "campo": "Estado",
+      "anterior": "Inactivo",
+      "nuevo": "Activo",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "createdAt": "2026-09-30T17:20:40.535Z",
+      "read": false
+    },
+    {
+      "id": "n004",
+      "recipientId": null,
+      "userId": "u010",
+      "userNombre": "Admin Test F2",
+      "campo": "Estado",
+      "anterior": "Activo",
+      "nuevo": "Inactivo",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "createdAt": "2026-09-30T17:20:40.529Z",
+      "read": false
+    },
     {
       "id": "n001",
       "userId": "u006",
