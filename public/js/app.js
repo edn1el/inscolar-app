@@ -34,11 +34,13 @@
 
   async function api(path, opts) {
     opts = opts || {};
+    const isFormData = opts.body instanceof FormData;
+    const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
     const res = await fetch('/api' + path, {
       method: opts.method || 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       credentials: 'same-origin',
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      body: opts.body ? (isFormData ? opts.body : JSON.stringify(opts.body)) : undefined,
     });
     let data = {};
     try { data = await res.json(); } catch (e) { /* no body */ }
@@ -1775,7 +1777,7 @@
               const ts = INST_TIPO_STYLE[inst.tipo] || { bg: '#eee', fg: '#333' };
               const active = (inst.estado || 'Activo') === 'Activo';
               return `<tr>
-                <td><div class="user-cell"><span class="av" style="background:#e1ecf7;color:#2a5c96;${inst.foto ? `background-image:url('/api/institutions/${inst.id}/foto?v=${encodeURIComponent(inst.foto.uploadedAt)}');background-size:cover;background-position:center;` : ''}">${inst.foto ? '' : ICONS.building}</span><span><div class="name">${escapeHtml(inst.nombre)}</div><div class="mail">${escapeHtml(inst.direccion || 'Sin dirección registrada')}</div></span></div></td>
+                <td><div class="user-cell"><span class="av" style="background:#e1ecf7;color:#2a5c96;${inst.logo ? `background-image:url('/api/institutions/${inst.id}/logo?v=${encodeURIComponent(inst.logo.uploadedAt)}');background-size:cover;background-position:center;` : ''}">${inst.logo ? '' : ICONS.building}</span><span><div class="name">${escapeHtml(inst.nombre)}</div><div class="mail">${escapeHtml(inst.correo || inst.direccion || 'Sin correo registrado')}</div><div class="help" style="font-size:11px;">RNC: ${escapeHtml(inst.rnc || '—')} | Tel: ${escapeHtml(inst.telefono || '—')}</div></span></div></td>
                 <td>${escapeHtml(inst.provincia)}</td>
                 <td>${escapeHtml(inst.distrito)}${inst.municipio ? ' · ' + escapeHtml(inst.municipio) : ''}</td>
                 <td><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
@@ -1870,26 +1872,22 @@
     const ts = INST_TIPO_STYLE[institution.tipo] || { bg: '#eee', fg: '#333' };
     const active = (institution.estado || 'Activo') === 'Activo';
     const backHref = isAdmin() ? '#/app/instituciones' : (state.user.role === 'Tutor' ? '#/app/citas' : '#/app/citas');
-    const canManageFoto = isAdmin();
-    const fotoUrl = institution.foto ? '/api/institutions/' + institution.id + '/foto?v=' + encodeURIComponent(institution.foto.uploadedAt) : null;
+    const fondoUrl = institution.fondo ? '/api/institutions/' + institution.id + '/fondo?v=' + encodeURIComponent(institution.fondo.uploadedAt) : null;
+    const logoUrl = institution.logo ? '/api/institutions/' + institution.id + '/logo?v=' + encodeURIComponent(institution.logo.uploadedAt) : null;
 
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
-      <div class="inst-hero" style="${fotoUrl ? `background-image:url('${fotoUrl}')` : ''}">
+      <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}')` : 'background:#e1ecf7;'}">
         <div class="inst-hero-overlay">
-          <div class="inst-hero-body">
-            <h2>${escapeHtml(institution.nombre)}</h2>
-            <span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${institution.estado || 'Activo'}</span>
-          </div>
-          ${canManageFoto ? `
-            <div class="inst-hero-actions">
-              <button class="btn btn-secondary btn-small" type="button" id="foto-btn">${fotoUrl ? 'Cambiar foto' : 'Agregar foto'}</button>
-              ${fotoUrl ? '<button class="btn btn-ghost btn-small" type="button" id="foto-remove-btn">Quitar foto</button>' : ''}
+          <div class="inst-hero-body" style="display:flex; align-items:center; gap:20px;">
+            ${logoUrl ? `<img src="${logoUrl}" style="width:80px; height:80px; border-radius:12px; object-fit:cover; border:3px solid #fff;">` : `<div style="width:80px; height:80px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; border:3px solid #eee;">${ICONS.building}</div>`}
+            <div>
+              <h2>${escapeHtml(institution.nombre)}</h2>
+              <span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${institution.estado || 'Activo'}</span>
             </div>
-          ` : ''}
+          </div>
         </div>
       </div>
-      <input type="file" id="foto-input" accept=".jpg,.jpeg,.png" style="display:none;">
       <div id="foto-err"></div>
       <div class="page-head" style="margin-top:16px;">
         <div class="sub">Detalle de la institución.</div>
@@ -1919,35 +1917,6 @@
       </div>
     `;
     bindShellEvents();
-
-    const fotoInput = qs('#foto-input');
-    const fotoBtn = qs('#foto-btn');
-    fotoBtn && fotoBtn.addEventListener('click', () => fotoInput.click());
-    fotoInput && fotoInput.addEventListener('change', async () => {
-      if (!fotoInput.files || !fotoInput.files[0]) return;
-      qs('#foto-err').innerHTML = '';
-      const fd = new FormData();
-      fd.append('foto', fotoInput.files[0]);
-      try {
-        const res = await fetch('/api/institutions/' + institution.id + '/foto', { method: 'POST', body: fd });
-        const data = await res.json();
-        if (!res.ok) throw { errors: data.errors || [data.error || 'No se pudo subir la imagen.'] };
-        toast('Foto actualizada.', 'ok');
-        renderInstitucionDetalle(institucionId);
-      } catch (err) {
-        qs('#foto-err').innerHTML = fieldErrorsBlock(err.errors || [err.message || 'No se pudo subir la imagen.']);
-      }
-    });
-    const fotoRemoveBtn = qs('#foto-remove-btn');
-    fotoRemoveBtn && fotoRemoveBtn.addEventListener('click', async () => {
-      try {
-        await api('/institutions/' + institution.id + '/foto', { method: 'DELETE' });
-        toast('Foto eliminada.', 'ok');
-        renderInstitucionDetalle(institucionId);
-      } catch (err) {
-        toast(err.message || 'No se pudo eliminar la imagen.', 'err');
-      }
-    });
   }
 
   const DIAS_SEMANA_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -2157,53 +2126,147 @@
       editing = institutions.find((i) => i.id === id);
     }
     const digits = (s) => (s || '').replace(/[^0-9]/g, '');
+    
+    // Load municipalities correctly
+    const renderMunicipios = (prov) => {
+      const muns = MUNICIPIOS[prov] || [];
+      const sel = qs('select[name="municipio"]');
+      if (sel) {
+        sel.innerHTML = '<option value="">Selecciona municipio</option>' + muns.map(m => `<option value="${escapeHtml(m)}" ${editing && editing.municipio === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('');
+      }
+    };
+
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
       <div class="page-head"><h2>${editing ? 'Modificar institución' : 'Nueva institución'}</h2></div>
-      <div class="chart-card" style="max-width:560px;">
+      <div class="chart-card" style="max-width:760px;">
         <div id="err"></div>
-        <form id="inst-form">
-          <div class="field"><label>Nombre de la institución</label><input type="text" name="nombre" value="${escapeHtml(editing ? editing.nombre : '')}" required></div>
+        <form id="inst-form" enctype="multipart/form-data">
           <div class="two-col">
-            <div class="field"><label>Provincia</label>
-              <select name="provincia">${PROVINCIAS.map((p) => `<option ${editing && editing.provincia === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select>
-            </div>
-            <div class="field"><label>Distrito educativo</label><input type="text" name="distrito" placeholder="00-00" value="${escapeHtml(editing ? editing.distrito : '')}" required></div>
+            <div class="field"><label>Nombre de la institución *</label><input type="text" name="nombre" value="${escapeHtml(editing ? editing.nombre : '')}" required></div>
+            <div class="field"><label>RNC (9 dígitos) *</label><input type="text" name="rnc" pattern="\\d{9}" maxlength="9" value="${escapeHtml(editing ? (editing.rnc||'') : '')}" required placeholder="Ej: 123456789"></div>
           </div>
-          <div class="field"><label>Municipio</label><input type="text" name="municipio" value="${escapeHtml(editing ? editing.municipio || '' : '')}" placeholder="Opcional"></div>
-          <div class="field"><label>Tipo</label>
-            <select name="tipo">
-              <option value="Público" ${editing && editing.tipo === 'Público' ? 'selected' : ''}>Público</option>
-              <option value="Privado" ${editing && editing.tipo === 'Privado' ? 'selected' : ''}>Privado</option>
+          
+          <div class="two-col">
+            <div class="field"><label>Correo institucional *</label><input type="email" name="correo" value="${escapeHtml(editing ? (editing.correo||'') : '')}" required placeholder="ejemplo@escuela.edu.do"></div>
+            <div class="field"><label>Teléfono (10 dígitos) *</label><input type="text" name="telefono" maxlength="10" value="${escapeHtml(editing ? digits(editing.telefono) : '')}" required placeholder="8095551234"></div>
+          </div>
+
+          <div class="field"><label>Dirección física *</label><input type="text" name="direccion" value="${escapeHtml(editing ? editing.direccion || '' : '')}" required placeholder="Calle, número, sector"></div>
+
+          <div class="two-col">
+            <div class="field"><label>Provincia *</label>
+              <select name="provincia" id="prov-select" required>
+                <option value="">Selecciona provincia</option>
+                ${PROVINCIAS.map((p) => `<option value="${escapeHtml(p)}" ${editing && editing.provincia === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>Municipio *</label>
+              <select name="municipio" required>
+                <option value="">Selecciona municipio</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="field"><label>Distrito educativo *</label><input type="text" name="distrito" placeholder="00-00" value="${escapeHtml(editing ? editing.distrito : '')}" required></div>
+            <div class="field"><label>Tipo</label>
+              <select name="tipo">
+                <option value="Público" ${editing && editing.tipo === 'Público' ? 'selected' : ''}>Público</option>
+                <option value="Privado" ${editing && editing.tipo === 'Privado' ? 'selected' : ''}>Privado</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="field"><label>Estado</label>
+            <select name="estado">
+              <option value="Activo" ${editing && editing.estado === 'Activo' ? 'selected' : ''}>Activa</option>
+              <option value="Inactivo" ${editing && editing.estado === 'Inactivo' ? 'selected' : ''}>Inactiva</option>
             </select>
           </div>
-          <div class="field"><label>Dirección</label><input type="text" name="direccion" value="${escapeHtml(editing ? editing.direccion || '' : '')}" placeholder="Opcional"></div>
-          <div class="field"><label>Teléfono</label><input type="text" name="telefono" maxlength="10" value="${escapeHtml(editing ? digits(editing.telefono) : '')}" placeholder="8095551234 (opcional)"></div>
-          <div style="display:flex; gap:10px;">
-            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">${editing ? 'Guardar cambios' : 'Crear institución'}</button>
-            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/instituciones">Cancelar</button>
+
+          <div class="two-col" style="margin-top:20px;">
+            <div class="field">
+              <label>Logo de la institución (Máx 5MB)</label>
+              <input type="file" name="logo" accept=".jpg,.jpeg,.png,.webp" id="logo-input">
+              <div style="margin-top:10px;">
+                ${editing && editing.logo ? `<img id="logo-preview" src="/api/institutions/${editing.id}/logo" style="max-height:60px; max-width:100%; border-radius:8px; border:1px solid var(--border-color);">` : `<img id="logo-preview" style="max-height:60px; max-width:100%; border-radius:8px; display:none; border:1px solid var(--border-color);">`}
+              </div>
+            </div>
+            <div class="field">
+              <label>Imagen de fondo (Máx 10MB)</label>
+              <input type="file" name="fondo" accept=".jpg,.jpeg,.png,.webp" id="fondo-input">
+              <div style="margin-top:10px;">
+                ${editing && editing.fondo ? `<img id="fondo-preview" src="/api/institutions/${editing.id}/fondo" style="max-height:60px; max-width:100%; border-radius:8px; border:1px solid var(--border-color); object-fit:cover;">` : `<img id="fondo-preview" style="max-height:60px; max-width:100%; border-radius:8px; display:none; border:1px solid var(--border-color); object-fit:cover;">`}
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:30px;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit" id="btn-submit">${editing ? 'Guardar cambios' : 'Crear institución'}</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" id="btn-cancel">Cancelar</button>
           </div>
         </form>
       </div>
     `;
     bindShellEvents();
 
+    qs('#prov-select').addEventListener('change', (e) => {
+      renderMunicipios(e.target.value);
+    });
+    if (editing && editing.provincia) {
+      renderMunicipios(editing.provincia);
+    }
+
+    const previewImage = (inputEl, previewEl, maxMB) => {
+      inputEl.addEventListener('change', () => {
+        const file = inputEl.files[0];
+        if (file) {
+          if (file.size > maxMB * 1024 * 1024) {
+            alert(\`El archivo supera los \${maxMB}MB.\`);
+            inputEl.value = '';
+            return;
+          }
+          previewEl.style.display = 'block';
+          previewEl.src = URL.createObjectURL(file);
+        }
+      });
+    };
+    previewImage(qs('#logo-input'), qs('#logo-preview'), 5);
+    previewImage(qs('#fondo-input'), qs('#fondo-preview'), 10);
+    
+    // Check for unsaved changes on cancel
+    let formChanged = false;
+    qs('#inst-form').addEventListener('input', () => formChanged = true);
+    qs('#btn-cancel').addEventListener('click', () => {
+      if (formChanged && !confirm('Tienes cambios sin guardar. ¿Seguro que deseas cancelar?')) return;
+      navigate('#/app/instituciones');
+    });
+
     qs('#inst-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const btn = qs('#btn-submit');
+      const originalText = btn.textContent;
+      btn.textContent = 'Guardando...';
+      btn.disabled = true;
+      
       const fd = new FormData(e.target);
-      const body = Object.fromEntries(fd.entries());
       qs('#err').innerHTML = '';
+      
       try {
         if (editing) {
-          await api('/institutions/' + editing.id, { method: 'PUT', body });
+          await api('/institutions/' + editing.id, { method: 'PUT', body: fd });
           toast('Institución actualizada.', 'ok');
         } else {
-          await api('/institutions', { method: 'POST', body });
+          await api('/institutions', { method: 'POST', body: fd });
           toast('Institución creada.', 'ok');
         }
+        formChanged = false;
         navigate('#/app/instituciones');
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+        btn.textContent = originalText;
+        btn.disabled = false;
       }
     });
   }
