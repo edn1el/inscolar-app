@@ -210,6 +210,7 @@
 
   // ---------------- HU006 login ----------------
   function viewLogin() {
+    const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
     authShell({
       withHero: true,
       headline: 'Inscripción escolar, en un solo lugar',
@@ -219,13 +220,13 @@
         <p class="lede">Ingresa con tu correo y contraseña.</p>
         <div id="err"></div>
         <form id="login-form">
-          <div class="field"><label>Correo electrónico</label><input type="email" name="email" required></div>
+          <div class="field"><label>Correo electrónico</label><input type="email" name="email" value="${escapeHtml(rememberedEmail)}" required></div>
           <div class="field">
             <div class="row-label"><label>Contraseña</label><button type="button" class="link" id="toggle-pw">Mostrar</button></div>
             <input type="password" name="password" required>
           </div>
           <div class="row-between">
-            <label class="checkbox"><input type="checkbox" checked> Recordar usuario</label>
+            <label class="checkbox"><input type="checkbox" name="remember" ${rememberedEmail ? 'checked' : ''}> Recordar usuario</label>
             <a href="#/forgot">Recuperar contraseña</a>
           </div>
           <button class="btn btn-primary btn-block" type="submit">Iniciar sesión</button>
@@ -246,6 +247,13 @@
       e.preventDefault();
       const fd = new FormData(e.target);
       qs('#err').innerHTML = '';
+      
+      if (fd.get('remember')) {
+        localStorage.setItem('rememberedEmail', fd.get('email'));
+      } else {
+        localStorage.removeItem('rememberedEmail');
+      }
+
       try {
         const data = await api('/auth/login', { method: 'POST', body: { email: fd.get('email'), password: fd.get('password') } });
         if (data.status === 'mfa_required') {
