@@ -85,14 +85,28 @@
       </div>
     `;
     document.body.appendChild(modal);
-    qs('#mod-cancel', modal).addEventListener('click', () => modal.remove());
+
+    const escHandler = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        cleanup();
+      }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    function cleanup() {
+      document.removeEventListener('keydown', escHandler);
+      modal.remove();
+    }
+
+    qs('#mod-cancel', modal).addEventListener('click', cleanup);
     qs('#mod-confirm', modal).addEventListener('click', async () => {
       const btn = qs('#mod-confirm', modal);
       btn.disabled = true;
       btn.textContent = 'Procesando...';
       try {
         const keepOpen = await onConfirm(modal);
-        if (!keepOpen) modal.remove();
+        if (!keepOpen) cleanup();
       } catch (err) {
         btn.disabled = false;
         btn.textContent = confirmText;
@@ -2470,9 +2484,10 @@
 
     qsa('[data-comprobante]').forEach((b) => b.addEventListener('click', () => navigate('#/app/inscripciones/comprobante/' + b.dataset.comprobante)));
     qsa('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
+      const e = enrollments.find(x => x.id === b.dataset.cancel);
       showConfirmModal({
         title: 'Cancelar solicitud de inscripción',
-        bodyHtml: '<p>Esta acción eliminará permanentemente tu solicitud de inscripción y no podrá ser recuperada. ¿Estás seguro?</p>',
+        bodyHtml: `<p>¿Cancelar la solicitud de <strong>${escapeHtml(e.estudianteNombre)}</strong> en <strong>${escapeHtml(e.institucionNombre)}</strong>?</p><p>Esta acción eliminará permanentemente la solicitud y no podrá ser recuperada.</p>`,
         confirmText: 'Cancelar solicitud',
         danger: true,
         onConfirm: async () => {
@@ -2491,9 +2506,10 @@
       } catch (err) { toast(err.message, 'err'); }
     }));
     qsa('[data-reject]').forEach((b) => b.addEventListener('click', () => {
+      const e = enrollments.find(x => x.id === b.dataset.reject);
       showConfirmModal({
         title: 'Rechazar solicitud',
-        bodyHtml: '<p>Indica el motivo del rechazo:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo del rechazo..." />',
+        bodyHtml: `<p>¿Rechazar la solicitud de <strong>${escapeHtml(e.estudianteNombre)}</strong>?</p><p>Indica el motivo del rechazo:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo del rechazo..." />`,
         confirmText: 'Rechazar',
         danger: true,
         onConfirm: async (modal) => {
@@ -2934,10 +2950,11 @@
       } catch (err) { toast(err.message, 'err'); }
     }));
     qsa('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
+      const a = appointments.find(x => x.id === b.dataset.cancel);
       if (!tutor) {
         showConfirmModal({
           title: 'Cancelar cita',
-          bodyHtml: '<p>Indica el motivo de la cancelación:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo..." />',
+          bodyHtml: `<p>¿Cancelar la cita con <strong>${escapeHtml(a.tutorNombre)}</strong>?</p><p>Indica el motivo de la cancelación:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo..." />`,
           confirmText: 'Cancelar cita',
           danger: true,
           onConfirm: async (modal) => {
@@ -2952,7 +2969,7 @@
       } else {
         showConfirmModal({
           title: 'Cancelar cita',
-          bodyHtml: '<p>¿Estás seguro de que deseas cancelar esta cita?</p>',
+          bodyHtml: `<p>¿Cancelar tu cita en <strong>${escapeHtml(a.institucionNombre)}</strong>?</p><p>Esta acción cancelará la cita de forma definitiva.</p>`,
           confirmText: 'Cancelar cita',
           danger: true,
           onConfirm: async () => {
@@ -2965,9 +2982,10 @@
       }
     }));
     qsa('[data-reject]').forEach((b) => b.addEventListener('click', () => {
+      const a = appointments.find(x => x.id === b.dataset.reject);
       showConfirmModal({
         title: 'Rechazar cita',
-        bodyHtml: '<p>Indica el motivo del rechazo:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo del rechazo..." />',
+        bodyHtml: `<p>¿Rechazar la cita de <strong>${escapeHtml(a.tutorNombre)}</strong>?</p><p>Indica el motivo del rechazo:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo del rechazo..." />`,
         confirmText: 'Rechazar cita',
         danger: true,
         onConfirm: async (modal) => {
