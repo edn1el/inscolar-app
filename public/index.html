@@ -3,12 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inscolar</title>
+<title>Inscolar – Sistema de gestión educativa</title>
+<meta name="description" content="Plataforma de inscripción y gestión escolar para instituciones educativas de la República Dominicana.">
 <link rel="icon" type="image/x-icon" href="/assets/brand/favicon.ico">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32x32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
 <link rel="manifest" href="/assets/brand/site.webmanifest">
 <meta name="theme-color" content="#AF122C">
+
+<!-- F1.2: Tema sin destello – aplicar antes del primer render -->
+<script>
+(function(){
+  var t = localStorage.getItem('ins-theme') || 'system';
+  var hc = localStorage.getItem('ins-hc') === '1';
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (t === 'dark' || (t === 'system' && prefersDark)) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+  if (hc) document.documentElement.setAttribute('data-hc', '1');
+})();
+</script>
+
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,440..680&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
 </head>
