@@ -280,15 +280,30 @@
     let userCoords = null;
     const mapContainer = qs('#map-container');
 
-    try {
-      if (typeof L !== 'undefined') {
+    async function initMap() {
+      if (typeof L === 'undefined') {
+        qs('#search-results').innerHTML = '<div class="loading" style="padding:20px">Cargando mapa...</div>';
+        await new Promise((resolve) => {
+          const css = document.createElement('link');
+          css.rel = 'stylesheet';
+          css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(css);
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = resolve;
+          document.head.appendChild(script);
+        });
+      }
+      try {
         currentMap = L.map(mapContainer).setView([18.7357, -70.1627], 8);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(currentMap);
+      } catch (e) {
+        console.warn('Leaflet error', e);
+        mapContainer.innerHTML = '<div style="padding:20px; color:#666;">Mapa no disponible.</div>';
       }
-    } catch (e) {
-      console.warn('Leaflet error', e);
-      mapContainer.innerHTML = '<div style="padding:20px; color:#666;">Mapa no disponible.</div>';
     }
+
+    await initMap();
 
     async function performSearch(extraQuery = '') {
       qs('#search-results').innerHTML = '<div class="loading" style="padding:20px">Cargando...</div>';
