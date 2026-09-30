@@ -225,12 +225,12 @@ router.post('/register', (req, res) => {
 router.post('/forgot', (req, res) => {
   const db = load();
   const { email } = req.body || {};
-  const user = findByEmail(db, email);
-  // Respuesta genérica aunque el correo no exista, para no filtrar qué cuentas existen.
-  if (!user) return res.json({ status: 'sent', attemptsUsed: 1, attemptsMax: RESET_MAX_ATTEMPTS });
-
+  const emailLower = String(email || '').toLowerCase();
+  
+  if (!db.forgotAttempts) db.forgotAttempts = {};
+  
   const now = Date.now();
-  const attempts = user.recoveryAttempts || { count: 0, windowStart: new Date(now).toISOString() };
+  const attempts = db.forgotAttempts[emailLower] || { count: 0, windowStart: new Date(now).toISOString() };
   if (now - new Date(attempts.windowStart).getTime() > RESET_WINDOW_MS) {
     attempts.count = 0;
     attempts.windowStart = new Date(now).toISOString();
@@ -239,7 +239,12 @@ router.post('/forgot', (req, res) => {
     return res.status(429).json({ error: `Máximo ${RESET_MAX_ATTEMPTS} intentos de recuperación cada 24 horas.` });
   }
   attempts.count += 1;
-  user.recoveryAttempts = attempts;
+  db.forgotAttempts[emailLower] = attempts;
+  save(db);
+
+  const user = findByEmail(db, email);
+  // Respuesta genérica aunque el correo no exista, para no filtrar qué cuentas existen.
+  if (!user) return res.json({ status: 'sent', attemptsUsed: attempts.count, attemptsMax: RESET_MAX_ATTEMPTS });
 
   const token = crypto.randomBytes(16).toString('hex');
   db.resetTokens = db.resetTokens.filter((t) => t.userId !== user.id);
