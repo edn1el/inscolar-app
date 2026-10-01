@@ -32,16 +32,49 @@
     bell && bell.setAttribute('aria-expanded', 'false');
   });
 
+  let currentRouterSeq = 0;
+
   async function api(path, opts) {
     opts = opts || {};
+    const startSeq = currentRouterSeq;
     const isFormData = opts.body instanceof FormData;
     const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
-    const res = await fetch('/api' + path, {
-      method: opts.method || 'GET',
-      headers,
-      credentials: 'same-origin',
-      body: opts.body ? (isFormData ? opts.body : JSON.stringify(opts.body)) : undefined,
-    });
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(new Error('timeout')), opts.timeout || 15000);
+
+    let res;
+    try {
+      res = await fetch('/api' + path, {
+        method: opts.method || 'GET',
+        headers,
+        credentials: 'same-origin',
+        body: opts.body ? (isFormData ? opts.body : JSON.stringify(opts.body)) : undefined,
+        signal: controller.signal
+      });
+    } catch (e) {
+      if (currentRouterSeq !== startSeq && !opts.background) {
+        const err = new Error('Cancelled');
+        err.isCancelled = true;
+        throw err;
+      }
+      if (e.message === 'timeout' || e.name === 'AbortError' || (e.message && e.message.toLowerCase().includes('fetch'))) {
+        const err = new Error('No se pudo conectar con el servidor.');
+        err.status = 0;
+        err.isNetworkError = true;
+        throw err;
+      }
+      throw e;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    if (currentRouterSeq !== startSeq && !opts.background) {
+      const err = new Error('Cancelled');
+      err.isCancelled = true;
+      throw err;
+    }
+
     let data = {};
     try { data = await res.json(); } catch (e) { /* no body */ }
     if (!res.ok) {
@@ -223,22 +256,69 @@
     return { segs, query };
   }
 
-  async function ensureAuth() {
-    if (state.authChecked) return;
-    try {
-      const { user } = await api('/auth/me');
-      state.user = user || null;
-    } catch (e) { state.user = null; }
-    try {
-      const { needed } = await api('/auth/setup-needed');
-      state.setupNeeded = needed;
-    } catch (e) { state.setupNeeded = false; }
-    state.authChecked = true;
+  let authPromise = null;
+  function ensureAuth() {
+    if (state.authChecked) return Promise.resolve();
+    if (!authPromise) {
+      authPromise = (async () => {
+        let networkErr = null;
+        try {
+          const { user } = await api('/auth/me');
+          state.user = user || null;
+        } catch (e) {
+          if (e.isCancelled) throw e;
+          state.user = null;
+          if (e.isNetworkError || (e.status && e.status >= 500)) networkErr = e;
+        }
+        try {
+          if (!networkErr) {
+            const { needed } = await api('/auth/setup-needed');
+            state.setupNeeded = needed;
+          }
+        } catch (e) {
+          if (e.isCancelled) throw e;
+          state.setupNeeded = false;
+          if (e.isNetworkError || (e.status && e.status >= 500)) networkErr = e;
+        }
+        if (networkErr) {
+          authPromise = null;
+          throw networkErr;
+        }
+        state.authChecked = true;
+      })();
+    }
+    return authPromise;
   }
 
   async function router() {
+    currentRouterSeq++;
+    const seq = currentRouterSeq;
     root.innerHTML = '<div class="loading">Cargando…</div>';
-    await ensureAuth();
+    
+    try {
+      await ensureAuth();
+    } catch (e) {
+      if (e.isCancelled) return;
+      const { segs } = parseHash();
+      const publicRoutes = ['', 'buscar', 'login', 'mfa', 'force-change', 'register', 'forgot', 'reset', 'setup'];
+      if (!publicRoutes.includes(segs[0])) {
+        root.innerHTML = `
+          <div class="auth-stage">
+            <div class="panel" style="width:100%; display:flex; justify-content:center; align-items:center;">
+              <div class="card" style="text-align:center; max-width: 400px;">
+                <h3 style="margin-top:0;">Error de conexión</h3>
+                <p style="margin-bottom:20px; color:var(--text-muted);">${escapeHtml(e.message)}</p>
+                <button class="btn btn-primary" style="width:100%;" onclick="window.dispatchEvent(new HashChangeEvent('hashchange'))">Reintentar</button>
+              </div>
+            </div>
+          </div>
+        `;
+        return;
+      }
+    }
+
+    if (seq !== currentRouterSeq) return;
+
     const { segs, query } = parseHash();
 
     if (state.setupNeeded && segs[0] !== 'setup') return navigate('#/setup');
@@ -246,23 +326,38 @@
 
     const publicRoutes = ['', 'buscar', 'login', 'mfa', 'force-change', 'register', 'forgot', 'reset', 'setup'];
     if (!publicRoutes.includes(segs[0])) {
-      if (!state.user) return navigate('#/');
+      if (!state.user) return navigate('#/login');
     } else if (state.user && segs[0] !== 'setup' && segs[0] !== '' && segs[0] !== 'buscar') {
       return navigate('#/app/perfil');
     }
 
-    switch (segs[0]) {
-      case '':
-      case 'buscar': return viewBuscar(segs.slice(1));
-      case 'setup': return viewSetup();
-      case 'login': return viewLogin();
-      case 'mfa': return viewMfa();
-      case 'force-change': return viewForceChange();
-      case 'register': return viewRegister();
-      case 'forgot': return viewForgot();
-      case 'reset': return viewReset(query.token || '');
-      case 'app': return viewApp(segs.slice(1), query);
-      default: return navigate('#/');
+    try {
+      switch (segs[0]) {
+        case '':
+        case 'buscar': return await viewBuscar(segs.slice(1));
+        case 'setup': return await viewSetup();
+        case 'login': return await viewLogin();
+        case 'mfa': return await viewMfa();
+        case 'force-change': return await viewForceChange();
+        case 'register': return await viewRegister();
+        case 'forgot': return await viewForgot();
+        case 'reset': return await viewReset(query.token || '');
+        case 'app': return await viewApp(segs.slice(1), query);
+        default: return navigate('#/');
+      }
+    } catch (e) {
+      if (e.isCancelled) return;
+      root.innerHTML = `
+        <div class="auth-stage">
+          <div class="panel" style="width:100%; display:flex; justify-content:center; align-items:center;">
+            <div class="card" style="text-align:center; max-width: 400px;">
+              <h3 style="margin-top:0;">Ocurrió un error</h3>
+              <p style="margin-bottom:20px; color:var(--text-muted);">${escapeHtml(e.message)}</p>
+              <button class="btn btn-primary" style="width:100%;" onclick="window.dispatchEvent(new HashChangeEvent('hashchange'))">Reintentar</button>
+            </div>
+          </div>
+        </div>
+      `;
     }
   }
 
@@ -515,7 +610,14 @@
           </div>
         `;
       } catch (e) {
-        root.innerHTML = `<div class="notice err">Error: ${escapeHtml(e.message)} <a href="#/buscar">Volver</a></div>`;
+        if (e.isCancelled) return;
+        root.innerHTML = `
+          <div style="padding:40px; text-align:center; max-width:400px; margin:0 auto;">
+            <div class="notice err" style="margin-bottom:20px;">Error: ${escapeHtml(e.message)}</div>
+            <button class="btn btn-primary" onclick="window.dispatchEvent(new HashChangeEvent('hashchange'))">Reintentar</button>
+            <a href="#/buscar" class="btn btn-ghost" style="margin-top:10px; display:block;">Volver a buscar</a>
+          </div>
+        `;
       }
       return;
     }
@@ -1167,7 +1269,18 @@
       else if (section === 'auditoria') await renderAuditoria(query);
       else qs('.main').innerHTML = '<div class="empty-state">Sección no encontrada.</div>';
     } catch (err) {
-      qs('.main').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
+      if (err.isCancelled) return;
+      if (err.status === 401 || err.status === 403) {
+        state.authChecked = false;
+        state.user = null;
+        return navigate('#/login');
+      }
+      qs('.main').innerHTML = `
+        <div style="padding:40px; text-align:center; max-width:400px; margin:0 auto;">
+          <div class="empty-state" style="margin-bottom:20px; color:#af122c;">Error: ${escapeHtml(err.message)}</div>
+          <button class="btn btn-primary" onclick="window.dispatchEvent(new HashChangeEvent('hashchange'))">Reintentar</button>
+        </div>
+      `;
     }
   }
 
