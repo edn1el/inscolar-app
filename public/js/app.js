@@ -538,9 +538,9 @@
             <button type="button" class="btn btn-ghost btn-small mobile-only-btn" id="btn-toggle-map" style="width:100%; margin-bottom:15px; display:none;">${ICONS.map} Mostrar mapa</button>
             <button type="submit" class="btn btn-primary btn-block">Aplicar filtros</button>
           </form>
-          <div id="search-results" style="margin-top:20px; overflow-y:auto; flex:1;"></div>
+          <div id="search-results" style="margin-top:20px;"></div>
         </div>
-        <div class="search-map-wrapper">
+        <div class="search-map-wrapper hidden-mobile">
           <div class="search-map" id="map-container"></div>
           <button id="close-map-btn" class="btn mobile-close-map">${ICONS.close}</button>
         </div>
@@ -627,8 +627,15 @@
         currentMarkers.forEach(m => m.remove());
         currentMarkers = [];
         
+        const mc = qs('#map-container');
+        const emptyOver = mc ? mc.querySelector('.map-empty-overlay') : null;
+        if (emptyOver) emptyOver.remove();
+
         if (!data.institutions || data.institutions.length === 0) {
           qs('#search-results').innerHTML = '<div class="notice">No se encontraron instituciones.</div>';
+          if (currentMap && mc) {
+            mc.insertAdjacentHTML('beforeend', '<div class="map-empty-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:var(--bg-body); opacity: 0.9; z-index:1000; display:flex; align-items:center; justify-content:center; color:var(--text-muted); text-align:center; padding:20px;">No hay resultados para mostrar en el mapa</div>');
+          }
           return;
         }
 
@@ -669,6 +676,8 @@
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           if (bounds.length > 0) {
             currentMap.fitBounds(bounds, { animate: !prefersReduced });
+          } else if (currentMap && qs('#map-container')) {
+            qs('#map-container').insertAdjacentHTML('beforeend', '<div class="map-empty-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:var(--bg-body); opacity: 0.9; z-index:1000; display:flex; align-items:center; justify-content:center; color:var(--text-muted); text-align:center; padding:20px;">Las instituciones encontradas no tienen coordenadas registradas.</div>');
           }
         }
 
