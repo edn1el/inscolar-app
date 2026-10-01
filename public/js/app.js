@@ -202,6 +202,8 @@
     back: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>',
     printer: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
     contrast: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" stroke="none"/></svg>',
+    close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+    map: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>'
   };
 
   // ---------------- router ----------------
@@ -300,22 +302,79 @@
     if (subsegs[0]) {
       // Detalle de institución público
       try {
-        const { institution: i } = await api('/institutions/' + subsegs[0]);
+        const [ { institution: i }, { reports }, { ratings } ] = await Promise.all([
+          api('/institutions/' + subsegs[0]),
+          api('/institutions/' + subsegs[0] + '/reports'),
+          api('/institutions/' + subsegs[0] + '/ratings')
+        ]);
+        
+        const ts = INST_TIPO_STYLE[i.tipo] || { bg: '#eee', fg: '#333' };
+        const fondoUrl = i.fondo ? '/api/institutions/' + i.id + '/fondo?v=' + encodeURIComponent(i.fondo.uploadedAt) : null;
+        const logoUrl = i.logo ? '/api/institutions/' + i.id + '/logo?v=' + encodeURIComponent(i.logo.uploadedAt) : null;
+        
         root.innerHTML = `
-          <div class="top-nav" style="background:#fff; border-bottom:1px solid var(--border-color); padding:10px 20px;">
+          <div class="top-nav" style="background:#fff; border-bottom:1px solid var(--border-color); padding:10px 20px; z-index: 10;">
             <a href="#/buscar" class="btn btn-ghost btn-small">← Volver a resultados</a>
-            <a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>
+            ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small" style="float:right">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>'}
           </div>
+          
           <div style="padding:20px; max-width:800px; margin:0 auto;">
-            <h2>${escapeHtml(i.nombre)}</h2>
-            <div class="badge-chip">${escapeHtml(i.tipo)}</div>
-            <p><strong>Provincia:</strong> ${escapeHtml(i.provincia)}<br>
-               <strong>Municipio:</strong> ${escapeHtml(i.municipio || '—')}<br>
-               <strong>Distrito:</strong> ${escapeHtml(i.distrito)}<br>
-               <strong>Dirección:</strong> ${escapeHtml(i.direccion || '—')}<br>
-               <strong>Teléfono:</strong> ${escapeHtml(i.telefono || '—')}</p>
-            <p><strong>Calificación promedio:</strong> ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) + ' estrellas (' + i.totalCalificaciones + ' opiniones)' : 'Sin calificaciones'}</p>
-            ${i.foto ? `<img src="/api/institutions/${i.id}/foto" style="max-width:100%; border-radius:8px; margin-top:20px;" alt="Foto">` : ''}
+            <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}')` : 'background:#e1ecf7;'} border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+              <div class="inst-hero-overlay" style="border-radius: 12px; padding: 30px;">
+                <div class="inst-hero-body" style="display:flex; align-items:center; gap:20px;">
+                  ${logoUrl ? `<img src="${logoUrl}" style="width:80px; height:80px; border-radius:12px; object-fit:cover; border:3px solid #fff;">` : `<div style="width:80px; height:80px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; border:3px solid #eee; color:var(--text-muted);">${ICONS.building}</div>`}
+                  <div>
+                    <h2 style="margin: 0 0 5px 0;">${escapeHtml(i.nombre)}</h2>
+                    <span class="pill" style="background:${ts.bg};color:${ts.fg}; font-size: 0.8rem; padding: 4px 8px;">${escapeHtml(i.tipo)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
+              <div class="chart-card">
+                <h3>Información general</h3>
+                <div class="two-col" style="margin-top: 15px;">
+                  <div><div class="help">Distrito educativo</div><div>${escapeHtml(i.distrito)}</div></div>
+                  <div><div class="help">Provincia</div><div>${escapeHtml(i.provincia)}</div></div>
+                  <div><div class="help">Municipio</div><div>${escapeHtml(i.municipio || 'No registrado')}</div></div>
+                  <div><div class="help">Dirección</div><div>${escapeHtml(i.direccion || 'No registrada')}</div></div>
+                  <div><div class="help">Teléfono</div><div>${escapeHtml(i.telefono || 'No registrado')}</div></div>
+                </div>
+              </div>
+              
+              <div class="chart-card">
+                <h3>Calificaciones</h3>
+                <p style="font-size:1.3rem; margin: 15px 0 5px 0;">${i.calificacionPromedio !== null ? '★ ' + Number(i.calificacionPromedio).toFixed(1) : 'Sin calificaciones'}</p>
+                <p class="help">Basado en ${i.totalCalificaciones} calificación${i.totalCalificaciones === 1 ? '' : 'es'}.</p>
+                
+                <div style="margin-top: 20px; max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                  ${ratings && ratings.length ? ratings.map((r) => `
+                    <div style="padding:10px 0; border-bottom:1px solid var(--border-color); ${r === ratings[ratings.length-1] ? 'border-bottom:none;' : ''}">
+                      <div style="font-size:14px; font-weight:bold;">★ ${r.estrellas} · <span style="font-weight:normal; color:var(--text-muted);">${escapeHtml(r.tutorNombre || 'Anónimo')}</span></div>
+                      ${r.comentario ? `<div style="font-size:13px; margin-top:4px;">${escapeHtml(r.comentario)}</div>` : ''}
+                      <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">${fmtDate(r.createdAt)}</div>
+                    </div>
+                  `).join('') : '<div class="empty-state" style="padding:10px; font-size:13px;">Aún no hay opiniones escritas.</div>'}
+                </div>
+              </div>
+            </div>
+            
+            ${reports && reports.length ? `
+              <div class="chart-card" style="margin-top:20px;">
+                <h3>Reportes públicos de la comunidad</h3>
+                <p class="help" style="margin-bottom: 15px;">Incidentes moderados y hechos públicos por el equipo de supervisión.</p>
+                <div class="notif-list">
+                  ${reports.map((rp) => `
+                    <div class="notif-item" style="padding:15px; border:1px solid var(--border-color); border-radius:8px; margin-bottom:10px;">
+                      <div class="t1">${escapeHtml(rp.motivo)} ${rp.tutorNombre ? `· ${escapeHtml(rp.tutorNombre)}` : ''}</div>
+                      <div class="t2" style="margin:5px 0;">${escapeHtml(rp.descripcion)}</div>
+                      <div class="t3" style="font-size:12px; color:var(--text-muted);">${fmtDate(rp.createdAt)}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
           </div>
         `;
       } catch (e) {
@@ -329,7 +388,7 @@
         <div class="search-sidebar">
           <div class="plain-brand" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <img class="brand-logo" src="/assets/brand/inscolar-logo-horizontal-primary.svg" alt="Inscolar">
-            <a href="#/login" class="btn btn-ghost btn-small">Acceder</a>
+            ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small">Volver al panel</a>' : '<a href="#/login" class="btn btn-ghost btn-small">Acceder</a>'}
           </div>
           <form id="search-form">
             <div class="field"><label>Nombre o distrito</label><input type="text" name="q" placeholder="Ej. Politécnico..."></div>
@@ -339,11 +398,15 @@
             </div>
             <div class="field"><label>Calificación mínima</label><select name="calificacionMin"><option value="">Cualquiera</option><option value="4">4+ estrellas</option><option value="3">3+ estrellas</option></select></div>
             <button type="button" class="btn btn-secondary btn-small" id="btn-location" style="width:100%; margin-bottom:15px;">📍 Usar mi ubicación</button>
+            <button type="button" class="btn btn-ghost btn-small mobile-only-btn" id="btn-toggle-map" style="width:100%; margin-bottom:15px; display:none;">${ICONS.map} Mostrar mapa</button>
             <button type="submit" class="btn btn-primary btn-block">Aplicar filtros</button>
           </form>
           <div id="search-results" style="margin-top:20px; overflow-y:auto; flex:1;"></div>
         </div>
-        <div class="search-map" id="map-container"></div>
+        <div class="search-map-wrapper">
+          <div class="search-map" id="map-container"></div>
+          <button id="close-map-btn" class="btn mobile-close-map">${ICONS.close}</button>
+        </div>
       </div>
     `;
 
@@ -364,6 +427,19 @@
     let currentMarkers = [];
     let userCoords = null;
     const mapContainer = qs('#map-container');
+    const mapWrapper = qs('.search-map-wrapper');
+    const closeMapBtn = qs('#close-map-btn');
+    const toggleMapBtn = qs('#btn-toggle-map');
+    
+    closeMapBtn.addEventListener('click', () => {
+      mapWrapper.classList.add('hidden-mobile');
+      toggleMapBtn.style.display = 'block';
+    });
+    toggleMapBtn.addEventListener('click', () => {
+      mapWrapper.classList.remove('hidden-mobile');
+      toggleMapBtn.style.display = 'none';
+      if (currentMap) currentMap.invalidateSize();
+    });
 
     async function initMap() {
       if (typeof L === 'undefined') {
@@ -844,6 +920,9 @@
     const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes(role());
     const esCalendarioInstitucion = section === 'instituciones' && segs[2] === 'calendario';
     const esDetalleInstitucion = section === 'instituciones' && segs[2] === 'detalle';
+    const esCalificacionesInstitucion = section === 'instituciones' && segs[2] === 'calificaciones';
+    const esReportesInstitucion = section === 'instituciones' && segs[2] === 'reportes';
+    
     // Solo Admin y Soporte ven Usuarios e Instituciones; Analíticas solo Admin
     if (section === 'usuarios' && !canSeeUsuarios()) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
@@ -853,7 +932,7 @@
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
-    if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion) {
+    if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion && !esCalificacionesInstitucion && !esReportesInstitucion) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -2134,9 +2213,13 @@
       institucionNombre(institucionId),
       api('/institutions/' + institucionId + '/ratings'),
     ]);
+    const backHref = isAdmin() ? '#/app/instituciones' : '#/app/instituciones/' + institucionId + '/detalle';
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
-      <div class="page-head"><div><h2>Calificaciones — ${escapeHtml(nombre)}</h2><div class="sub">${total ? `Promedio: ★ ${promedio.toFixed(1)} de ${total} calificación${total === 1 ? '' : 'es'}.` : 'Todavía no tiene calificaciones.'}</div></div></div>
+      <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
+      <div class="page-head">
+        <div><h2>Calificaciones — ${escapeHtml(nombre)}</h2><div class="sub">${total ? `Promedio: ★ ${promedio.toFixed(1)} de ${total} calificación${total === 1 ? '' : 'es'}.` : 'Todavía no tiene calificaciones.'}</div></div>
+        ${state.user && state.user.role === 'Tutor' ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/calificar/${institucionId}">Calificar institución</button>` : ''}
+      </div>
       <div class="notif-list">
         ${ratings.length ? ratings.map((r) => `
           <div class="notif-item">
@@ -2157,22 +2240,58 @@
       institucionNombre(institucionId),
       api('/institutions/' + institucionId + '/reports'),
     ]);
+    const backHref = isAdmin() ? '#/app/instituciones' : '#/app/instituciones/' + institucionId + '/detalle';
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
-      <div class="page-head"><div><h2>Reportes — ${escapeHtml(nombre)}</h2><div class="sub">${total} reporte${total === 1 ? '' : 's'} registrado${total === 1 ? '' : 's'}.</div></div></div>
+      <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
+      <div class="page-head">
+        <div><h2>Reportes — ${escapeHtml(nombre)}</h2><div class="sub">${total} reporte${total === 1 ? '' : 's'} disponible${total === 1 ? '' : 's'}.</div></div>
+        ${state.user && state.user.role === 'Tutor' ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/reportar/${institucionId}">Reportar institución</button>` : ''}
+      </div>
       <div class="notif-list">
         ${reports.length ? reports.map((rp) => `
           <div class="notif-item">
             <div>
-              <div class="t1">${escapeHtml(rp.motivo)} · ${escapeHtml(rp.tutorNombre)}</div>
+              <div class="t1">${escapeHtml(rp.motivo)} ${rp.tutorNombre ? `· ${escapeHtml(rp.tutorNombre)}` : ''}</div>
               <div class="t2">${escapeHtml(rp.descripcion)}</div>
-              <div class="t3">${fmtDate(rp.createdAt)} · ${escapeHtml(rp.estado)}</div>
+              <div class="t3">
+                ${fmtDate(rp.createdAt)} 
+                ${rp.estado ? `· <span class="badge-chip" style="font-size:0.75rem; padding:2px 6px;">${rp.estado}</span>` : ''}
+                ${(rp.evidenciaOriginal || rp.hasEvidencia) ? `· <a href="/api/reports/${rp.id}/evidence" target="_blank" style="color:var(--primary-color);">Ver evidencia</a>` : ''}
+              </div>
+              ${state.user && ['Administrador', 'Moderador'].includes(state.user.role) && rp.estado === 'Pendiente' ? `
+                <div style="margin-top:10px; display:flex; gap:8px;">
+                  <button class="btn btn-secondary btn-small action-mod" data-id="${rp.id}" data-action="Publicado">Aprobar (Publicar)</button>
+                  <button class="btn btn-ghost btn-small action-mod" data-id="${rp.id}" data-action="Retirado">Rechazar (Retirar)</button>
+                </div>
+              ` : ''}
             </div>
           </div>
         `).join('') : '<div class="empty-state">No hay reportes todavía.</div>'}
       </div>
     `;
     bindShellEvents();
+
+    qsa('.action-mod').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.target.getAttribute('data-id');
+        const action = e.target.getAttribute('data-action');
+        showConfirmModal({
+          title: action === 'Publicado' ? 'Aprobar reporte' : 'Retirar reporte',
+          bodyHtml: action === 'Publicado' 
+            ? '<p>¿Estás seguro de hacer público este reporte? Asegúrate de haber revisado la información por contenido sensible.</p>'
+            : '<p>¿Estás seguro de retirar este reporte? No será visible públicamente.</p>',
+          confirmText: 'Confirmar',
+          danger: action === 'Retirado',
+          onConfirm: async () => {
+            try {
+              await api('/reports/' + id + '/estado', { method: 'PUT', body: { estado: action } });
+              toast('Reporte ' + action.toLowerCase() + '.', 'ok');
+              renderReportesList(institucionId);
+            } catch (err) { toast(err.message, 'err'); }
+          }
+        });
+      });
+    });
   }
 
   async function renderCalificarForm(institucionId) {
@@ -2182,25 +2301,74 @@
     ]);
     const mine = ratings[0] || null;
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver</button>
+      <button class="back-link" data-nav="#/app/instituciones/${institucionId}/calificaciones">${ICONS.back} Volver a calificaciones</button>
       <div class="page-head"><h2>Calificar — ${escapeHtml(nombre)}</h2></div>
       <div class="chart-card" style="max-width:520px;">
         <div id="err"></div>
         <form id="rating-form">
-          <div class="field"><label>Calificación</label>
-            <select name="estrellas">
-              ${[5, 4, 3, 2, 1].map((n) => `<option value="${n}" ${mine && mine.estrellas === n ? 'selected' : ''}>${n} estrella${n === 1 ? '' : 's'}</option>`).join('')}
-            </select>
+          <div class="field">
+            <label>Selecciona de 1 a 5 estrellas</label>
+            <div class="star-rating" style="font-size:32px; display:inline-flex; flex-direction:row-reverse; cursor:pointer;" aria-label="Calificación">
+              ${[5, 4, 3, 2, 1].map(n => `
+                <input type="radio" name="estrellas" value="${n}" id="star${n}" style="display:none;" ${mine && mine.estrellas === n ? 'checked' : ''} required>
+                <label for="star${n}" style="color:var(--border-color); margin:0 2px;" title="${n} estrellas" tabindex="0">★</label>
+              `).join('')}
+            </div>
+            <div id="rating-text" style="font-size:14px; color:var(--primary-color); font-weight:bold; margin-top:5px; min-height:20px;">
+              ${mine ? mine.estrellas + ' estrellas seleccionadas' : ''}
+            </div>
           </div>
-          <div class="field"><label>Comentario (opcional)</label><textarea name="comentario" rows="4" maxlength="500">${escapeHtml(mine ? mine.comentario || '' : '')}</textarea></div>
+          <div class="field"><label>Comentario (Opcional)</label><textarea name="comentario" rows="3" maxlength="500" placeholder="¿Cómo describirías tu experiencia con esta institución?">${escapeHtml(mine ? mine.comentario || '' : '')}</textarea></div>
           <div style="display:flex; gap:10px;">
             <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">${mine ? 'Actualizar calificación' : 'Enviar calificación'}</button>
-            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/instituciones/${institucionId}/calificaciones">Cancelar</button>
           </div>
         </form>
       </div>
     `;
     bindShellEvents();
+
+    // Lógica para las estrellas
+    const stars = qsa('.star-rating label');
+    const inputs = qsa('input[name="estrellas"]');
+    const updateStars = () => {
+      let val = 0;
+      inputs.forEach(i => { if(i.checked) val = parseInt(i.value); });
+      stars.forEach(lbl => {
+        const lblVal = parseInt(lbl.htmlFor.replace('star',''));
+        lbl.style.color = lblVal <= val ? '#f5b041' : 'var(--border-color)';
+      });
+      qs('#rating-text').textContent = val > 0 ? val + ' estrellas seleccionadas' : '';
+    };
+    
+    // Configurar color al inicio si hay valoración previa
+    if (mine) updateStars();
+    
+    stars.forEach(lbl => {
+      // Hover effects
+      lbl.addEventListener('mouseenter', () => {
+        const hVal = parseInt(lbl.htmlFor.replace('star',''));
+        stars.forEach(s => {
+          const sVal = parseInt(s.htmlFor.replace('star',''));
+          s.style.color = sVal <= hVal ? '#f1c40f' : 'var(--border-color)';
+        });
+      });
+      lbl.addEventListener('mouseleave', updateStars);
+      
+      // Accessibility: enter/space to select
+      lbl.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          qs('#' + lbl.htmlFor).checked = true;
+          updateStars();
+        }
+      });
+      
+      lbl.addEventListener('click', () => {
+        setTimeout(updateStars, 0); // Esperar a que el radio se marque
+      });
+    });
+
     qs('#rating-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -2208,7 +2376,7 @@
       try {
         await api('/institutions/' + institucionId + '/ratings', { method: 'POST', body: Object.fromEntries(fd.entries()) });
         toast('Gracias por tu calificación.', 'ok');
-        navigate('#/app/inscripciones');
+        navigate('#/app/instituciones/' + institucionId + '/calificaciones');
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
       }
@@ -2221,18 +2389,22 @@
       api('/institutions/' + institucionId + '/reports'),
     ]);
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver</button>
+      <button class="back-link" data-nav="#/app/instituciones/${institucionId}/reportes">${ICONS.back} Volver a reportes</button>
       <div class="page-head"><h2>Reportar — ${escapeHtml(nombre)}</h2></div>
       <div class="chart-card" style="max-width:520px;">
         <div id="err"></div>
         <form id="report-form">
-          <div class="field"><label>Motivo</label>
-            <select name="motivo">${motivos.map((m) => `<option>${escapeHtml(m)}</option>`).join('')}</select>
+          <div class="field"><label>Motivo <span style="color:#e00">*</span></label>
+            <select name="motivo" required>${motivos.map((m) => `<option>${escapeHtml(m)}</option>`).join('')}</select>
           </div>
-          <div class="field"><label>Descripción</label><textarea name="descripcion" rows="4" maxlength="800" required></textarea></div>
+          <div class="field"><label>Descripción <span style="color:#e00">*</span></label><textarea name="descripcion" rows="4" minlength="10" maxlength="1000" placeholder="Escribe al menos 10 caracteres detallando la situación..." required></textarea></div>
+          <div class="field"><label>Evidencia (opcional)</label>
+            <input type="file" name="evidencia" accept="image/jpeg,image/png,application/pdf">
+            <p class="help">Puedes adjuntar un documento (PDF, JPG, PNG) de máximo 10MB.</p>
+          </div>
           <div style="display:flex; gap:10px;">
-            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Enviar reporte</button>
-            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
+            <button class="btn btn-primary" id="btn-submit-report" style="width:auto; padding:12px 22px;" type="submit">Enviar reporte</button>
+            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/instituciones/${institucionId}/reportes">Cancelar</button>
           </div>
         </form>
       </div>
@@ -2240,14 +2412,30 @@
     bindShellEvents();
     qs('#report-form').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const btn = qs('#btn-submit-report');
+      btn.disabled = true;
+      btn.textContent = 'Enviando...';
       const fd = new FormData(e.target);
       qs('#err').innerHTML = '';
       try {
-        await api('/institutions/' + institucionId + '/reports', { method: 'POST', body: Object.fromEntries(fd.entries()) });
-        toast('Reporte enviado.', 'ok');
-        navigate('#/app/inscripciones');
+        const res = await fetch('/api/institutions/' + institucionId + '/reports', {
+          method: 'POST',
+          body: fd,
+          headers: { 'Authorization': 'Bearer ' + localStorage.getItem('deviceToken') }
+        });
+        const data = await res.json();
+        if (!res.ok) throw data;
+        
+        showConfirmModal({
+          title: 'Reporte enviado exitosamente',
+          bodyHtml: '<p>Tu reporte ha sido enviado. Actualmente su estado es <strong>Pendiente</strong> y pasará a revisión por el personal autorizado. Si es aprobado, se publicará en el perfil de la institución (sin datos sensibles).</p>',
+          confirmText: 'Entendido',
+          onConfirm: () => navigate('#/app/instituciones/' + institucionId + '/reportes')
+        });
       } catch (err) {
-        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.error || 'Error de conexión']);
+        btn.disabled = false;
+        btn.textContent = 'Enviar reporte';
       }
     });
   }

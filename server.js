@@ -37,10 +37,10 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/institutions', institutionRoutes);
+app.use('/api', ratingRoutes);
 app.use('/api', enrollmentRoutes);
 app.use('/api', appointmentRoutes);
 app.use('/api', miscRoutes);
-app.use('/api', ratingRoutes);
 app.use('/api', documentRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', periodRoutes);
