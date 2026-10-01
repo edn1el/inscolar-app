@@ -283,7 +283,17 @@
             <h1>${headline}</h1>
             <p>${lede}</p>
           </div>
-          <div class="footer-note">Ministerio de Educación &middot; República Dominicana<br>Soporte: (809) 555-0110</div>
+          <div class="footer-note" style="position:relative; z-index:2;">
+            <a href="#/buscar" class="hero-public-link" style="margin-bottom:12px; display:inline-flex; align-items:center; gap:6px; color:#fff; text-decoration:none;">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
+              Explorar instituciones públicas
+            </a><br>
+            <span class="footer-min-edu">Ministerio de Educación &middot; República Dominicana<br>Soporte: (809) 555-0110</span>
+          </div>
+          <button id="pause-particles" class="pause-particles-btn" aria-label="Pausar animación" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg> Pausar
+          </button>
+          <canvas class="particles-canvas" id="particles-bg" aria-hidden="true"></canvas>
         </div>
         <div class="panel"><div class="card">${body}</div></div>
         ` : `
@@ -295,6 +305,133 @@
         `}
       </div>
     `;
+    if (withHero) {
+      setTimeout(initParticles, 0);
+    }
+  }
+
+  function initParticles() {
+    const canvas = document.getElementById('particles-bg');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const btn = document.getElementById('pause-particles');
+    let animationId;
+    let particles = [];
+    let isPaused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let isSuccess = false;
+    let successTarget = { x: 0, y: 0 };
+    
+    if (isPaused && btn) btn.style.display = 'none';
+    
+    function resize() {
+      const hero = canvas.closest('.hero');
+      if (!hero) return;
+      canvas.width = hero.clientWidth;
+      canvas.height = hero.clientHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const numParticles = window.innerWidth < 768 ? 20 : 50;
+    for (let i = 0; i < numParticles; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        r: Math.random() * 2.5 + 1.2,
+        op: Math.random() * 0.6 + 0.4
+      });
+    }
+
+    function draw() {
+      if (!canvas.closest('body')) return;
+      if (isPaused && !isSuccess) return;
+      if (document.hidden && !isSuccess) {
+        animationId = requestAnimationFrame(draw);
+        return;
+      }
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      
+      particles.forEach(p => {
+        if (isSuccess) {
+          p.vx += (successTarget.x - p.x) * 0.04;
+          p.vy += (successTarget.y - p.y) * 0.04;
+          p.vx *= 0.82;
+          p.vy *= 0.82;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.op = Math.min(p.op + 0.05, 1); // increase opacity during converge
+        } else {
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+          if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        }
+        ctx.beginPath();
+        ctx.globalAlpha = p.op;
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      if (!isSuccess) {
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 100) {
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.12 * (1 - dist/100)})`;
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+      }
+
+      animationId = requestAnimationFrame(draw);
+    }
+    
+    if (!isPaused) draw();
+    else draw();
+    
+    if (btn) {
+      btn.addEventListener('click', () => {
+        isPaused = !isPaused;
+        btn.setAttribute('aria-pressed', isPaused.toString());
+        if (!isPaused) draw();
+        btn.innerHTML = isPaused 
+          ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Reproducir'
+          : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg> Pausar';
+      });
+    }
+
+    window._triggerLoginSuccess = (destId) => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
+      return new Promise(resolve => {
+        isSuccess = true;
+        isPaused = false;
+        if (btn) btn.style.opacity = '0';
+        const destEl = document.querySelector(destId || '.medallion');
+        if (destEl) {
+          const rect = destEl.getBoundingClientRect();
+          const heroRect = canvas.closest('.hero').getBoundingClientRect();
+          successTarget = {
+            x: rect.left - heroRect.left + rect.width / 2,
+            y: rect.top - heroRect.top + rect.height / 2
+          };
+        } else {
+          successTarget = { x: canvas.width / 2, y: canvas.height / 2 };
+        }
+        draw();
+        setTimeout(resolve, 600);
+      });
+    };
   }
 
   // ---------------- HU020-026 búsqueda pública ----------------
@@ -617,6 +754,11 @@
       const fd = new FormData(e.target);
       qs('#err').innerHTML = '';
       
+      const submitBtn = qs('button[type="submit"]', e.target);
+      const originalText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Procesando...';
+      
       if (fd.get('remember')) {
         localStorage.setItem('rememberedEmail', fd.get('email'));
       } else {
@@ -626,6 +768,11 @@
       try {
         const deviceToken = localStorage.getItem('deviceToken');
         const data = await api('/auth/login', { method: 'POST', body: { email: fd.get('email'), password: fd.get('password'), deviceToken } });
+        
+        if (window._triggerLoginSuccess) {
+          await window._triggerLoginSuccess('.medallion');
+        }
+
         if (data.status === 'mfa_required') {
           state.pendingMfa = data;
           navigate('#/mfa');
@@ -635,8 +782,28 @@
           state.user = data.user;
           navigate('#/app/perfil');
         }
+        
+        setTimeout(() => {
+          const title = document.querySelector('h1, h2, h3, .topbar-title');
+          if (title) {
+            title.tabIndex = -1;
+            title.focus();
+          }
+        }, 100);
       } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
         qs('#err').innerHTML = fieldErrorsBlock(err.errors);
+        
+        // Colocar el foco en el primer input con error, o en el input de email
+        setTimeout(() => {
+          const firstErrInput = qs('.field.error input, .field.error select');
+          if (firstErrInput) {
+            firstErrInput.focus();
+          } else {
+            qs('input[name="email"]').focus();
+          }
+        }, 50);
       }
     });
   }

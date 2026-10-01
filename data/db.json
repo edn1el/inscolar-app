@@ -402,7 +402,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-09-30T21:22:11.157Z",
+      "lastAccess": "2026-10-01T00:10:10.384Z",
       "notifyByEmail": true
     },
     {
@@ -896,6 +896,28 @@
       "descripcion": "La lista de documentos requeridos publicada no coincidía con la solicitada en persona.",
       "estado": "Pendiente",
       "createdAt": "2026-07-16T09:00:00.000Z"
+    },
+    {
+      "id": "rp006",
+      "institucionId": "i002",
+      "tutorId": "u002",
+      "tutorNombre": "Ana Beltré Peña",
+      "motivo": "Otro",
+      "descripcion": "prueba test",
+      "estado": "Pendiente",
+      "createdAt": "2026-09-30T23:56:36.444Z",
+      "evidencia": null
+    },
+    {
+      "id": "rp007",
+      "institucionId": "i002",
+      "tutorId": "u002",
+      "tutorNombre": "Ana Beltré Peña",
+      "motivo": "Información incorrecta",
+      "descripcion": "pruebaprueba",
+      "estado": "Pendiente",
+      "createdAt": "2026-09-30T23:58:21.899Z",
+      "evidencia": null
     }
   ],
   "documents": [
@@ -1958,6 +1980,61 @@
       "entidad": "Usuario",
       "entidadId": "u002",
       "detalle": ""
+    },
+    {
+      "id": "log079",
+      "fecha": "2026-09-30T23:52:14.481Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log080",
+      "fecha": "2026-10-01T00:09:13.447Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log081",
+      "fecha": "2026-10-01T00:10:10.384Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log082",
+      "fecha": "2026-10-01T00:10:20.048Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción creada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Colegio Cristo Rey · Pre-Primario"
+    },
+    {
+      "id": "log083",
+      "fecha": "2026-10-01T00:10:27.252Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción cancelada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Ciclo 2026-2027"
     }
   ],
   "emailLog": [
