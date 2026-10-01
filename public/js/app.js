@@ -450,7 +450,7 @@
         const logoUrl = i.logo ? '/api/institutions/' + i.id + '/logo?v=' + encodeURIComponent(i.logo.uploadedAt) : null;
         
         root.innerHTML = `
-          <div class="top-nav" style="background:#fff; border-bottom:1px solid var(--border-color); padding:10px 20px; z-index: 10;">
+          <div class="top-nav" style="background:var(--c-surface); border-bottom:1px solid var(--c-border); padding:10px 20px; z-index: 10;">
             <a href="#/buscar" class="btn btn-ghost btn-small">← Volver a resultados</a>
             ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small" style="float:right">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>'}
           </div>
@@ -549,14 +549,14 @@
 
     const provSelect = qs('#s-prov');
     const munSelect = qs('#s-mun');
-    const provincias = Object.keys(window.DR_PROVINCES || {}).sort();
+    const provincias = Object.keys(MUNICIPIOS || {}).sort();
     provincias.forEach(p => provSelect.insertAdjacentHTML('beforeend', `<option value="${p}">${p}</option>`));
     
     provSelect.addEventListener('change', () => {
       munSelect.innerHTML = '<option value="">Todos</option>';
       const p = provSelect.value;
-      if (p && window.DR_PROVINCES[p]) {
-        window.DR_PROVINCES[p].forEach(m => munSelect.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`));
+      if (p && MUNICIPIOS[p]) {
+        MUNICIPIOS[p].forEach(m => munSelect.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`));
       }
     });
 
