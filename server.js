@@ -62,10 +62,18 @@ app.use('/api', documentRoutes);
 app.use('/api', auditRoutes);
 app.use('/api', periodRoutes);
 
-app.use(express.static(path.join(__dirname, 'public')));
+// HTML, JS y CSS se revalidan en cada carga (ETag): tras un deploy nadie ve una versión vieja.
+// Las imágenes de marca pueden quedarse en caché un día.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders(res, filePath) {
+    if (/\.(html|js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+    else res.setHeader('Cache-Control', 'public, max-age=86400');
+  },
+}));
 
 // SPA fallback: cualquier ruta no-API devuelve index.html (el router del frontend decide la vista)
 app.get(/^(?!\/api).*/, (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
