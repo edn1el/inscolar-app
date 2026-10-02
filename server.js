@@ -54,5 +54,6 @@ app.get(/^(?!\/api).*/, (req, res) => {
 
 app.listen(PORT, () => {
   require('./lib/mailer').startWorker();
+  require('./lib/audit-store').startWorker();
   console.log(`\nInscolar (prototipo) corriendo en http://localhost:${PORT}\n`);
 });

@@ -19,7 +19,7 @@ function genCode() {
 function publicUser(u) {
   if (!u) return null;
   const { passwordHash, passwordHistory, ...rest } = u;
-  return rest;
+  return {...rest, auditEnabled: u.role === 'Administrador' && require('../lib/audit-contract').enabled(u)};
 }
 
 function findByEmail(db, email) {
@@ -184,6 +184,7 @@ router.post('/force-change', (req, res) => {
 
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  logEvent(db, {actor:user, accion:"Contraseña cambiada", entidad:"Usuario", entidadId:user.id});
   user.mustChangePassword = false;
   user.lastAccess = new Date().toISOString();
   save(db);
@@ -293,6 +294,7 @@ router.post('/reset', (req, res) => {
 
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  logEvent(db, {actor:user, accion:"Contraseña recuperada", entidad:"Usuario", entidadId:user.id});
   entry.used = true;
   const recovery=db.recoveryRequests.find(r=>r.id===entry.requestId);
   if(recovery)recovery.completedAt=new Date().toISOString();

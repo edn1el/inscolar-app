@@ -219,8 +219,6 @@ router.post('/institutions/:id/reports', requireAuth, handleUploadEvidence, (req
   };
   
   db.reports.push(report);
-  save(db);
-  
   logEvent(db, {
     actor: u,
     accion: 'Reporte enviado',
@@ -229,6 +227,7 @@ router.post('/institutions/:id/reports', requireAuth, handleUploadEvidence, (req
     detalle: `Reporte a institución ${institucion.id}`
   });
 
+  save(db);
   res.json({ report: formatReport(report, false) });
 });
 
@@ -271,8 +270,6 @@ router.put('/reports/:id/estado', requireAuth, (req, res) => {
   }
 
   rp.estado = estado;
-  save(db);
-  
   logEvent(db, {
     actor: u,
     accion: 'Reporte moderado',
@@ -281,6 +278,7 @@ router.put('/reports/:id/estado', requireAuth, (req, res) => {
     detalle: `Estado cambiado a ${estado}`
   });
 
+  save(db);
   res.json({ report: formatReport(rp, false) });
 });
 

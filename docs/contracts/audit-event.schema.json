@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://inscolar.local/contracts/audit-event-v1",
+  "title": "Inscolar Audit Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "correlationId",
+    "fecha",
+    "actorId",
+    "actorNombre",
+    "actorRole",
+    "accion",
+    "entidad",
+    "entidadId",
+    "resultado",
+    "anterior",
+    "nuevo",
+    "datos"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "eventId": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "correlationId": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "actorNombre": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "actorRole": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "accion": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "entidad": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "resultado": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "origen": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "detalle": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "actorId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "entidadId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "institucionId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "fecha": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "hu": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^HU[0-9]{3}$"
+      }
+    },
+    "legacy": {
+      "type": "boolean"
+    },
+    "anterior": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "nuevo": {
+      "type": [
+        "object",
+        "array",
+        "null"
+      ]
+    },
+    "datos": {
+      "type": "object"
+    }
+  }
+}
