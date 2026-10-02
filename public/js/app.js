@@ -58,7 +58,7 @@
     el.className = 'toast' + (kind ? ' ' + kind : '');
     el.textContent = msg;
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 3800);
+    setTimeout(() => { el.classList.add('leaving'); setTimeout(() => el.remove(), 220); }, 3800);
   }
 
   function confirmAction(title, desc, confirmBtnText, onConfirm) {
@@ -254,6 +254,19 @@
 
   const LOADER_HTML = '<div class="app-loader" role="status" aria-live="polite"><img src="/assets/brand/inscolar-symbol-primary.svg" alt=""><span class="app-loader-bar"></span><span class="sr-only">Cargando…</span></div>';
 
+  const MAIN_LOADER_HTML = '<div class="main-loader" role="status" aria-live="polite"><span class="app-loader-bar"></span><span class="sr-only">Cargando…</span></div>';
+
+  function reduceMotion() { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+
+  // Envuelve un cambio del DOM en una View Transition si el navegador la soporta.
+  // Espera a que el DOM nuevo exista antes de devolver el control.
+  async function withTransition(update) {
+    if (!document.startViewTransition || reduceMotion()) { update(); return; }
+    const t = document.startViewTransition(update);
+    t.finished.catch(() => {});
+    try { await t.updateCallbackDone; } catch (e) { /* el error ya lo maneja quien llama */ }
+  }
+
   // ---------------- router ----------------
   function navigate(hash) { window.location.hash = hash; }
 
@@ -295,11 +308,17 @@
   }
 
   async function router() {
-    root.innerHTML = LOADER_HTML;
+    const next = parseHash().segs;
+    // Dentro del panel, la carga se muestra solo en el área de contenido (el menú no parpadea).
+    const stayInShell = !!qs('.app .main') && next[0] === 'app';
+    // Entre la búsqueda pública y el detalle no hay pantalla de carga: la tarjeta se convierte en portada.
+    const staysPublic = !!qs('.search-layout, .pub-page') && next[0] === 'buscar';
+    if (stayInShell) qs('.main').innerHTML = MAIN_LOADER_HTML;
+    else if (!staysPublic) root.innerHTML = LOADER_HTML;
     await ensureAuth();
     // Pausa chiquita a proposito: que la pantalla de carga se note al cambiar
     // de modulo, en vez de que el cambio sea instantaneo.
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    if (!staysPublic) await new Promise((resolve) => setTimeout(resolve, 350));
     const { segs, query } = parseHash();
 
     if (state.setupNeeded && segs[0] !== 'setup') return navigate('#/setup');
@@ -500,10 +519,12 @@
   // Teselas de OpenStreetMap; el tono cálido de la marca se aplica con CSS (.ins-tiles).
   function tileUrlForTheme() { return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'; }
   const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-  function pinIcon(active) {
+  // dropIndex: los marcadores caen en cascada cuando llegan resultados nuevos.
+  function pinIcon(active, dropIndex) {
+    const drop = typeof dropIndex === 'number';
     return L.divIcon({
-      className: 'ins-pin' + (active ? ' is-active' : ''),
-      html: '<svg viewBox="0 0 32 42" aria-hidden="true"><path d="M16 1C7.7 1 1 7.6 1 15.8 1 27 16 41 16 41s15-14 15-25.2C31 7.6 24.3 1 16 1z"/><path class="ins-pin-arch" d="M10.5 21v-5.2a5.5 5.5 0 0 1 11 0V21"/></svg>',
+      className: 'ins-pin' + (active ? ' is-active' : '') + (drop ? ' is-dropping' : ''),
+      html: '<svg viewBox="0 0 32 42" aria-hidden="true"' + (drop ? ' style="--d:' + Math.min(dropIndex, 14) * 45 + 'ms"' : '') + '><path d="M16 1C7.7 1 1 7.6 1 15.8 1 27 16 41 16 41s15-14 15-25.2C31 7.6 24.3 1 16 1z"/><path class="ins-pin-arch" d="M10.5 21v-5.2a5.5 5.5 0 0 1 11 0V21"/></svg>',
       iconSize: [32, 42],
       iconAnchor: [16, 41],
       popupAnchor: [0, -36],
@@ -554,7 +575,7 @@
       ['Dirección', escapeHtml(i.direccion || 'No registrada')],
       ['Teléfono', i.telefono ? `<a href="tel:${escapeHtml(String(i.telefono).replace(/[^\d+]/g, ''))}">${escapeHtml(i.telefono)}</a>` : 'No registrado'],
     ];
-    root.innerHTML = `
+    const detailHtml = `
       <div class="pub-page">
         ${PUBLIC_BAR(publicAccountLink())}
         <main class="pub-detail">
@@ -597,6 +618,7 @@
         </main>
       </div>
     `;
+    await withTransition(() => { root.innerHTML = detailHtml; window.scrollTo(0, 0); });
     const mapEl = qs('#detail-map');
     if (mapEl) {
       try {
@@ -611,7 +633,7 @@
   async function viewBuscar(subsegs = []) {
     if (subsegs[0]) return viewBuscarDetalle(subsegs[0]);
 
-    root.innerHTML = `
+    const searchHtml = `
       <div class="search-layout">
         <div class="search-sidebar">
           ${PUBLIC_BAR(publicAccountLink())}
@@ -646,6 +668,7 @@
         <div class="search-map" id="map-container" aria-label="Mapa de instituciones"></div>
       </div>
     `;
+    await withTransition(() => { root.innerHTML = searchHtml; });
 
     const form = qs('#search-form');
     const provSelect = qs('#s-prov');
@@ -689,7 +712,8 @@
     function setActive(id, opts = {}) {
       activeId = id;
       markers.forEach((m, mid) => {
-        m.setIcon(pinIcon(mid === id));
+        const el = m.getElement();
+        if (el) el.classList.toggle('is-active', mid === id);
         m.setZIndexOffset(mid === id ? 1000 : 0);
       });
       qsa('.result-card').forEach((c) => c.classList.toggle('is-active', c.dataset.id === id));
@@ -763,7 +787,7 @@
         const bounds = [];
         list.forEach((i) => {
           if (typeof i.lat !== 'number' || typeof i.lng !== 'number') return;
-          const m = L.marker([i.lat, i.lng], { icon: pinIcon(false), title: i.nombre, riseOnHover: true }).addTo(currentMap);
+          const m = L.marker([i.lat, i.lng], { icon: pinIcon(false, bounds.length), title: i.nombre, riseOnHover: true }).addTo(currentMap);
           m.bindTooltip(escapeHtml(i.nombre), { direction: 'top', offset: [0, -38], className: 'ins-tip' });
           m.on('click', () => setActive(i.id, { scrollCard: true }));
           markers.set(i.id, m);
@@ -776,6 +800,12 @@
 
       qsa('.result-photo').forEach((img) => img.addEventListener('error', () => { img.parentElement.classList.add('is-empty'); img.remove(); }));
       qsa('.result-card').forEach((c) => {
+        // La miniatura tocada se convierte en la portada del detalle (View Transition).
+        c.addEventListener('click', () => {
+          qsa('.result-thumb').forEach((t) => { t.style.viewTransitionName = ''; });
+          const thumb = qs('.result-thumb', c);
+          if (thumb) thumb.style.viewTransitionName = 'inst-cover';
+        });
         c.addEventListener('mouseenter', () => setActive(c.dataset.id));
         c.addEventListener('focus', () => setActive(c.dataset.id, { pan: true }));
       });
@@ -1255,8 +1285,13 @@
       try { const n = await api('/notifications'); unread = n.unreadCount; } catch (e) {}
     }
 
-    let contentHtml = '<div class="loading">Cargando…</div>';
-    root.innerHTML = appShellWrap(contentHtml, section, unread);
+    // Si ya estábamos dentro del panel, el cambio de módulo es una transición:
+    // la barra y el menú se quedan quietos y la marca activa se desliza.
+    const hadShell = !!qs('.app .sidebar');
+    const renderShell = () => { root.innerHTML = appShellWrap(MAIN_LOADER_HTML, section, unread); };
+    if (hadShell) await withTransition(renderShell); else renderShell();
+    if (unread > (state.lastUnread || 0)) { const bell = qs('#bell-btn'); bell && bell.classList.add('ring'); }
+    state.lastUnread = unread;
     bindShellEvents();
 
     try {
@@ -1295,6 +1330,34 @@
     } catch (err) {
       qs('.main').innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
     }
+    enterMain();
+  }
+
+  // Entrada del contenido del módulo (solo al llegar, no al refrescar tras una acción).
+  function enterMain() {
+    const main = qs('.main');
+    if (!main) return;
+    main.classList.add('is-entering');
+    setTimeout(() => main.classList.remove('is-entering'), 1100);
+    countUp(main);
+  }
+
+  // Los números de los indicadores cuentan hasta su valor real.
+  function countUp(scope) {
+    if (reduceMotion()) return;
+    qsa('.kpi-num', scope).forEach((el) => {
+      const m = el.textContent.trim().match(/^(\d+)(%?)$/);
+      if (!m || !+m[1]) return;
+      const target = +m[1];
+      const t0 = performance.now();
+      const step = (t) => {
+        const p = Math.min(1, (t - t0) / 800);
+        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 4))) + m[2];
+        if (p < 1) requestAnimationFrame(step);
+      };
+      el.textContent = '0' + m[2];
+      requestAnimationFrame(step);
+    });
   }
 
   function appShellWrap(innerMain, activeSection, unread) {
@@ -1407,8 +1470,16 @@
     });
   }
 
+  // Lo que está esperando una decisión late suavemente.
+  function markLiveStates(scope) {
+    qsa('.estado-cell', scope).forEach((c) => {
+      if (/^(Pendiente|En revisión|Enviada|Documentos pendientes)/.test(c.textContent.trim())) c.classList.add('is-live');
+    });
+  }
+
   function bindShellEvents() {
     labelTables(qs('.main'));
+    markLiveStates(qs('.main'));
     qsa('[data-nav]').forEach((btn) => btn.addEventListener('click', () => {
       const sidebar = qs('#sidebar');
       const backdrop = qs('#sidebar-backdrop');
@@ -1451,10 +1522,29 @@
         const current = localStorage.getItem('ins-theme') || 'system';
         const next = modes[(modes.indexOf(current) + 1) % modes.length];
         localStorage.setItem('ins-theme', next);
-        
-        document.documentElement.removeAttribute('data-theme');
-        if (next === 'dark' || (next === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.setAttribute('data-theme', 'dark');
+
+        const html = document.documentElement;
+        const applyTheme = () => {
+          html.removeAttribute('data-theme');
+          if (next === 'dark' || (next === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            html.setAttribute('data-theme', 'dark');
+          }
+        };
+        // El tema nuevo se revela en un círculo que nace del botón.
+        if (!document.startViewTransition || reduceMotion()) {
+          applyTheme();
+        } else {
+          const r = themeToggleBtn.getBoundingClientRect();
+          const x = r.left + r.width / 2;
+          const y = r.top + r.height / 2;
+          const end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+          html.classList.add('vt-theme');
+          const t = document.startViewTransition(applyTheme);
+          t.ready.then(() => html.animate(
+            { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] },
+            { duration: 560, easing: 'cubic-bezier(.16,1,.3,1)', pseudoElement: '::view-transition-new(root)' }
+          )).catch(() => {});
+          t.finished.finally(() => html.classList.remove('vt-theme'));
         }
         toast('Tema: ' + (next === 'system' ? 'Automático' : (next === 'dark' ? 'Oscuro' : 'Claro')), 'info');
       });
