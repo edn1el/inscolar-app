@@ -285,7 +285,7 @@
       case '':
       case 'buscar': return viewBuscar(segs.slice(1));
       case 'setup': return viewSetup();
-      case 'login': return viewLogin();
+      case 'login': return viewLogin(query);
       case 'mfa': return viewMfa();
       case 'force-change': return viewForceChange();
       case 'register': return viewRegister();
@@ -488,7 +488,7 @@
           
           <div style="padding:20px; max-width:800px; margin:0 auto; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0;">
             <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}')` : 'background:#e1ecf7;'} border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-              <div class="inst-hero-overlay" style="border-radius: 12px; padding: 30px;">
+              <div class="inst-hero-overlay" style="border-radius: 12px; padding: 30px; display:flex; flex-direction:column; gap:20px;">
                 <div class="inst-hero-body" style="display:flex; align-items:center; gap:20px;">
                   ${logoUrl ? `<img src="${logoUrl}" style="width:80px; height:80px; border-radius:12px; object-fit:cover; border:3px solid #fff;">` : `<div style="width:80px; height:80px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; border:3px solid #eee; color:var(--text-muted);">${ICONS.building}</div>`}
                   <div>
@@ -496,6 +496,11 @@
                     <span class="pill" style="background:${ts.bg};color:${ts.fg}; font-size: 0.8rem; padding: 4px 8px;">${escapeHtml(i.tipo)}</span>
                   </div>
                 </div>
+                ${i.estado === 'Activo' ? `
+                <div class="inst-hero-actions">
+                  <a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary" style="text-decoration:none;">Inscribir estudiante</a>
+                </div>
+                ` : ''}
               </div>
             </div>
 
@@ -677,14 +682,17 @@
         }
 
         qs('#search-results').innerHTML = data.institutions.map(i => `
-          <div class="inst-card" data-id="${i.id}" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
-            <h4 style="margin:0 0 5px 0; color:var(--primary-color);">${escapeHtml(i.nombre)}</h4>
-            <div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">
-              ${escapeHtml(i.municipio || '')}${i.provincia && i.municipio ? ', ' : ''}${escapeHtml(i.provincia || '')}
+          <div class="inst-card" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
+            <div onclick="window.location.hash='#/buscar/${i.id}'">
+              <h4 style="margin:0 0 5px 0; color:var(--primary-color);">${escapeHtml(i.nombre)}</h4>
+              <div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">
+                ${escapeHtml(i.municipio || '')}${i.provincia && i.municipio ? ', ' : ''}${escapeHtml(i.provincia || '')}
+              </div>
+              ${i.distanciaKm !== undefined && i.distanciaKm !== null ? `<div style="font-size:12px; font-weight:600; color:var(--primary-color);">📍 A ${i.distanciaKm} km</div>` : ''}
             </div>
-            ${i.distanciaKm !== undefined && i.distanciaKm !== null ? `<div style="font-size:12px; font-weight:600; color:var(--primary-color);">📍 A ${i.distanciaKm} km</div>` : ''}
-            <div style="margin-top:10px;">
+            <div style="margin-top:10px; display:flex; gap:8px;">
               <a href="#/buscar/${i.id}" class="btn btn-ghost btn-small view-inst" style="padding:4px 8px; text-decoration:none;">Ver detalles</a>
+              ${i.estado === 'Activo' ? `<a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary btn-small" style="padding:4px 8px; text-decoration:none;">Inscribir</a>` : ''}
             </div>
           </div>
         `).join('');
@@ -704,16 +712,21 @@
               
               const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
-                <div style="cursor:pointer; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
-                  <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
-                    <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <div style="cursor:pointer; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;" onclick="window.location.hash='#/buscar/${i.id}'">
+                    <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
+                      <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
+                    </div>
+                    <div style="flex:1; text-align:left;">
+                      <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
+                      <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
+                      <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
+                      <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
+                    </div>
                   </div>
-                  <div style="flex:1; text-align:left;">
-                    <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
-                    <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
-                    <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
-                    <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
-                  </div>
+                  ${i.estado === 'Activo' ? `
+                  <a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary btn-small" style="text-decoration:none; text-align:center; display:block; padding:8px;">Inscribir estudiante</a>
+                  ` : ''}
                 </div>
               `;
               marker.instId = i.id;
@@ -721,16 +734,8 @@
               const isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window);
               if (isMobile) {
                 marker.bindPopup(detailsHtml, { className: 'modern-popup', closeButton: false, minWidth: 250, offset: [0, -15] });
-                marker.on('popupopen', function(e) {
-                  e.popup.getElement().addEventListener('click', function() {
-                    navigate('#/buscar/' + i.id);
-                  });
-                });
               } else {
-                marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip' });
-                marker.on('click', () => {
-                  navigate('#/buscar/' + i.id);
-                });
+                marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip', interactive: true });
               }
               
               currentMarkers.push(marker);
@@ -871,7 +876,7 @@
   }
 
   // ---------------- HU006 login ----------------
-  function viewLogin() {
+  function viewLogin(query = new URLSearchParams()) {
     const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
     authShell({
       withHero: true,
@@ -936,7 +941,8 @@
           navigate('#/force-change');
         } else {
           state.user = data.user;
-          navigate('#/app/perfil');
+          const redirect = query.get('redirect');
+          navigate(redirect ? decodeURIComponent(redirect) : '#/app/perfil');
         }
         
         setTimeout(() => {
@@ -3194,12 +3200,13 @@
            ${stepperHtml}
            <div class="card" style="max-width:560px;">
              <form id="step-form">
-               <div class="field"><label>Institución</label>
-                 <select name="institucionId" id="inst-sel" required>
+               <div class="field" style="${preInstId ? 'display:none;' : ''}"><label>Institución</label>
+                 <select name="institucionId" id="inst-sel" ${preInstId ? 'disabled' : 'required'}>
                    <option value="">Selecciona una institución...</option>
                    ${activas.map(i => `<option value="${i.id}" ${wState.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}
                  </select>
                </div>
+               ${preInstId ? `<input type="hidden" name="institucionId" value="${escapeHtml(wState.institucionId)}">` : ''}
                <div id="inst-card"></div>
                <div class="two-col">
                  <div class="field"><label>Grado solicitado</label>
