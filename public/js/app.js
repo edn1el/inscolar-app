@@ -744,7 +744,7 @@
         }
 
         qs('#search-results').innerHTML = data.institutions.map(i => `
-          <div class="inst-card" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
+          <div class="inst-card" data-id="${escapeHtml(i.id)}" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
             <div onclick="window.location.hash='#/buscar/${i.id}'">
               <h4 style="margin:0 0 5px 0; color:var(--primary-color);">${escapeHtml(i.nombre)}</h4>
               <div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">
@@ -770,7 +770,7 @@
                 iconAnchor: [16, 31],
                 tooltipAnchor: [0, -31]
               });
-              const marker = L.marker([i.lat, i.lng], { icon: markerIcon }).addTo(currentMap);
+              const marker = L.marker([i.lat, i.lng], { icon: markerIcon, title: i.nombre, alt: i.nombre }).addTo(currentMap);
               
               const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
@@ -793,12 +793,14 @@
               `;
               marker.instId = i.id;
               
-              const isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window);
-              if (isMobile) {
-                marker.bindPopup(detailsHtml, { className: 'modern-popup', closeButton: false, minWidth: 250, offset: [0, -15] });
-              } else {
-                marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip', interactive: true });
-              }
+              // An actionable card must stay open while crossing from the pin to its links.
+              // Leaflet tooltips close on marker mouseout even with interactive: true.
+              marker.bindPopup(detailsHtml, { className: 'modern-popup', closeButton: true, minWidth: 250, offset: [0, -15] });
+              marker.on('mouseover', () => marker.openPopup());
+              marker.on('popupopen', () => {
+                const close = marker.getPopup().getElement()?.querySelector('.leaflet-popup-close-button');
+                if (close) close.setAttribute('aria-label', 'Cerrar ficha');
+              });
               
               currentMarkers.push(marker);
               bounds.push([i.lat, i.lng]);
