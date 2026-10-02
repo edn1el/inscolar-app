@@ -38,15 +38,30 @@
     opts = opts || {};
     const isFormData = opts.body instanceof FormData;
     const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
-    const res = await fetch('/api' + path, {
-      method: opts.method || 'GET',
-      headers,
-      credentials: 'same-origin',
-      body: opts.body ? (isFormData ? opts.body : JSON.stringify(opts.body)) : undefined,
-    });
-    let data = {};
-    try { data = await res.json(); } catch (e) { /* no body */ }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res, data = {};
+    try {
+      res = await fetch('/api' + path, {
+        method: opts.method || 'GET', headers, credentials: 'same-origin',
+        signal: controller.signal,
+        body: opts.body ? (isFormData ? opts.body : JSON.stringify(opts.body)) : undefined,
+      });
+      const text = await res.text();
+      if (text) data = JSON.parse(text);
+    } catch (cause) {
+      const err = new Error(cause.name === 'AbortError'
+        ? 'El servidor tardó demasiado en responder. Puedes reintentar.'
+        : 'No se pudo obtener la respuesta del servidor. Puede estar reiniciándose.');
+      err.cause = cause;
+      throw err;
+    } finally { clearTimeout(timeout); }
     if (!res.ok) {
+      if (res.status === 401 && state.user && !path.startsWith('/auth/')) {
+        state.user = null;
+        state.authChecked = false;
+        navigate('#/login');
+      }
       const err = new Error(data.error || (data.errors && data.errors[0]) || 'Ocurrió un error.');
       err.errors = data.errors || (data.error ? [data.error] : ['Ocurrió un error.']);
       err.status = res.status;
@@ -252,11 +267,11 @@
     try {
       const { user } = await api('/auth/me');
       state.user = user || null;
-    } catch (e) { state.user = null; }
+    } catch (e) { if (e.status !== 401) throw e; state.user = null; }
     try {
       const { needed } = await api('/auth/setup-needed');
       state.setupNeeded = needed;
-    } catch (e) { state.setupNeeded = false; }
+    } catch (e) { throw e; }
     state.authChecked = true;
   }
 
@@ -265,9 +280,28 @@
     const version = ++routerVersion;
     cleanupParticles();
     root.innerHTML = '<div class="loading">Cargando…</div>';
+    try { await renderRoute(version); }
+    catch (err) {
+      if (version !== routerVersion) return;
+      cleanupParticles();
+      root.innerHTML = `<div class="auth-stage"><div class="card" role="alert">
+        <h1>No se pudo cargar la página</h1>
+        <p>${escapeHtml(err.message || 'Ocurrió un error al cargar la página.')}</p>
+        <button class="btn btn-primary" id="retry-route">Reintentar</button>
+      </div></div>`;
+      qs('#retry-route').addEventListener('click', () => {
+        state.authChecked = false;
+        router();
+      });
+      qs('#retry-route').focus();
+    }
+  }
+
+  async function renderRoute(version) {
     await ensureAuth();
     if (version !== routerVersion) return;
     const { segs, query } = parseHash();
+    if (!segs.length) segs.push('');
 
     if (state.setupNeeded && segs[0] !== 'setup') return navigate('#/setup');
     if (!state.setupNeeded && segs[0] === 'setup') return navigate('#/login');
@@ -281,14 +315,14 @@
 
     switch (segs[0]) {
       case '':
-      case 'buscar': return viewBuscar(segs.slice(1));
-      case 'setup': return viewSetup();
-      case 'login': return viewLogin(query);
-      case 'mfa': return viewMfa();
-      case 'force-change': return viewForceChange();
-      case 'register': return viewRegister();
-      case 'forgot': return viewForgot();
-      case 'reset': return viewReset(query.token || '');
+      case 'buscar': return await viewBuscar(segs.slice(1));
+      case 'setup': return await viewSetup();
+      case 'login': return await viewLogin(query);
+      case 'mfa': return await viewMfa();
+      case 'force-change': return await viewForceChange();
+      case 'register': return await viewRegister();
+      case 'forgot': return await viewForgot();
+      case 'reset': return await viewReset(query.token || '');
       case 'app': {
         await viewApp(segs.slice(1), query);
         if (version !== routerVersion) return;
