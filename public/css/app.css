@@ -2068,7 +2068,7 @@ button.link:hover {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--r-lg);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 table {
