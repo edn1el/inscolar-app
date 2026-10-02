@@ -64,23 +64,8 @@
   }
 
   function customConfirm(msg, btnAction, onConfirm) {
-    let c = document.getElementById('custom-modal-root');
-    if (!c) { c = document.createElement('div'); c.id = 'custom-modal-root'; document.body.appendChild(c); }
-    c.innerHTML = `
-      <div class="sidebar-backdrop visible" style="z-index:99999; display:flex; align-items:center; justify-content:center;">
-        <div class="card" style="width:100%; max-width:400px; padding:24px; position:relative; text-align:center; margin:0 16px;">
-          <p style="font-size:1.1rem; margin-bottom:24px; color:var(--c-ink); font-family:var(--font-sans);">${msg}</p>
-          <div style="display:flex; gap:10px; justify-content:center;">
-            <button class="btn btn-ghost" id="c-cancel" style="width:auto;">Cancelar</button>
-            <button class="btn btn-primary" id="c-confirm" style="width:auto;">${btnAction || 'Confirmar'}</button>
-          </div>
-        </div>
-      </div>
-    `;
-    document.getElementById('c-cancel').onclick = () => c.innerHTML = '';
-    document.getElementById('c-confirm').onclick = () => { c.innerHTML = ''; onConfirm(); };
+    showConfirmModal({ title: 'Confirmación', bodyHtml: `<p>${msg}</p>`, confirmText: btnAction || 'Confirmar', onConfirm });
   }
-
 
   function fieldErrorsBlock(errors) {
     if (!errors || !errors.length) return '';
@@ -105,9 +90,22 @@
         </div>
       </div>
     `;
+    const previousFocus = document.activeElement;
+    const card = modal.querySelector('.card');
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'true');
+    card.setAttribute('aria-label', title);
+    card.style.maxWidth = 'calc(100vw - 32px)';
     document.body.appendChild(modal);
+    qs('button', modal).focus();
 
     const escHandler = (e) => {
+      if (e.key === 'Tab') {
+        const nodes = Array.from(modal.querySelectorAll('button, input, textarea, select, [tabindex]')).filter(n => !n.disabled && n.tabIndex >= 0);
+        const first = nodes[0], last = nodes[nodes.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
       if (e.key === 'Escape') {
         e.preventDefault();
         cleanup();
@@ -118,6 +116,7 @@
     function cleanup() {
       document.removeEventListener('keydown', escHandler);
       modal.remove();
+      if (previousFocus && previousFocus.isConnected) previousFocus.focus();
     }
 
     qs('#mod-cancel', modal).addEventListener('click', cleanup);
@@ -128,6 +127,7 @@
       try {
         const keepOpen = await onConfirm(modal);
         if (!keepOpen) cleanup();
+        else { btn.disabled = false; btn.textContent = confirmText; }
       } catch (err) {
         btn.disabled = false;
         btn.textContent = confirmText;
@@ -261,6 +261,7 @@
   }
 
   async function router() {
+    if (window._wizardCleanup) { window._wizardCleanup(); window._wizardCleanup = null; }
     const version = ++routerVersion;
     cleanupParticles();
     root.innerHTML = '<div class="loading">Cargando…</div>';
@@ -667,9 +668,12 @@
       }
     }
 
-    await initMap();
+    initMap().then(() => { if (resultsContainer.isConnected) performSearch(); }).catch(() => toast('No se pudo cargar el mapa. Puedes usar el listado.', 'error'));
+    let searchVersion = 0;
+    const resultsContainer = qs('#search-results');
 
     async function performSearch(extraQuery = '') {
+      const version = ++searchVersion;
       qs('#search-results').innerHTML = '<div class="loading" style="padding:20px">Cargando...</div>';
       const fd = new FormData(qs('#search-form'));
       const q = new URLSearchParams();
@@ -681,6 +685,7 @@
       
       try {
         const data = await api('/institutions?' + q.toString() + extraQuery);
+        if (version !== searchVersion || !resultsContainer.isConnected) return;
         
         currentMarkers.forEach(m => m.remove());
         currentMarkers = [];
@@ -1879,7 +1884,7 @@
             <li>Presiona "Nueva inscripción", elige la institución y el ciclo escolar, y confirma.</li>
             <li>Sube los documentos solicitados desde el botón "Documentos" de la inscripción.</li>
             <li>El estado (Pendiente, Aprobada o Rechazada) se actualiza en la misma lista, y recibirás una notificación (y un correo, si lo tienes activado) cuando la institución decida.</li>
-            <li>Si una institución no responde una solicitud Pendiente durante 30 días, el sistema la marca automáticamente como "Abandonada" para que puedas intentar en otra institución.</li>
+            <li>Solo los borradores expiran después de 20 minutos de inactividad; recibirás un aviso a los 10 minutos.</li>
           </ol>
         `,
       });
@@ -1902,7 +1907,7 @@
       secciones.push({
         titulo: 'Decidir solicitudes de inscripción',
         html: `
-          <p>En <a href="#/app/inscripciones">Inscripciones</a> verás las solicitudes dirigidas a tu institución. Revisa los documentos adjuntos y aprueba o rechaza indicando un motivo cuando corresponda. Una solicitud Pendiente que nadie decide durante 30 días se marca automáticamente como "Abandonada".</p>
+          <p>En <a href="#/app/inscripciones">Inscripciones</a> verás las solicitudes dirigidas a tu institución. Revisa los documentos adjuntos y aprueba o rechaza indicando un motivo cuando corresponda. Las solicitudes enviadas no se abandonan por inactividad del borrador.</p>
         `,
       });
       secciones.push({
@@ -2037,32 +2042,13 @@
             return;
           }
         }
-        const modal = document.createElement('div');
-        modal.className = 'sidebar-backdrop visible';
-        modal.style.zIndex = '9999';
-        modal.style.display = 'flex';
-        modal.style.alignItems = 'center';
-        modal.style.justifyContent = 'center';
-        modal.innerHTML = `
-          <div class="card" style="position:relative; z-index:10000; width: 400px; padding: 24px; text-align: left;">
-            <h3 style="margin-top:0;">¿Desactivar a ${escapeHtml(b.dataset.name)}?</h3>
-            <p style="margin-bottom:20px;">No podrá iniciar sesión hasta que otro Administrador reactive su cuenta.</p>
-            <div style="display:flex; gap:10px; justify-content:flex-end;">
-              <button class="btn btn-ghost" style="width:auto;" id="cancel-deact">Cancelar</button>
-              <button class="btn btn-primary" style="width:auto; background:#af112b; border-color:#af112b;" id="confirm-deact">Desactivar usuario</button>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(modal);
-        
-        qs('#cancel-deact', modal).addEventListener('click', () => modal.remove());
-        qs('#confirm-deact', modal).addEventListener('click', async () => {
-          modal.remove();
-          try {
+        showConfirmModal({
+          title: 'Desactivar usuario',
+          bodyHtml: `<p>¿Desactivar a ${escapeHtml(b.dataset.name)}?</p><p>No podrá iniciar sesión hasta que un administrador reactive su cuenta.</p>`,
+          confirmText: 'Desactivar usuario', danger: true,
+          onConfirm: async () => {
             await api('/users/' + b.dataset.toggle + '/toggle-estado', { method: 'POST' });
-            renderUsuarios(query);
-          } catch(e) {
-            toast(e.message, 'err');
+            await renderUsuarios(query);
           }
         });
       } else {
@@ -2320,17 +2306,17 @@
               const ts = INST_TIPO_STYLE[inst.tipo] || { bg: '#eee', fg: '#333' };
               const active = (inst.estado || 'Activo') === 'Activo';
               return `<tr>
-                <td><div class="user-cell"><span class="av" style="background:#e1ecf7;color:#2a5c96;${inst.logo ? `background-image:url('/api/institutions/${inst.id}/logo?v=${encodeURIComponent(inst.logo.uploadedAt)}');background-size:cover;background-position:center;` : ''}">${inst.logo ? '' : ICONS.building}</span><span><div class="name">${escapeHtml(inst.nombre)}</div><div class="mail">${escapeHtml(inst.correo || inst.direccion || 'Sin correo registrado')}</div><div class="help" style="font-size:11px;">RNC: ${escapeHtml(inst.rnc || '—')} | Tel: ${escapeHtml(inst.telefono || '—')}</div></span></div></td>
-                <td>${escapeHtml(inst.provincia)}</td>
-                <td>${escapeHtml(inst.distrito)}${inst.municipio ? ' · ' + escapeHtml(inst.municipio) : ''}</td>
-                <td><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
-                <td>${calificacionLabel(inst.calificacionPromedio, inst.totalCalificaciones)}</td>
-                ${geoActiva ? `<td>${inst.distanciaKm !== null && inst.distanciaKm !== undefined ? inst.distanciaKm + ' km' : '—'}</td>` : ''}
-                <td>${fmtDate(inst.createdAt)}</td>
-                <td><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${inst.estado || 'Activo'}</span></td>
+                <td data-label="Institución"><div class="user-cell"><span class="av" style="background:#e1ecf7;color:#2a5c96;${inst.logo ? `background-image:url('/api/institutions/${inst.id}/logo?v=${encodeURIComponent(inst.logo.uploadedAt)}');background-size:cover;background-position:center;` : ''}">${inst.logo ? '' : ICONS.building}</span><span><div class="name">${escapeHtml(inst.nombre)}</div><div class="mail">${escapeHtml(inst.correo || inst.direccion || 'Sin correo registrado')}</div><div class="help" style="font-size:11px;">RNC: ${escapeHtml(inst.rnc || '—')} | Tel: ${escapeHtml(inst.telefono || '—')}</div></span></div></td>
+                <td data-label="Provincia">${escapeHtml(inst.provincia)}</td>
+                <td data-label="Distrito">${escapeHtml(inst.distrito)}${inst.municipio ? ' · ' + escapeHtml(inst.municipio) : ''}</td>
+                <td data-label="Tipo"><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(inst.tipo)}</span></td>
+                <td data-label="Calificación">${calificacionLabel(inst.calificacionPromedio, inst.totalCalificaciones)}</td>
+                ${geoActiva ? `<td data-label="Fecha">${inst.distanciaKm !== null && inst.distanciaKm !== undefined ? inst.distanciaKm + ' km' : '—'}</td>` : ''}
+                <td data-label="Estado">${fmtDate(inst.createdAt)}</td>
+                <td data-label="Acciones"><span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${inst.estado || 'Activo'}</span></td>
                 <td><span class="actions-cell">
                   ${isAdmin() || (state.user && state.user.role === 'Personal de institución' && state.user.institucionId === inst.id) ? `<button class="neutral" data-edit="${inst.id}">Modificar</button>` : ''}
-                  ${isAdmin() ? `<button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>` : ''}
+                  ${isOnlyAdmin() ? `<button class="${active ? 'danger' : 'ok'}" data-toggle="${inst.id}">${active ? 'Desactivar' : 'Activar'}</button>` : ''}
                   <button class="neutral" data-ver-detalle="${inst.id}">Detalle</button>
                   <button class="neutral" data-ver-calificaciones="${inst.id}">Calificaciones</button>
                   <button class="neutral" data-ver-reportes="${inst.id}">Reportes</button>
@@ -2342,11 +2328,11 @@
           </tbody>
         </table>
         <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center;">
-          <span>Mostrando ${institutions.length} de ${totalFiltradas || total} instituciones${geoActiva ? ' (dentro del filtro de ubicación)' : ''}</span>
+          <span>Mostrando ${institutions.length} de ${totalFiltradas ?? total} instituciones${geoActiva ? ' (dentro del filtro de ubicación)' : ''}</span>
           <div class="pagination">
             <button class="btn btn-ghost" id="p-prev" ${page <= 1 ? 'disabled' : ''}>Anterior</button>
-            <span style="margin: 0 10px;">Página ${page} de ${Math.ceil((totalFiltradas || total) / limit) || 1}</span>
-            <button class="btn btn-ghost" id="p-next" ${page >= Math.ceil((totalFiltradas || total) / limit) ? 'disabled' : ''}>Siguiente</button>
+            <span style="margin: 0 10px;">Página ${page} de ${Math.ceil((totalFiltradas ?? total) / limit) || 1}</span>
+            <button class="btn btn-ghost" id="p-next" ${page >= Math.ceil((totalFiltradas ?? total) / limit) ? 'disabled' : ''}>Siguiente</button>
           </div>
         </div>
       </div>
@@ -2376,7 +2362,7 @@
     if (prevBtn) prevBtn.addEventListener('click', () => applyFilters({ page: page - 1 }));
     if (nextBtn) nextBtn.addEventListener('click', () => applyFilters({ page: page + 1 }));
     qs('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
-    qs('#f-provincia').addEventListener('change', () => applyFilters());
+    qs('#f-provincia').addEventListener('change', () => { qs('#f-municipio').value = 'Todos'; applyFilters(); });
     qs('#f-municipio').addEventListener('change', () => applyFilters());
     qs('#f-estado').addEventListener('change', () => applyFilters());
     qs('#f-calificacion').addEventListener('change', () => applyFilters());
@@ -2919,7 +2905,7 @@
         const file = inputEl.files[0];
         if (file) {
           if (file.size > maxMB * 1024 * 1024) {
-            alert('El archivo supera los ' + maxMB + 'MB.');
+            toast('El archivo supera los ' + maxMB + 'MB.', 'error');
             inputEl.value = '';
             return;
           }
@@ -3003,7 +2989,7 @@
       institucionesOptions = ires.institutions;
     }
 
-    const estados = ['Todos', 'Pendiente', 'Aprobada', 'Rechazada', 'Abandonada'];
+    const estados = ['Todos', 'Enviada', 'En revisión', 'Documentos pendientes', 'Pendiente', 'Aprobada', 'Rechazada', 'Abandonada'];
     const showInstCol = admin || tutor;
     const colCount = 6 + (tutor ? 0 : 1) + (showInstCol ? 1 : 0);
 
@@ -3032,8 +3018,8 @@
                 <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}${e.estado === 'Abandonada' ? '<div class="help">Sin respuesta durante 30 días.</div>' : ''}</td>
                 <td>${fmtDate(e.createdAt)}</td>
                 <td><span class="actions-cell">
-                  ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
-                  ${!tutor && e.estado === 'Pendiente' ? `<button class="ok" data-approve="${e.id}">Aprobar</button><button class="danger" data-reject="${e.id}">Rechazar</button>` : ''}
+                  ${tutor && ['Pendiente', 'Enviada', 'En revisión'].includes(e.estado) ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
+                  ${!tutor && ['Pendiente', 'Enviada', 'En revisión'].includes(e.estado) ? `<button class="ok" data-approve="${e.id}">Aprobar</button><button class="danger" data-reject="${e.id}">Rechazar</button>` : ''}
                   ${tutor && e.estado === 'Aprobada' ? `<button class="neutral" data-nav="#/app/calificar/${e.institucionId}">Calificar</button><button class="neutral" data-nav="#/app/reportar/${e.institucionId}">Reportar</button>` : ''}
                   <button class="neutral" data-nav="#/app/inscripciones/${e.id}/documentos">Documentos</button>
                   <button class="neutral" data-comprobante="${e.id}">Comprobante</button>
@@ -3145,7 +3131,7 @@
       studentId: students.length ? students[0].id : 'new',
       newStudent: { nombre: '', fechaNacimiento: '' },
       tutorName: u.nombre || '',
-      tutorPhone: u.telefono || '',
+      tutorPhone: u.telefonomovil || u.telefono || '',
       institucionId: preInstId || '',
       gradoSolicitado: GRADOS[0],
       cicloEscolar: ciclos[0],
@@ -3158,13 +3144,17 @@
     let timerId = null;
     let warningModal = null;
     let activityTimeout = null;
+    let saveQueue = Promise.resolve();
     let broadcast = null;
     try { broadcast = new BroadcastChannel('enrollment_draft'); } catch(e) {}
 
+    window._wizardCleanup = () => { clearTimeout(timerId); clearTimeout(activityTimeout); if (warningModal) warningModal.remove(); if (broadcast) broadcast.close(); };
     const clearDraft = () => {
       draftId = null;
       localStorage.removeItem('enrollment_draft_id');
       clearTimeout(timerId);
+      clearTimeout(activityTimeout);
+      if (broadcast) broadcast.close();
       if (warningModal) warningModal.remove();
       window._navInterceptor = null;
     };
@@ -3177,7 +3167,7 @@
             ${ICONS.clock || '⏰'}
           </div>
           <h2 style="margin-bottom:10px;">Borrador expirado</h2>
-          <p class="lede" style="margin-bottom:20px;">Tu solicitud de inscripción ha sido cancelada por inactividad. Los cupos reservados han sido liberados.</p>
+          <p class="lede" style="margin-bottom:20px;">Tu solicitud de inscripción ha sido cancelada por inactividad. Puedes iniciar un nuevo borrador.</p>
           <button class="btn btn-primary" onclick="window.location.hash='#/app/inscripciones/nueva'">Iniciar nueva solicitud</button>
         </div>
       `;
@@ -3219,7 +3209,7 @@
           });
           
           warningModal.querySelector('#btn-abandon-draft').addEventListener('click', () => {
-             customConfirm('¿Seguro que deseas salir? Perderás los datos no guardados y tu cupo reservado.', 'Sí, salir', async () => {
+             customConfirm('¿Seguro que deseas salir? Se abandonará este borrador.', 'Sí, salir', async () => {
                 if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
                 if (broadcast) broadcast.postMessage({ type: 'abandoned' });
                 clearDraft();
@@ -3257,14 +3247,15 @@
 
     const reportActivity = (force = false) => {
       if (!draftId) return;
-      if (activityTimeout && !force) return;
+
       if (activityTimeout) clearTimeout(activityTimeout);
+      activityTimeout = null;
       
       const send = async () => {
         try {
           // Send non-file wState data
           const payload = { ...wState, documentos: [] }; 
-          const res = await api('/drafts/' + draftId + (query.get('expire_mins') ? '?expire_mins=' + query.get('expire_mins') : ''), { method: 'PUT', body: payload });
+          const res = await api('/drafts/' + draftId, { method: 'PUT', body: payload });
           expiresAt = Date.now() + res.timeRemaining;
           if (broadcast) broadcast.postMessage({ type: 'activity', expiresAt });
           scheduleChecks();
@@ -3272,13 +3263,14 @@
           if (e.message && (e.message.includes('expirado') || e.message.includes('inexistente'))) {
             handleExpire();
           } else {
-            toast('Error de conexión al guardar borrador. Se reintentará.', 'error');
+            toast('No se pudo guardar el borrador. Reintenta antes de salir.', 'error');
+            if (force) throw e;
           }
         }
       };
       
-      if (force) send();
-      else activityTimeout = setTimeout(() => { activityTimeout = null; send(); }, 5000); // Throttle 5s
+      saveQueue = saveQueue.catch(() => {}).then(send);
+      return saveQueue;
     };
 
     if (broadcast) {
@@ -3308,7 +3300,7 @@
     
     if (!draftId) {
        try {
-         const res = await api('/drafts' + (query.get('expire_mins') ? '?expire_mins=' + query.get('expire_mins') : ''), { method: 'POST', body: { ...wState, documentos: [] } });
+         const res = await api('/drafts', { method: 'POST', body: { ...wState, documentos: [] } });
          draftId = res.draft.id;
          expiresAt = res.draft.expiresAt;
          localStorage.setItem('enrollment_draft_id', draftId);
@@ -3319,7 +3311,7 @@
     }
 
     window._navInterceptor = (pendingHash) => {
-      customConfirm('Tienes una inscripción en progreso. ¿Seguro que deseas salir? Perderás los datos no guardados y el cupo reservado.', 'Sí, salir', async () => {
+      customConfirm('Tienes una inscripción en progreso. ¿Seguro que deseas salir? Se abandonará este borrador.', 'Sí, salir', async () => {
         if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
         if (broadcast) broadcast.postMessage({ type: 'abandoned' });
         clearDraft();
@@ -3332,10 +3324,17 @@
       if (!wState.institucionId) return;
       try {
          const res = await api('/institutions/' + wState.institucionId + '/periods?cicloEscolar=' + encodeURIComponent(wState.cicloEscolar));
-         wState.periodosValidos = res.periods || [];
+         wState.periodosValidos = (res.periods || []).filter(p => p.inscripcion && Date.now() >= new Date(p.inscripcion.desde).getTime() && Date.now() <= new Date(p.inscripcion.hasta).getTime());
       } catch(e) {
          wState.periodosValidos = [];
       }
+    }
+
+    async function advanceStep(next) {
+      const previous = wState.step;
+      wState.step = next;
+      try { await reportActivity(true); } catch (_) { wState.step = previous; return; }
+      return renderStep();
     }
 
     async function renderStep() {
@@ -3415,7 +3414,7 @@
        } else if (wState.step === 4) {
          let reqDocs = [];
          if (wState.periodosValidos && wState.periodosValidos.length > 0 && wState.periodosValidos[0].documentosRequeridos) {
-            reqDocs = wState.periodosValidos[0].documentosRequeridos;
+            reqDocs = wState.periodosValidos[0].documentosRequeridos.filter(r => !r.niveles || r.niveles.includes(wState.gradoSolicitado.includes('Secundaria') ? 'Secundaria' : wState.gradoSolicitado.includes('Primaria') ? 'Primaria' : 'Inicial'));
          } else {
             reqDocs = TIPOS_DOCUMENTO.map(t => ({ tipo: t, formatos: ['PDF','JPG','PNG'], maxSizeMB: 5 }));
          }
@@ -3436,7 +3435,7 @@
              <p class="help" style="margin-bottom:15px;">Adjunta los documentos requeridos por la institución para este grado.</p>
              <div id="docs-list">
                ${reqDocs.map((req, idx) => {
-                 const docType = (req.tipo || req).trim();
+                 const docType = (req.nombre || req.tipo || req).trim();
                  const uploaded = uploadedDocs.find(d => d.tipoDocumento === docType);
                  const allowedExt = (req.formatos || ['PDF','JPG','PNG']).map(f => '.'+f.toLowerCase()).join(',');
                  
@@ -3459,8 +3458,8 @@
                      <div class="doc-upload-area" id="area-${idx}" style="border:2px dashed var(--c-border); padding:20px; text-align:center; border-radius:8px; cursor:pointer; background:var(--bg-body); transition:background 0.2s;">
                        <div style="color:var(--text-muted); margin-bottom:10px;">${ICONS.document}</div>
                        <div style="font-size:13px; font-weight:bold; margin-bottom:4px;">Haz clic o arrastra un archivo</div>
-                       <div style="font-size:11px; color:var(--text-muted);">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Máx: ${req.maxSizeMB||5} MB</div>
-                       <input type="file" id="file-${idx}" accept="${allowedExt}" style="display:none;" data-type="${escapeHtml(docType)}" data-max="${req.maxSizeMB||5}">
+                       <div style="font-size:11px; color:var(--text-muted);">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Máx: ${req.maxMb||req.maxSizeMB||5} MB</div>
+                       <input type="file" id="file-${idx}" accept="${allowedExt}" style="display:none;" data-type="${escapeHtml(docType)}" data-max="${req.maxMb||req.maxSizeMB||5}">
                      </div>
                      <div id="upload-status-${idx}" style="margin-top:10px; font-size:12px;"></div>
                    `;
@@ -3512,12 +3511,17 @@
        const form = qs('#step-form');
        if (form) {
          // Report activity on input changes
-         form.addEventListener('input', () => reportActivity());
-         form.addEventListener('change', () => reportActivity());
+         const capture = () => {
+           const f = new FormData(form);
+           for (const k of ['studentId','tutorName','tutorPhone','institucionId','gradoSolicitado','cicloEscolar']) if (f.has(k)) wState[k] = f.get(k);
+           if (f.has('new_nombre')) wState.newStudent.nombre = f.get('new_nombre');
+           if (f.has('new_fecha')) wState.newStudent.fechaNacimiento = f.get('new_fecha');
+         };
+         form.addEventListener('input', () => { capture(); reportActivity(); });
+         form.addEventListener('change', () => { capture(); reportActivity(); });
          
          form.addEventListener('submit', async (e) => {
            e.preventDefault();
-           reportActivity(true);
            const fd = new FormData(form);
            
            if (wState.step === 1) {
@@ -3526,11 +3530,11 @@
                wState.newStudent.nombre = fd.get('new_nombre');
                wState.newStudent.fechaNacimiento = fd.get('new_fecha');
              }
-             wState.step = 2; renderStep();
+             await advanceStep(2);
            } else if (wState.step === 2) {
              wState.tutorName = fd.get('tutorName');
              wState.tutorPhone = fd.get('tutorPhone');
-             wState.step = 3; renderStep();
+             await advanceStep(3);
            } else if (wState.step === 3) {
              wState.institucionId = fd.get('institucionId');
              wState.gradoSolicitado = fd.get('gradoSolicitado');
@@ -3545,10 +3549,10 @@
                btn.disabled = false; btn.textContent = 'Continuar';
                return;
              }
-             wState.step = 4; renderStep();
+             await advanceStep(4);
            } else if (wState.step === 4) {
              wState.documentos = Array.from(fd.entries()).filter(([k,v]) => v instanceof File && v.size > 0);
-             wState.step = 5; renderStep();
+             await advanceStep(5);
            }
          });
        }
@@ -3558,15 +3562,14 @@
          btnBack.addEventListener('click', async () => {
            reportActivity(true);
            if (wState.step === 1) {
-             customConfirm('¿Seguro que deseas salir? Perderás los datos no guardados y el cupo reservado.', 'Sí, salir', async () => {
+             customConfirm('¿Seguro que deseas salir? Se abandonará este borrador.', 'Sí, salir', async () => {
                if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
                if (broadcast) broadcast.postMessage({ type: 'abandoned' });
                clearDraft();
                navigate('#/app/inscripciones');
              });
            } else {
-             wState.step--;
-             renderStep();
+             await advanceStep(wState.step - 1);
            }
          });
        }
@@ -3666,7 +3669,7 @@
            }
          };
 
-         qsAll('.doc-upload-area').forEach(area => {
+         qsa('.doc-upload-area').forEach(area => {
            const input = area.querySelector('input[type="file"]');
            const statusEl = area.nextElementSibling;
            const type = input.getAttribute('data-type');
@@ -3691,7 +3694,7 @@
            });
          });
          
-         qsAll('.remove-doc-btn').forEach(btn => {
+         qsa('.remove-doc-btn').forEach(btn => {
            btn.addEventListener('click', () => {
              customConfirm('¿Seguro que deseas quitar este documento?', 'Sí, quitar', async () => {
                 const id = btn.getAttribute('data-id');
@@ -3714,7 +3717,7 @@
          if (btnNext) {
            btnNext.addEventListener('click', async (e) => {
              e.preventDefault();
-             const reqs = Array.from(qsAll('.doc-upload-area'));
+             const reqs = Array.from(qsa('.doc-upload-area'));
              if (reqs.length > 0) {
                qs('#docs-error').textContent = 'Faltan documentos requeridos por cargar.';
                return;
@@ -3733,9 +3736,7 @@
              }
              wState.uploadedDocsCount = count;
              
-             reportActivity(true);
-             wState.step = 5; 
-             renderStep();
+             await advanceStep(5);
            });
          }
        }
@@ -3749,19 +3750,18 @@
            
            try {
              let finalStudentId = wState.studentId;
-             if (wState.studentId === 'new') {
-                const sres = await api('/students', { method: 'POST', body: wState.newStudent });
-                finalStudentId = sres.student.id;
-             }
-             
              const payload = {
                studentId: finalStudentId,
+               newStudent: wState.newStudent,
+               tutorName: wState.tutorName,
+               tutorPhone: wState.tutorPhone,
                institucionId: wState.institucionId,
                draftId: draftId,
                gradoSolicitado: wState.gradoSolicitado,
                cicloEscolar: wState.cicloEscolar
              };
              
+             await reportActivity(true);
              const eres = await api('/enrollments', { method: 'POST', body: payload });
              
              if (broadcast) broadcast.postMessage({ type: 'submitted' });
@@ -3773,7 +3773,7 @@
                    ${ICONS.check}
                  </div>
                  <h2 style="margin-bottom:10px;">¡Solicitud enviada!</h2>
-                 <p class="lede" style="margin-bottom:20px;">Tu solicitud de inscripción ha sido enviada exitosamente a la institución. Su estado actual es <strong>Enviada</strong>.</p>
+                 <p class="lede" style="margin-bottom:20px;">Tu solicitud de inscripción ha sido enviada exitosamente a la institución. Su estado actual es <strong>${escapeHtml(eres.enrollment.estado)}</strong>. Referencia: ${escapeHtml(eres.enrollment.id)}.</p>
                  <button class="btn btn-primary" onclick="window.location.hash='#/app/inscripciones'">Ver mis inscripciones</button>
                </div>
              `;
@@ -3849,7 +3849,7 @@
     let pendingCorrections = false;
 
     configurados.forEach((req, idx) => {
-      const docType = (req.tipo || req).trim();
+      const docType = (req.nombre || req.tipo || req).trim();
       const docsOfThisType = docsByType[docType] || [];
       const latestDoc = docsOfThisType.length > 0 ? docsOfThisType[0] : null;
       
@@ -3899,8 +3899,8 @@
             <div class="doc-upload-area" id="area-${idx}" style="border:2px dashed var(--c-border); padding:20px; text-align:center; border-radius:8px; cursor:pointer; background:var(--bg-body); transition:background 0.2s;">
               <div style="color:var(--text-muted); margin-bottom:10px;">${ICONS.document}</div>
               <div style="font-size:13px; font-weight:bold; margin-bottom:4px;">Haz clic o arrastra el nuevo archivo</div>
-              <div style="font-size:11px; color:var(--text-muted);">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Máx: ${req.maxSizeMB||5} MB</div>
-              <input type="file" id="file-${idx}" accept="${allowedExt}" style="display:none;" data-type="${escapeHtml(docType)}" data-max="${req.maxSizeMB||5}">
+              <div style="font-size:11px; color:var(--text-muted);">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Máx: ${req.maxMb||req.maxSizeMB||5} MB</div>
+              <input type="file" id="file-${idx}" accept="${allowedExt}" style="display:none;" data-type="${escapeHtml(docType)}" data-max="${req.maxMb||req.maxSizeMB||5}">
             </div>
             <div id="upload-status-${idx}" style="margin-top:10px; font-size:12px;"></div>
           </div>
@@ -3923,7 +3923,7 @@
     qs('.main').innerHTML = html;
     bindShellEvents();
 
-    qsAll('.doc-accept-btn').forEach(btn => {
+    qsa('.doc-accept-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         customConfirm('¿Seguro que deseas aprobar este documento?', 'Aprobar', async () => {
           try {
@@ -3935,7 +3935,7 @@
       });
     });
 
-    qsAll('.doc-reject-btn').forEach(btn => {
+    qsa('.doc-reject-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         showConfirmModal({
           title: 'Rechazar Documento',
@@ -3951,16 +3951,16 @@
             const motivo = document.getElementById('rechazo-motivo').value;
             if (!motivo || !motivo.trim()) {
               toast('Debes indicar un motivo', 'error');
-              return false;
+              return true;
             }
             try {
               await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
               toast('Documento rechazado.', 'ok');
               renderDocumentosInscripcion(enrollmentId);
-              return true;
+              return false;
             } catch (err) {
               toast(err.message, 'error');
-              return false;
+              return true;
             }
           }
         });
@@ -3987,7 +3987,7 @@
     }
 
     let isUploading = false;
-    qsAll('.doc-upload-area').forEach(area => {
+    qsa('.doc-upload-area').forEach(area => {
       const input = area.querySelector('input[type="file"]');
       const statusEl = area.nextElementSibling;
       const type = input.getAttribute('data-type');
@@ -4162,7 +4162,7 @@
       if (!iso) return '';
       const d = new Date(iso);
       const pad = (n) => n.toString().padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
 
     function renderHito(tipo, title, range, limit, occupied) {
@@ -4394,7 +4394,8 @@
           cancelBtn.addEventListener('click', () => {
             customConfirm('¿Seguro que deseas cancelar? Se perderán los cambios no guardados.', 'Sí, cancelar', () => {
               docsState = JSON.parse(docsOriginal);
-              renderDocsEditor();
+              window._navInterceptor = null;
+              navigate('#/app/instituciones/' + institucionId + '/periodos');
             });
           });
         }
@@ -4477,11 +4478,11 @@
                 <div class="two-col" style="margin-top:16px;">
                   <div class="field">
                     <label>Desde</label>
-                    <input type="date" name="desde" value="${toInput(range?.desde)}" required>
+                    <input type="datetime-local" name="desde" value="${toInput(range?.desde)}" required>
                   </div>
                   <div class="field">
                     <label>Hasta</label>
-                    <input type="date" name="hasta" value="${toInput(range?.hasta)}" required>
+                    <input type="datetime-local" name="hasta" value="${toInput(range?.hasta)}" required>
                   </div>
                 </div>
                 ${isCitas ? `

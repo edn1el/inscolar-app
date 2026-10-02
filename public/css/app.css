@@ -3045,3 +3045,17 @@ tbody tr:last-child td {
   to { opacity: 1; transform: translateY(0); }
 }
 
+
+/* Controles y tarjetas de instituciones en pantallas estrechas. */
+@media (max-width: 640px) {
+  .table-card .user-cell > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+  .table-card .actions-cell { flex-wrap: wrap; }
+  .table-footer .pagination { display: flex; flex-wrap: wrap; gap: 4px; max-width: 100%; }
+  .filters select, .filters input { min-width: 0; max-width: 100%; }
+}
+
+@media (max-width: 400px) {
+  .topbar { gap: 8px; }
+  .topbar-right { gap: 6px; min-width: 0; }
+  .logout { padding-inline: 6px; font-size: .75rem; }
+}

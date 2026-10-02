@@ -115,7 +115,7 @@ router.get('/analytics/summary', requireAdmin, (req, res) => {
     total: db.enrollments.length,
     aprobadas: db.enrollments.filter((e) => e.estado === 'Aprobada').length,
     rechazadas: db.enrollments.filter((e) => e.estado === 'Rechazada').length,
-    pendientes: db.enrollments.filter((e) => e.estado === 'Pendiente').length,
+    pendientes: db.enrollments.filter((e) => ['Pendiente', 'Enviada', 'En revisión', 'Documentos pendientes'].includes(e.estado)).length,
     abandonadas: db.enrollments.filter((e) => e.estado === 'Abandonada').length,
   };
 

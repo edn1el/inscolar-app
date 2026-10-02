@@ -15,40 +15,6 @@ const GRADOS = [
 ];
 const CICLO_RE = /^\d{4}-\d{4}$/;
 const STAFF_ROLES = ['Administrador', 'Soporte'];
-const DIAS_INACTIVIDAD_ABANDONO = 30;
-
-// HU058: si una solicitud de inscripcion lleva mas de DIAS_INACTIVIDAD_ABANDONO dias
-// en estado Pendiente sin que la institucion la decida, se marca automaticamente como
-// Abandonada. Este prototipo no tiene un proceso en segundo plano, asi que el barrido
-// se hace de forma perezosa cada vez que alguien lista las inscripciones.
-function sweepAbandonedEnrollments(db) {
-  const now = Date.now();
-  const limiteMs = DIAS_INACTIVIDAD_ABANDONO * 24 * 60 * 60 * 1000;
-  let changed = false;
-  for (const e of db.enrollments) {
-    if (e.estado === 'Pendiente' && now - new Date(e.createdAt).getTime() > limiteMs) {
-      e.estado = 'Abandonada';
-      e.decidedAt = new Date().toISOString();
-      e.decidedBy = null;
-      logEvent(db, { actor: null, accion: 'Inscripción abandonada por inactividad', entidad: 'Inscripción', entidadId: e.id, detalle: `Ciclo ${e.cicloEscolar} · ${DIAS_INACTIVIDAD_ABANDONO} días sin respuesta` });
-      const tutor = db.users.find((t) => t.id === e.tutorId);
-      if (tutor) {
-        const student = db.students.find((s) => s.id === e.studentId);
-        notifyUser(db, {
-          recipient: tutor,
-          campo: 'Estado de inscripción',
-          anterior: 'Pendiente',
-          nuevo: 'Abandonada',
-          actor: { id: null, nombre: 'Sistema' },
-          userNombre: student ? student.nombre : tutor.nombre,
-        });
-      }
-      changed = true;
-    }
-  }
-  if (changed) save(db);
-}
-
 function publicEnrollment(e, db) {
   const student = db.students.find((s) => s.id === e.studentId);
   const institucion = db.institutions.find((i) => i.id === e.institucionId);
@@ -71,14 +37,13 @@ function sweepExpiredDrafts(db) {
   if (!db.drafts) db.drafts = [];
   const now = Date.now();
   let changed = false;
-  db.drafts = db.drafts.filter(d => {
-    if (d.expiresAt < now) {
+  for (const d of db.drafts) {
+    if (!d.estado && d.expiresAt <= now) {
+      d.estado = 'Abandonada';
+      logEvent(db, { actor: null, accion: 'Borrador abandonado por inactividad', entidad: 'Borrador', entidadId: d.id });
       changed = true;
-      // TODO: Aquí se liberarían los cupos reales. (Mock: logica si hubiera cupos)
-      return false;
     }
-    return true;
-  });
+  }
   if (changed) save(db);
 }
 
@@ -88,7 +53,7 @@ router.post('/drafts', (req, res) => {
   const u = req.currentUser;
   if (u.role !== 'Tutor') return res.status(403).json({ error: 'Solo tutores pueden crear borradores.' });
   
-  const testMinutes = req.query.expire_mins ? parseInt(req.query.expire_mins) : DRAFT_EXPIRE_MINS;
+  const testMinutes = DRAFT_EXPIRE_MINS;
   const draft = {
     id: nextId(db.drafts || [], 'd'),
     tutorId: u.id,
@@ -111,6 +76,7 @@ router.get('/drafts/:id', (req, res) => {
   const draft = (db.drafts || []).find(d => d.id === req.params.id);
   if (!draft) return res.status(404).json({ error: 'Borrador expirado o inexistente.' });
   if (draft.tutorId !== u.id) return res.status(403).json({ error: 'No autorizado.' });
+  if (draft.estado) return res.status(410).json({ error: 'Borrador expirado o finalizado.' });
   
   res.json({ draft, timeRemaining: draft.expiresAt - Date.now() });
 });
@@ -122,8 +88,9 @@ router.put('/drafts/:id', (req, res) => {
   const draft = (db.drafts || []).find(d => d.id === req.params.id);
   if (!draft) return res.status(404).json({ error: 'Borrador expirado o inexistente.' });
   if (draft.tutorId !== u.id) return res.status(403).json({ error: 'No autorizado.' });
+  if (draft.estado) return res.status(410).json({ error: 'Borrador expirado o finalizado.' });
   
-  const testMinutes = req.query.expire_mins ? parseInt(req.query.expire_mins) : DRAFT_EXPIRE_MINS;
+  const testMinutes = DRAFT_EXPIRE_MINS;
   
   // Registrar actividad
   draft.lastActivity = Date.now();
@@ -144,9 +111,10 @@ router.delete('/drafts/:id', (req, res) => {
   const draft = (db.drafts || []).find(d => d.id === req.params.id);
   if (!draft) return res.status(404).json({ error: 'Borrador expirado o inexistente.' });
   if (draft.tutorId !== u.id) return res.status(403).json({ error: 'No autorizado.' });
+  if (draft.estado) return res.status(410).json({ error: 'Borrador expirado o finalizado.' });
   
   // Borrar
-  db.drafts = db.drafts.filter(d => d.id !== req.params.id);
+  draft.estado = 'Abandonada';
   save(db);
   res.json({ status: 'ok' });
 });
@@ -188,7 +156,7 @@ router.post('/students', (req, res) => {
 // ---- inscripciones ----
 router.get('/enrollments', (req, res) => {
   const db = req.db;
-  sweepAbandonedEnrollments(db);
+
   const u = req.currentUser;
   const { estado, institucionId } = req.query;
   let list = db.enrollments.slice();
@@ -208,13 +176,25 @@ router.get('/enrollments', (req, res) => {
 
 router.post('/enrollments', (req, res) => {
   const db = req.db;
-  sweepAbandonedEnrollments(db);
+
   const u = req.currentUser;
   if (u.role !== 'Tutor') return res.status(403).json({ error: 'Solo un tutor puede crear una solicitud de inscripción.' });
 
   const { studentId, institucionId, gradoSolicitado, cicloEscolar, draftId } = req.body || {};
   const errors = [];
-  const student = db.students.find((s) => s.id === studentId && s.tutorId === u.id);
+  let student = db.students.find((s) => s.id === studentId && s.tutorId === u.id);
+  sweepExpiredDrafts(db);
+  const draft = draftId && (db.drafts || []).find(d => d.id === draftId);
+  if (draftId && (!draft || draft.tutorId !== u.id)) return res.status(403).json({ error: 'Borrador no autorizado.' });
+  if (draft && draft.enrollmentId) return res.json({ enrollment: publicEnrollment(db.enrollments.find(e => e.id === draft.enrollmentId), db) });
+  if (draft && draft.estado) return res.status(410).json({ error: 'Borrador expirado o finalizado.' });
+  if (studentId === 'new' && draft) {
+    const n = req.body.newStudent || {};
+    if (typeof n.nombre === 'string' && n.nombre.trim().length >= 3 && n.fechaNacimiento && !isNaN(new Date(n.fechaNacimiento).getTime())) {
+      student = { id: nextId(db.students, 's'), tutorId: u.id, nombre: n.nombre.trim(), fechaNacimiento: n.fechaNacimiento, documento: '', createdAt: new Date().toISOString() };
+    }
+  }
+  if (draft && ['institucionId', 'gradoSolicitado', 'cicloEscolar'].some(k => draft.data[k] !== req.body[k])) errors.push('La solicitud no coincide con el borrador guardado.');
   if (!student) errors.push('Selecciona un estudiante válido.');
   const institucion = db.institutions.find((i) => i.id === institucionId);
   if (!institucion) errors.push('Selecciona una institución válida.');
@@ -233,6 +213,11 @@ router.post('/enrollments', (req, res) => {
       errors.push(`El periodo de inscripción del ciclo ${cicloEscolar} para esta institución no está abierto actualmente.`);
     }
   }
+  if (draft && institucion) {
+    const p = findPeriod(db, institucionId, cicloEscolar);
+    const required = require('../lib/requirements').requirements(p && p.documentosRequeridos, gradoSolicitado);
+    if (required.some(r => !db.documents.some(d => d.draftId === draft.id && d.tutorId === u.id && d.tipoDocumento === r.tipo && d.estado !== 'Rechazado' && d.size <= r.maxSizeMB * 1024 * 1024 && r.formatos.some(f => ({PDF:'application/pdf', JPG:'image/jpeg', JPEG:'image/jpeg', PNG:'image/png'})[f] === d.mimeType)))) errors.push('Carga todos los documentos requeridos antes de enviar.');
+  }
   if (errors.length) return res.status(400).json({ errors });
 
   const period = findPeriod(db, institucionId, cicloEscolar);
@@ -243,18 +228,21 @@ router.post('/enrollments', (req, res) => {
     institucionId: institucion.id,
     gradoSolicitado,
     cicloEscolar,
-    estado: 'Pendiente',
+    estado: 'Enviada',
+    contactoTutor: { nombre: String(req.body.tutorName || u.nombre || '').trim(), telefono: String(req.body.tutorPhone || u.telefonomovil || '').trim() },
     motivoRechazo: '',
-    requisitosSnapshot: period ? (period.documentosRequeridos || []) : [],
+    requisitosSnapshot: require('../lib/requirements').requirements(period && period.documentosRequeridos, gradoSolicitado),
     createdAt: new Date().toISOString(),
     decidedAt: null,
     decidedBy: null,
   };
+  if (studentId === 'new') db.students.push(student);
   db.enrollments.push(enrollment);
+  if (draft) { draft.estado = 'Enviada'; draft.enrollmentId = enrollment.id; }
   
   if (draftId && db.documents) {
     db.documents.forEach(d => {
-      if (d.draftId === draftId) {
+      if (d.draftId === draftId && d.tutorId === u.id) {
         d.enrollmentId = enrollment.id;
         d.institucionId = enrollment.institucionId;
         delete d.draftId;
@@ -268,14 +256,14 @@ router.post('/enrollments', (req, res) => {
 
 router.post('/enrollments/:id/decidir', (req, res) => {
   const db = req.db;
-  sweepAbandonedEnrollments(db);
+
   const u = req.currentUser;
   const enrollment = db.enrollments.find((e) => e.id === req.params.id);
   if (!enrollment) return res.status(404).json({ error: 'Solicitud no encontrada.' });
 
   const canDecide = STAFF_ROLES.includes(u.role) || (u.role === 'Personal de institución' && u.institucionId === enrollment.institucionId);
   if (!canDecide) return res.status(403).json({ error: 'No tienes permiso para decidir esta solicitud.' });
-  if (enrollment.estado !== 'Pendiente') return res.status(400).json({ error: 'Esta solicitud ya fue decidida.' });
+  if (!['Pendiente', 'Enviada', 'En revisión'].includes(enrollment.estado)) return res.status(400).json({ error: 'Esta solicitud ya fue decidida.' });
 
   const { estado, motivo } = req.body || {};
   if (!['Aprobada', 'Rechazada'].includes(estado)) return res.status(400).json({ error: 'Decisión inválida.' });
@@ -313,7 +301,10 @@ router.post('/enrollments/:id/correcciones', (req, res) => {
   if (enrollment.tutorId !== u.id) return res.status(403).json({ error: 'No tienes permiso.' });
   if (enrollment.estado !== 'Documentos pendientes') return res.status(400).json({ error: 'La solicitud no está en estado de corrección.' });
   
-  enrollment.estado = 'Pendiente';
+  const required = require('../lib/requirements').requirements(enrollment.requisitosSnapshot, enrollment.gradoSolicitado);
+  const docs = db.documents.filter(d => d.enrollmentId === enrollment.id).sort((a,b) => new Date(b.uploadedAt)-new Date(a.uploadedAt));
+  if (required.some(r => { const d = docs.find(d => d.tipoDocumento === r.tipo); return !d || d.estado === 'Rechazado'; })) return res.status(400).json({ error: 'Carga las correcciones de todos los documentos requeridos.' });
+  enrollment.estado = 'En revisión';
   logEvent(db, { actor: u, accion: 'Correcciones enviadas', entidad: 'Inscripción', entidadId: enrollment.id, detalle: 'Documentos actualizados' });
   save(db);
   res.json({ enrollment: publicEnrollment(enrollment, db) });
@@ -325,7 +316,7 @@ router.post('/enrollments/:id/cancelar', (req, res) => {
   const enrollment = db.enrollments.find((e) => e.id === req.params.id);
   if (!enrollment) return res.status(404).json({ error: 'Solicitud no encontrada.' });
   if (enrollment.tutorId !== u.id) return res.status(403).json({ error: 'No tienes permiso para cancelar esta solicitud.' });
-  if (enrollment.estado !== 'Pendiente') return res.status(400).json({ error: 'Solo se puede cancelar una solicitud pendiente.' });
+  if (!['Pendiente', 'Enviada', 'En revisión'].includes(enrollment.estado)) return res.status(400).json({ error: 'Solo se puede cancelar una solicitud pendiente.' });
 
   logEvent(db, { actor: u, accion: 'Inscripción cancelada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: `Ciclo ${enrollment.cicloEscolar}` });
   db.enrollments = db.enrollments.filter((e) => e.id !== enrollment.id);

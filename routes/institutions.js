@@ -1,6 +1,6 @@
 const express = require('express');
 const { load, save, nextId } = require('../lib/db');
-const { requireAuth, requireAdmin } = require('../lib/middleware');
+const { requireAuth, requireAdmin, requireAdminOnly } = require('../lib/middleware');
 const { isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 const { logEvent } = require('../lib/audit');
 const { haversineKm } = require('../lib/geo');
@@ -53,7 +53,7 @@ router.get('/', (req, res) => {
   
   // Extraer todos los municipios antes de filtrar, para que los selects de UI tengan la lista completa
   // o filtrada si deciden hacerlo dinámico.
-  const municipios = Array.from(new Set(db.institutions.map((i) => i.municipio).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
+  const municipios = Array.from(new Set(db.institutions.filter(i => !provincia || provincia === 'Todas' || i.provincia === provincia).map((i) => i.municipio).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es'));
   
   let list = db.institutions.slice();
   
@@ -101,6 +101,7 @@ router.get('/', (req, res) => {
 
   const page = parseInt(req.query.page);
   const limit = parseInt(req.query.limit);
+  if ((req.query.page !== undefined || req.query.limit !== undefined) && (!Number.isInteger(Number(req.query.page)) || !Number.isInteger(Number(req.query.limit)) || page < 1 || limit < 1 || limit > 100)) return res.status(400).json({ error: 'Paginación inválida.' });
   let paginatedInstitutions = withRatings;
   if (!isNaN(page) && !isNaN(limit)) {
     const start = (page - 1) * limit;
@@ -277,7 +278,7 @@ router.put('/:id', requireAuth, requireAdmin, handleUploadInstitucion, (req, res
   res.json({ institution });
 });
 
-router.post('/:id/toggle-estado', requireAuth, requireAdmin, (req, res) => {
+router.post('/:id/toggle-estado', requireAuth, requireAdminOnly, (req, res) => {
   const db = req.db;
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });

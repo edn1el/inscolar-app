@@ -63,7 +63,7 @@ router.post('/appointments', (req, res) => {
   }
   let activePeriod = null;
   if (institucion) {
-    const { hasConfig, active } = citasPeriodStatus(db, institucion.id);
+    const { hasConfig, active } = citasPeriodStatus(db, institucion.id, when);
     if (hasConfig && !active) {
       errors.push('No hay un periodo habilitado para agendar citas en esta institución actualmente.');
     } else if (active) {
@@ -73,8 +73,8 @@ router.post('/appointments', (req, res) => {
         const count = db.appointments.filter((a) =>
           a.institucionId === institucion.id && 
           (a.estado === 'Pendiente' || a.estado === 'Aceptada' || a.estado === 'Confirmada') &&
-          new Date(a.createdAt) >= new Date(active.citas.desde) && 
-          new Date(a.createdAt) <= new Date(new Date(active.citas.hasta).setHours(23, 59, 59, 999))
+          new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada) >= new Date(active.citas.desde) &&
+          new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada) <= new Date(active.citas.hasta)
         ).length;
         if (count >= limite) errors.push(`Se alcanzó el límite de citas (${limite}) para el periodo actual de esta institución.`);
       }
