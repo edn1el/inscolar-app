@@ -28,3 +28,8 @@ cambio obligatorio de contraseña pendiente; ese ajuste es solo de la copia.
 El diagnóstico antiguo `test_puppeteer.js` no es una regresión con aserciones:
 usa credenciales fijas, espera dos segundos y requiere Puppeteer, que no está
 instalado. Se conserva sin cambios y fuera del commit.
+
+La suite también reproduce la ruta `#/` sin sesión, un 503 durante el arranque,
+una petición sin respuesta (límite de 15 segundos probado con reloj simulado)
+y un reinicio real del servidor temporal que invalida la cookie. La navegación
+recupera el login o permite Reintentar sin forzar una recarga del documento.

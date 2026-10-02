@@ -28,7 +28,7 @@ function parseRange(body, incluirLimite) {
   const to = new Date(hasta);
   if (!desde || isNaN(from.getTime())) errors.push('La fecha "desde" no es válida.');
   if (!hasta || isNaN(to.getTime())) errors.push('La fecha "hasta" no es válida.');
-  if (!errors.length && from > to) errors.push('La fecha "desde" debe ser anterior o igual a la fecha "hasta".');
+  if (!errors.length && from >= to) errors.push('La fecha "desde" debe ser anterior a la fecha "hasta".');
   let limite = null;
   if (incluirLimite && limiteCitas !== undefined && limiteCitas !== null && limiteCitas !== '') {
     const n = Number(limiteCitas);
@@ -56,8 +56,8 @@ router.get('/institutions/:id/periods', (req, res) => {
       const occupied = db.appointments.filter(a => 
         a.institucionId === req.params.id && 
         (a.estado === 'Pendiente' || a.estado === 'Aceptada' || a.estado === 'Confirmada') &&
-        new Date(a.createdAt) >= new Date(period.citas.desde) && 
-        new Date(a.createdAt) <= new Date(new Date(period.citas.hasta).setHours(23, 59, 59, 999))
+        new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada) >= new Date(period.citas.desde) &&
+        new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada) <= new Date(period.citas.hasta)
       ).length;
       period.citas.ocupados = occupied;
     }
@@ -172,8 +172,8 @@ router.put('/institutions/:id/periods/:periodId', (req, res) => {
     const occupiedCount = db.appointments.filter(a =>
       a.institucionId === institucion.id &&
       (a.estado === 'Pendiente' || a.estado === 'Aceptada' || a.estado === 'Confirmada') &&
-      new Date(a.createdAt) >= new Date(citasR.range.desde) &&
-      new Date(a.createdAt) <= new Date(new Date(citasR.range.hasta).setHours(23, 59, 59, 999))
+      new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada) >= new Date(citasR.range.desde) &&
+      new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada) <= new Date(citasR.range.hasta)
     ).length;
     
     if (newLimit < occupiedCount) {
@@ -240,6 +240,8 @@ router.delete('/institutions/:id/periods/:periodId', (req, res) => {
   const period = db.periods.find((p) => p.id === req.params.periodId && p.institucionId === institucion.id);
   if (!period) return res.status(404).json({ error: 'Configuración de periodo no encontrada.' });
 
+  const associated = db.enrollments.some(e => e.institucionId === institucion.id && e.cicloEscolar === period.cicloEscolar) || db.appointments.some(a => a.institucionId === institucion.id && period.citas && require('../lib/periods').withinRange(period.citas, new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada))) || (db.drafts || []).some(d => !d.estado && d.expiresAt > Date.now() && d.data.institucionId === institucion.id && d.data.cicloEscolar === period.cicloEscolar);
+  if (associated) return res.status(400).json({ error: 'No se puede eliminar un ciclo con solicitudes, citas o borradores activos asociados.' });
   db.periods = db.periods.filter((p) => p.id !== period.id);
   logEvent(db, { actor: u, accion: 'Configuración de periodo eliminada', entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${period.cicloEscolar}` });
   save(db);

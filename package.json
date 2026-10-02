@@ -1,13 +1,14 @@
 {
   "name": "inscolar-prototipo",
   "version": "0.4.0",
-  "description": "Inscolar - prototipo funcional (Gestión de Usuario + Analíticas) sobre datos de prueba en archivo JSON.",
+  "description": "Inscolar - prototipo funcional (Gesti\u00f3n de Usuario + Anal\u00edticas) sobre datos de prueba en archivo JSON.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
     "reset-data": "node lib/seed.js",
-    "test:login": "node --test test/login.browser.cjs"
+    "test:login": "node --test test/login.browser.cjs",
+    "test:review": "node --test test/review.browser.cjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

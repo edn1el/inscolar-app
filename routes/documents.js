@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { save, nextId } = require('../lib/db');
+const { load, save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
 const { notifyUser } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
@@ -42,6 +42,7 @@ function publicDocument(d) {
   return {
     id: d.id,
     enrollmentId: d.enrollmentId,
+    tipoDocumento: d.tipoDocumento,
     nombreArchivo: d.nombreArchivo,
     mimeType: d.mimeType,
     size: d.size,
@@ -55,10 +56,11 @@ function publicDocument(d) {
 
 // ---- listar documentos de un borrador ----
 router.get('/drafts/:id/documents', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
+  const db = load();
+  const u = db.users.find(u => u.id === req.session.userId && u.estado !== 'Inactivo');
+  if (!u) { if (req.file) fs.unlinkSync(req.file.path); return res.status(401).json({ error: 'Sesión inválida.' }); }
   const draft = (db.drafts || []).find(d => d.id === req.params.id);
-  if (!draft) return res.status(404).json({ error: 'Borrador no encontrado.' });
+  if (!draft || draft.estado || draft.expiresAt <= Date.now()) return res.status(404).json({ error: 'Borrador no encontrado.' });
   if (draft.tutorId !== u.id) return res.status(403).json({ error: 'No autorizado.' });
 
   const list = (db.documents || [])
@@ -77,10 +79,11 @@ router.post('/drafts/:id/documents', (req, res, next) => {
     next();
   });
 }, (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
+  const db = load();
+  const u = db.users.find(u => u.id === req.session.userId && u.estado !== 'Inactivo');
+  if (!u) { if (req.file) fs.unlinkSync(req.file.path); return res.status(401).json({ error: 'Sesión inválida.' }); }
   const draft = (db.drafts || []).find(d => d.id === req.params.id);
-  if (!draft) {
+  if (!draft || draft.estado || draft.expiresAt <= Date.now()) {
     if (req.file) fs.unlink(req.file.path, () => {});
     return res.status(404).json({ error: 'Borrador no encontrado o expirado.' });
   }
@@ -89,8 +92,24 @@ router.post('/drafts/:id/documents', (req, res, next) => {
     return res.status(403).json({ error: 'No tienes permiso.' });
   }
   if (!req.file) return res.status(400).json({ errors: ['Selecciona un archivo válido.'] });
+  const period = findPeriod(db, draft.data.institucionId, draft.data.cicloEscolar);
+  if (period && !withinRange(period.documentos)) { fs.unlinkSync(req.file.path); return res.status(400).json({ error: 'El periodo de documentos no está abierto.' }); }
+
 
   const { tipoDocumento } = req.body || {};
+  const context = typeof draft !== 'undefined' ? draft.data : enrollment;
+  const config = typeof draft !== 'undefined' ? (findPeriod(db, context.institucionId, context.cicloEscolar) || {}).documentosRequeridos : enrollment.requisitosSnapshot;
+  const rule = require('../lib/requirements').requirements(config, context.gradoSolicitado).find(r => r.tipo === tipoDocumento);
+  const bytes = fs.readFileSync(req.file.path);
+  const format = bytes.subarray(0,5).toString() === '%PDF-' ? 'PDF' : bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? 'PNG' : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? 'JPG' : null;
+  const ext = path.extname(req.file.originalname).slice(1).toUpperCase().replace('JPEG', 'JPG');
+  const mime = { PDF: 'application/pdf', PNG: 'image/png', JPG: 'image/jpeg' };
+  const existing = db.documents.filter(d => typeof draft !== 'undefined' ? d.draftId === draft.id : d.enrollmentId === enrollment.id).sort((a,b) => new Date(b.uploadedAt)-new Date(a.uploadedAt)).find(d => d.tipoDocumento === tipoDocumento);
+  if (!rule || !format || ext !== format || req.file.mimetype !== mime[format] || !rule.formatos.map(f => f.replace('JPEG','JPG')).includes(format) || !bytes.length || bytes.length > rule.maxSizeMB * 1024 * 1024 || (existing && existing.estado !== 'Rechazado') || (typeof enrollment !== 'undefined' && !['Pendiente', 'Enviada', 'En revisión', 'Documentos pendientes'].includes(enrollment.estado))) {
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: 'Documento inválido: revisa el requisito, formato, tamaño y estado de la solicitud.' });
+  }
+
   const document = {
     id: nextId(db.documents, 'd'),
     draftId: draft.id,
@@ -138,8 +157,9 @@ router.delete('/documents/:id', (req, res) => {
 
 // ---- listar documentos de una inscripcion ----
 router.get('/enrollments/:id/documents', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
+  const db = load();
+  const u = db.users.find(u => u.id === req.session.userId && u.estado !== 'Inactivo');
+  if (!u) { if (req.file) fs.unlinkSync(req.file.path); return res.status(401).json({ error: 'Sesión inválida.' }); }
   const enrollment = db.enrollments.find((e) => e.id === req.params.id);
   if (!enrollment) return res.status(404).json({ error: 'Solicitud no encontrada.' });
   if (!canSeeEnrollment(db, u, enrollment)) return res.status(403).json({ error: 'No tienes permiso para ver estos documentos.' });
@@ -160,8 +180,9 @@ router.post('/enrollments/:id/documents', (req, res, next) => {
     next();
   });
 }, (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
+  const db = load();
+  const u = db.users.find(u => u.id === req.session.userId && u.estado !== 'Inactivo');
+  if (!u) { if (req.file) fs.unlinkSync(req.file.path); return res.status(401).json({ error: 'Sesión inválida.' }); }
   const enrollment = db.enrollments.find((e) => e.id === req.params.id);
   if (!enrollment) {
     if (req.file) fs.unlink(req.file.path, () => {});
@@ -181,6 +202,19 @@ router.post('/enrollments/:id/documents', (req, res, next) => {
   }
 
   const { tipoDocumento } = req.body || {};
+  const context = typeof draft !== 'undefined' ? draft.data : enrollment;
+  const config = typeof draft !== 'undefined' ? (findPeriod(db, context.institucionId, context.cicloEscolar) || {}).documentosRequeridos : enrollment.requisitosSnapshot;
+  const rule = require('../lib/requirements').requirements(config, context.gradoSolicitado).find(r => r.tipo === tipoDocumento);
+  const bytes = fs.readFileSync(req.file.path);
+  const format = bytes.subarray(0,5).toString() === '%PDF-' ? 'PDF' : bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])) ? 'PNG' : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255 ? 'JPG' : null;
+  const ext = path.extname(req.file.originalname).slice(1).toUpperCase().replace('JPEG', 'JPG');
+  const mime = { PDF: 'application/pdf', PNG: 'image/png', JPG: 'image/jpeg' };
+  const existing = db.documents.filter(d => typeof draft !== 'undefined' ? d.draftId === draft.id : d.enrollmentId === enrollment.id).sort((a,b) => new Date(b.uploadedAt)-new Date(a.uploadedAt)).find(d => d.tipoDocumento === tipoDocumento);
+  if (!rule || !format || ext !== format || req.file.mimetype !== mime[format] || !rule.formatos.map(f => f.replace('JPEG','JPG')).includes(format) || !bytes.length || bytes.length > rule.maxSizeMB * 1024 * 1024 || (existing && existing.estado !== 'Rechazado') || (typeof enrollment !== 'undefined' && !['Pendiente', 'Enviada', 'En revisión', 'Documentos pendientes'].includes(enrollment.estado))) {
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: 'Documento inválido: revisa el requisito, formato, tamaño y estado de la solicitud.' });
+  }
+
   const document = {
     id: nextId(db.documents, 'd'),
     enrollmentId: enrollment.id,
@@ -230,6 +264,7 @@ router.post('/documents/:id/decidir', (req, res) => {
 
   const canDecide = STAFF_ROLES.includes(u.role) || (u.role === 'Personal de institución' && u.institucionId === enrollment.institucionId);
   if (!canDecide) return res.status(403).json({ error: 'No tienes permiso para decidir sobre este documento.' });
+  if (!['Pendiente', 'Enviada', 'En revisión', 'Documentos pendientes'].includes(enrollment.estado)) return res.status(400).json({ error: 'La solicitud ya fue finalizada.' });
   if (document.estado !== 'Pendiente') return res.status(400).json({ error: 'Este documento ya fue decidido.' });
 
   const { estado, motivo } = req.body || {};

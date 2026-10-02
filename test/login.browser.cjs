@@ -31,7 +31,7 @@ test('login y sesión en Chromium', { timeout: 120000 }, async (t) => {
   await once(socket, 'listening');
   const port = socket.address().port;
   await new Promise(resolve => socket.close(resolve));
-  const server = spawn(process.execPath, ['server.js'], {
+  let server = spawn(process.execPath, ['server.js'], {
     cwd: root, env: { ...process.env, PORT: String(port), DB_PATH: dbPath }, stdio: ['ignore', 'pipe', 'pipe'],
   });
   let browser;
@@ -72,6 +72,35 @@ test('login y sesión en Chromium', { timeout: 120000 }, async (t) => {
       const session = await page.evaluate(async () => (await fetch('/api/auth/me')).json());
       assert.equal(session.user.id, user.id);
     }
+    await scenario('ruta raíz sin sesión abre búsqueda pública', async page => {
+      await page.goto(base + '/#/');
+      await expect(page.locator('#search-form')).toBeVisible();
+    });
+    await scenario('error de arranque muestra Reintentar y recupera sin recargar', async page => {
+      await page.route('**/api/auth/setup-needed', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({error:'Servidor reiniciándose'}) }));
+      await page.goto(base + '/#/');
+      await expect(page.locator('#retry-route')).toBeVisible();
+      await expect(page.locator('#root')).toContainText('Servidor reiniciándose');
+      await page.unroute('**/api/auth/setup-needed');
+      await page.locator('#retry-route').click();
+      await expect(page.locator('#search-form')).toBeVisible();
+    });
+    await scenario('petición sin respuesta tiene límite y permite reintentar', async page => {
+      await page.clock.install();
+      let release;
+      const gate = new Promise(resolve => { release = resolve; });
+      await page.route('**/api/auth/me', async route => { await gate; await route.abort().catch(() => {}); });
+      const requestStarted = page.waitForRequest(r => r.url().endsWith('/api/auth/me'));
+      await page.goto(base + '/#/');
+      await requestStarted;
+      await page.clock.fastForward(15001);
+      await expect(page.locator('#retry-route')).toBeVisible();
+      await expect(page.locator('#root')).toContainText('tardó demasiado');
+      release();
+      await page.unroute('**/api/auth/me');
+      await page.locator('#retry-route').click();
+      await expect(page.locator('#search-form')).toBeVisible();
+    });
     for (const role of ['Administrador', 'Tutor', 'Personal de institución', 'Soporte', 'Auditoría']) {
       const user = db.users.find(u => u.role === role);
       await scenario(`${role}: autenticar, menú, cookie, recarga y cierre`, async (page, context) => {
@@ -205,6 +234,22 @@ test('login y sesión en Chromium', { timeout: 120000 }, async (t) => {
       await profile(page, user);
       await page.reload();
       await profile(page, user);
+    });
+    await scenario('reinicio real invalida sesión y recupera navegación sin recarga', async page => {
+      await login(page);
+      await profile(page, tutor);
+      const exit = once(server, 'exit'); server.kill(); await exit;
+      server = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: String(port), DB_PATH: dbPath }, stdio: ['ignore','pipe','pipe'] });
+      await new Promise((resolve,reject) => {
+        server.stdout.on('data', c => { if (String(c).includes('corriendo en')) resolve(); });
+        server.once('error',reject); server.stderr.on('data', c => reject(new Error(String(c))));
+      });
+      await page.evaluate(() => { location.hash = '#/app/inscripciones'; });
+      await expect(page.locator('#login-form')).toBeVisible();
+      await expect(page).toHaveURL(/#\/login$/);
+      await page.evaluate(() => { location.hash = '#/'; });
+      await expect(page.locator('#search-form')).toBeVisible();
+      await page.goto(base + '/#/login'); await page.locator('[name=email]').fill(tutor.email); await page.locator('[name=password]').fill(password); await page.locator('#login-form button[type=submit]').click(); await profile(page,tutor);
     });
   } finally {
     if (browser) await browser.close();
