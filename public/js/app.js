@@ -659,17 +659,34 @@
         if (currentMap) {
           data.institutions.forEach(i => {
             if (typeof i.lat === 'number' && typeof i.lng === 'number') {
-              const marker = L.marker([i.lat, i.lng]).addTo(currentMap);
-              marker.bindPopup(`<strong>${escapeHtml(i.nombre)}</strong><br><a href="#/buscar/${i.id}">Ver detalles</a>`);
+              const markerIcon = L.divIcon({
+                className: 'modern-pin',
+                html: `<svg viewBox="0 0 24 24" width="32" height="32" fill="var(--primary-color)" stroke="#fff" stroke-width="2" style="filter: drop-shadow(0 3px 5px rgba(0,0,0,0.4)); display: block;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3" fill="#fff"></circle></svg>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 31],
+                tooltipAnchor: [0, -31]
+              });
+              const marker = L.marker([i.lat, i.lng], { icon: markerIcon }).addTo(currentMap);
+              
+              const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
+              const detailsHtml = `
+                <div style="display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
+                  <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
+                    <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
+                  </div>
+                  <div style="flex:1;">
+                    <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
+                    <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
+                    <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
+                    <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
+                  </div>
+                </div>
+              `;
+              marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip' });
               marker.instId = i.id;
               
               marker.on('click', () => {
-                const card = qs(`.inst-card[data-id="${i.id}"]`);
-                if (card) {
-                  qsa('.inst-card').forEach(c => c.style.borderColor = 'var(--border-color)');
-                  card.style.borderColor = 'var(--primary-color)';
-                  card.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
-                }
+                navigate('#/buscar/' + i.id);
               });
               
               currentMarkers.push(marker);
@@ -701,8 +718,19 @@
       }
     }
 
-    qs('#search-form').addEventListener('submit', (e) => {
+    const searchForm = qs('#search-form');
+    searchForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      performSearch();
+    });
+
+    let searchTimeout;
+    searchForm.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => performSearch(), 400);
+    });
+    searchForm.addEventListener('change', () => {
+      clearTimeout(searchTimeout);
       performSearch();
     });
 
@@ -3609,6 +3637,7 @@
     
     renderDocsEditor();
 
+    if (canManage) {
       qsa('[data-edit-hito]').forEach(b => b.addEventListener('click', () => {
         const tipo = b.dataset.editHito;
         const isCitas = tipo === 'citas';
