@@ -368,7 +368,7 @@
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/></svg>
               Explorar instituciones públicas
             </a><br>
-            <span class="footer-min-edu">Ministerio de Educación &middot; República Dominicana<br>Soporte: (809) 555-0110</span>
+            <span class="footer-min-edu">República Dominicana<br>Soporte: (809) 555-0110</span>
           </div>
           <canvas class="particles-canvas" id="particles-bg" aria-hidden="true"></canvas>
         </div>
@@ -530,15 +530,19 @@
       popupAnchor: [0, -36],
     });
   }
-  // El mapa muestra solo República Dominicana: todo lo de fuera se cubre con el color
-  // de la página (el país queda como una isla) y no se puede salir de sus límites.
-  // Con draw, la costa se dibuja sola al cargar.
+  // El mapa muestra solo República Dominicana: a escala país, todo lo de fuera se cubre
+  // con el color de la página (el país queda como una isla) y no se puede salir de sus
+  // límites. De cerca la cubierta se desvanece para no recortar la costa real.
+  const DR_MASK_MAX_ZOOM = 10;
   function focusOnDR(map, opts = {}) {
     const rings = window.DR_OUTLINE;
     if (!rings || !rings.length) return;
     const world = [[-85, -180], [-85, 180], [85, 180], [85, -180]];
-    L.polygon([world, ...rings], { className: 'dr-mask', interactive: false, smoothFactor: 0.5 }).addTo(map);
-    const edge = L.polygon(rings, { className: 'dr-edge', interactive: false, fill: false, smoothFactor: 0.5 }).addTo(map);
+    L.polygon([world, ...rings], { className: 'dr-mask', interactive: false, smoothFactor: 0.3 }).addTo(map);
+    const container = map.getContainer();
+    const syncMask = () => container.classList.toggle('is-close', map.getZoom() >= DR_MASK_MAX_ZOOM);
+    map.on('zoomend', syncMask);
+    syncMask();
     const bounds = L.latLngBounds(rings.flat());
     map._drBounds = bounds;
     map.setMaxBounds(bounds.pad(0.12));
@@ -546,19 +550,7 @@
     if (opts.fit !== false) {
       map.fitBounds(bounds, { padding: [16, 16], animate: false });
       map.setMinZoom(map.getBoundsZoom(bounds.pad(0.12)));
-    }
-    if (opts.draw && !reduceMotion()) {
-      const path = edge.getElement();
-      if (path && path.getTotalLength) {
-        const len = path.getTotalLength();
-        path.style.strokeDasharray = len;
-        path.style.strokeDashoffset = len;
-        path.getBoundingClientRect();
-        path.classList.add('is-drawing');
-        path.style.strokeDashoffset = 0;
-        // Al terminar se quita el trazo discontinuo para que el zoom no lo deforme.
-        setTimeout(() => { path.style.strokeDasharray = ''; path.classList.remove('is-drawing'); }, 2300);
-      }
+      syncMask();
     }
   }
 
@@ -738,7 +730,7 @@
       currentMap = L.map(mapContainer, { zoomControl: false, scrollWheelZoom: true, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 90 }).setView([18.8, -70.2], 8);
       L.control.zoom({ position: 'bottomright' }).addTo(currentMap);
       L.tileLayer(tileUrlForTheme(), { maxZoom: 19, attribution: TILE_ATTRIBUTION, className: 'ins-tiles' }).addTo(currentMap);
-      focusOnDR(currentMap, { draw: true });
+      focusOnDR(currentMap);
     } catch (e) {
       mapContainer.innerHTML = '<div class="map-fallback">El mapa no está disponible en este momento. Puedes seguir buscando en la lista.</div>';
     }
@@ -3711,7 +3703,7 @@
         </div>
         <div class="comprobante-foot">
           <img src="/assets/brand/inscolar-symbol-primary.svg" alt="">
-          <div>Inscolar — Sistema de inscripción escolar<br>Ministerio de Educación · República Dominicana</div>
+          <div>Inscolar — Sistema de inscripción escolar<br>República Dominicana</div>
         </div>
       </div>
     `;
