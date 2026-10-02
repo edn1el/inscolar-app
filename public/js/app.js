@@ -575,6 +575,7 @@
     let currentMap = null;
     let currentMarkers = [];
     let userCoords = null;
+    let latestBounds = null;
     const mapContainer = qs('#map-container');
     const mapWrapper = qs('.search-map-wrapper');
     const closeMapBtn = qs('#close-map-btn');
@@ -587,7 +588,12 @@
     toggleMapBtn.addEventListener('click', () => {
       mapWrapper.classList.remove('hidden-mobile');
       toggleMapBtn.style.display = 'none';
-      if (currentMap) currentMap.invalidateSize();
+      if (currentMap) {
+        currentMap.invalidateSize();
+        if (latestBounds && latestBounds.length > 0) {
+          currentMap.fitBounds(latestBounds, { animate: false, maxZoom: 15 });
+        }
+      }
     });
 
     async function initMap() {
@@ -703,8 +709,15 @@
             }
           });
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          latestBounds = bounds;
           if (bounds.length > 0) {
-            currentMap.flyToBounds(bounds, { duration: 1.5, easeLinearity: 0.25, animate: !prefersReduced });
+            if (mapContainer && mapContainer.offsetWidth > 0) {
+              currentMap.flyToBounds(bounds, { duration: 1.5, easeLinearity: 0.25, animate: !prefersReduced });
+            } else {
+              // Si el contenedor está oculto (mobile), no podemos hacer flyToBounds porque causará Invalid LatLng (NaN).
+              // Simplemente centramos el mapa de manera silenciosa, para que al abrirlo ya esté ahí.
+              // currentMap.fitBounds también falla si el contenedor es display:none, así que lo guardamos en latestBounds y lo centramos en el evento del toggleMapBtn.
+            }
           } else if (currentMap && qs('#map-container')) {
             qs('#map-container').insertAdjacentHTML('beforeend', '<div class="map-empty-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:var(--bg-body); opacity: 0.9; z-index:1000; display:flex; align-items:center; justify-content:center; color:var(--text-muted); text-align:center; padding:20px;">Las instituciones encontradas no tienen coordenadas registradas.</div>');
           }
