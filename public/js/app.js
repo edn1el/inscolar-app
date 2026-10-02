@@ -88,7 +88,7 @@
     return `<div class="field-errors"><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
   }
 
-  function showConfirmModal({ title, bodyHtml, confirmText, danger, onConfirm }) {
+  function showConfirmModal({ title, bodyHtml, confirmText, danger, onConfirm, onClose }) {
     const modal = document.createElement('div');
     modal.className = 'sidebar-backdrop visible';
     modal.style.zIndex = '9999';
@@ -132,6 +132,7 @@
     function cleanup() {
       document.removeEventListener('keydown', escHandler);
       modal.remove();
+      if (onClose) onClose();
       if (previousFocus && previousFocus.isConnected) previousFocus.focus();
     }
 
@@ -277,6 +278,7 @@
   }
 
   async function router() {
+    if (window._wizardNavigation && window._wizardNavigation() === false) return;
     if (window._enrollmentCleanup) { window._enrollmentCleanup(); window._enrollmentCleanup=null; }
     if (window._wizardCleanup) { window._wizardCleanup(); window._wizardCleanup = null; }
     const version = ++routerVersion;
@@ -1514,7 +1516,9 @@
   }
 
   function bindShellEvents() {
-    qsa('[data-nav]').forEach((btn) => btn.addEventListener('click', () => {
+    qsa('[data-nav]').filter(btn => !btn.dataset.navBound).forEach((btn) => {
+      btn.dataset.navBound = '1';
+      btn.addEventListener('click', () => {
       const sidebar = qs('#sidebar');
       const backdrop = qs('#sidebar-backdrop');
       if (sidebar && backdrop && sidebar.classList.contains('open')) {
@@ -1523,7 +1527,8 @@
         qs('#sidebar-toggle').setAttribute('aria-expanded', 'false');
       }
       navigate(btn.getAttribute('data-nav'));
-    }));
+      });
+    });
 
     const sidebarToggle = qs('#sidebar-toggle');
     const sidebar = qs('#sidebar');
@@ -1566,11 +1571,14 @@
     }
 
     const logoutBtn = qs('#logout-btn');
-    logoutBtn && logoutBtn.addEventListener('click', async () => {
+    if (logoutBtn && !logoutBtn.dataset.bound) {
+    logoutBtn.dataset.bound = '1';
+    logoutBtn.addEventListener('click', async () => {
       await api('/auth/logout', { method: 'POST' });
       state.user = null;
       navigate('#/login');
     });
+    }
     const bellBtn = qs('#bell-btn');
     const notifPanel = qs('#notif-panel');
     // bindShellEvents() se llama dos veces por render (una vez en viewApp al armar
@@ -3055,7 +3063,7 @@
       container.innerHTML=`
         <div class="page-head"><div><h2>Inscripciones</h2><div class="sub">${tutor?'Consulta el progreso y las siguientes acciones de tus solicitudes.':'Revisión y seguimiento de solicitudes autorizadas.'}</div></div>${tutor?'<button class="btn btn-primary" data-nav="#/app/inscripciones/nueva">Nueva inscripción</button>':''}</div>
         <div id="enrollment-update" role="status"></div>
-        ${tutor?`<details class="card" style="margin-bottom:16px"><summary>Mis estudiantes (${studentsData.students.length})</summary><p>${studentsData.students.map(s=>escapeHtml(s.nombre)).join(' · ') || 'Aún no tienes estudiantes. Puedes registrarlo en Nueva inscripción.'}</p><button class="btn btn-secondary" data-nav="#/app/inscripciones/estudiante-nuevo">Agregar estudiante</button></details>`:''}
+        ${tutor?`<section class="students-panel table-card" aria-labelledby="students-title"><div class="students-head"><h3 id="students-title">Mis estudiantes <span class="pill">${studentsData.students.length}</span></h3><button class="btn btn-secondary" data-nav="#/app/inscripciones/estudiante-nuevo">Agregar estudiante</button></div><div class="students-grid">${studentsData.students.map(s=>`<article class="student-card"><span class="student-avatar" aria-hidden="true">${escapeHtml(s.nombre.split(/\s+/).slice(0,2).map(n=>n[0]).join(''))}</span><div><h4>${escapeHtml(s.nombre)}</h4><p>Fecha de nacimiento: ${escapeHtml(s.fechaNacimiento || 'Sin registrar')}</p></div></article>`).join('') || '<p class="empty-state">Aún no tienes estudiantes. Agrega uno para iniciar una inscripción.</p>'}</div></section>`:''}
         <form class="filters" id="enrollment-filters">
           <label>Buscar<input name="q" value="${escapeHtml(query.q || '')}" placeholder="Referencia, estudiante o institución"></label>
           <label>Estado<select name="estado">${option('Todos','Todos',query.estado || 'Todos')}${ENROLLMENT_STATES.map(s=>option(s,s,query.estado)).join('')}</select></label>
@@ -3072,11 +3080,25 @@
       qs('#enrollment-filters').addEventListener('submit',event=>{event.preventDefault();apply();});
       qs('#enrollment-clear').onclick=()=>navigate('#/app/inscripciones');
       qs('#enrollment-prev').onclick=()=>apply(page-1);qs('#enrollment-next').onclick=()=>apply(page+1);
-      watchEnrollments(()=>{
-        if(!container.isConnected || renderVersion!==enrollmentRenderVersion)return;
-        const notice=qs('#enrollment-update',container);notice.innerHTML='<p class="notice">Puede haber actualizaciones en las solicitudes. <button class="btn btn-secondary" id="refresh-enrollments">Actualizar listado</button></p>';
-        qs('#refresh-enrollments',notice).onclick=()=>renderInscripciones(query);
-      });
+      const signature = value => JSON.stringify(value);
+      const baseline = signature(data);
+      let checking = false, checkAgain = false;
+      const checkUpdates = async()=>{
+        if(checking) { checkAgain = true; return; }
+        if( !container.isConnected || renderVersion!==enrollmentRenderVersion)return;
+        checking = true;
+        try {
+          const fresh = await api('/enrollments?'+params);
+          if(!container.isConnected || renderVersion!==enrollmentRenderVersion)return;
+          const notice=qs('#enrollment-update',container);
+          if(signature(fresh)===baseline) { notice.innerHTML=''; return; }
+          notice.innerHTML='<p class="notice">Hay cambios en tus solicitudes. <button class="btn btn-secondary" id="refresh-enrollments">Actualizar listado</button></p>';
+          qs('#refresh-enrollments',notice).onclick=()=>renderInscripciones(query);
+        } catch (_) {
+          // La desconexión no es evidencia de cambios. La reconexión vuelve a comprobarlos.
+        } finally { checking = false; if(checkAgain) { checkAgain=false; checkUpdates(); } }
+      };
+      watchEnrollments(checkUpdates);
     } catch(error) { if(container.isConnected && renderVersion===enrollmentRenderVersion)enrollmentError(container,error,()=>renderInscripciones(query)); }
   }
   async function renderInscripcionDetalle(id) {
@@ -3219,15 +3241,39 @@
     let broadcast = null;
     try { broadcast = new BroadcastChannel('enrollment_draft'); } catch(e) {}
 
-    window._wizardCleanup = () => { clearTimeout(timerId); clearTimeout(activityTimeout); if (warningModal) warningModal.remove(); if (broadcast) broadcast.close(); };
+    let active = true;
+    let exitPending = false;
+    let interceptor;
+    let navigationGuard;
+    const wizardHash = window.location.hash;
+    const closeChannel = () => { if (broadcast) { broadcast.close(); broadcast = null; } };
+    window._wizardCleanup = () => {
+      active = false;
+      clearTimeout(timerId); clearTimeout(activityTimeout);
+      if (warningModal) warningModal.remove();
+      closeChannel();
+      if (window._navInterceptor === interceptor) window._navInterceptor = null;
+      if (window._wizardNavigation === navigationGuard) window._wizardNavigation = null;
+    };
     const clearDraft = () => {
       draftId = null;
       localStorage.removeItem('enrollment_draft_id');
-      clearTimeout(timerId);
-      clearTimeout(activityTimeout);
-      if (broadcast) broadcast.close();
-      if (warningModal) warningModal.remove();
-      window._navInterceptor = null;
+      window._wizardCleanup?.();
+    };
+    const requestExit = pendingHash => {
+      if (exitPending || !active) return false;
+      exitPending = true;
+      showConfirmModal({title:'Confirmación', bodyHtml:'<p>Tienes una inscripción en progreso. ¿Seguro que deseas salir? Se abandonará este borrador.</p>', confirmText:'Sí, salir',
+        onClose:()=>{exitPending=false;},
+        onConfirm:async()=>{
+          await saveQueue.catch(()=>{});
+          if (draftId) await api('/drafts/'+draftId,{method:'DELETE'});
+          if (broadcast) broadcast.postMessage({type:'abandoned'});
+          clearDraft();
+          navigate(pendingHash || '#/app/inscripciones');
+        }
+      });
+      return false;
     };
 
     const handleExpire = () => {
@@ -3246,7 +3292,7 @@
 
     const scheduleChecks = () => {
       clearTimeout(timerId);
-      if (!expiresAt) return;
+      if (!active || !expiresAt) return;
       const msLeft = expiresAt - Date.now();
       const WARNING_MS = 10 * 60 * 1000;
       
@@ -3280,12 +3326,7 @@
           });
           
           warningModal.querySelector('#btn-abandon-draft').addEventListener('click', () => {
-             customConfirm('¿Seguro que deseas salir? Se abandonará este borrador.', 'Sí, salir', async () => {
-                if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
-                if (broadcast) broadcast.postMessage({ type: 'abandoned' });
-                clearDraft();
-                navigate('#/app/inscripciones');
-             });
+             requestExit('#/app/inscripciones');
           });
           
           warningModal.addEventListener('keydown', (e) => {
@@ -3317,20 +3358,23 @@
     };
 
     const reportActivity = (force = false) => {
-      if (!draftId) return;
+      if (!draftId || !active || exitPending) return;
 
       if (activityTimeout) clearTimeout(activityTimeout);
       activityTimeout = null;
       
       const send = async () => {
+        if (!active || !draftId) return;
         try {
           // Send non-file wState data
           const payload = { ...wState, documentos: [] }; 
           const res = await api('/drafts/' + draftId, { method: 'PUT', body: payload });
+          if (!active || !draftId) return;
           expiresAt = Date.now() + res.timeRemaining;
           if (broadcast) broadcast.postMessage({ type: 'activity', expiresAt });
           scheduleChecks();
         } catch(e) {
+          if (!active) return;
           if (e.message && (e.message.includes('expirado') || e.message.includes('inexistente'))) {
             handleExpire();
           } else {
@@ -3381,15 +3425,18 @@
        }
     }
 
-    window._navInterceptor = (pendingHash) => {
-      customConfirm('Tienes una inscripción en progreso. ¿Seguro que deseas salir? Se abandonará este borrador.', 'Sí, salir', async () => {
-        if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
-        if (broadcast) broadcast.postMessage({ type: 'abandoned' });
-        clearDraft();
-        if (pendingHash) navigate(pendingHash);
-      });
-      return false;
-    };
+    interceptor = requestExit;
+    if (active) {
+      window._navInterceptor = interceptor;
+      navigationGuard = () => {
+        if (window.location.hash === wizardHash) return true;
+        const target = window.location.hash;
+        history.replaceState(null, '', wizardHash);
+        requestExit(target);
+        return false;
+      };
+      window._wizardNavigation = navigationGuard;
+    }
 
     async function fetchConfigAndCheck() {
       if (!wState.institucionId) return;
@@ -3409,6 +3456,7 @@
     }
 
     async function renderStep() {
+       if (!active) return;
        let html = '';
        const steps = ['Estudiante', 'Tutor', 'Institución', 'Documentos', 'Revisión'];
        const stepperHtml = `
@@ -3633,12 +3681,7 @@
          btnBack.addEventListener('click', async () => {
            reportActivity(true);
            if (wState.step === 1) {
-             customConfirm('¿Seguro que deseas salir? Se abandonará este borrador.', 'Sí, salir', async () => {
-               if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
-               if (broadcast) broadcast.postMessage({ type: 'abandoned' });
-               clearDraft();
-               navigate('#/app/inscripciones');
-             });
+             requestExit('#/app/inscripciones');
            } else {
              await advanceStep(wState.step - 1);
            }

@@ -70,8 +70,18 @@ Se reprodujo en una copia de `0306921` la aceptación legacy sin revisión ni do
 
 ## Resultados ejecutados
 
-- F5.4: 16 escenarios aprobados (17 entradas contando la suite), incluidos navegador, peticiones concurrentes, doble clic y fallo de guardado inyectado.
+- F5.4: 18 escenarios aprobados (19 entradas contando la suite), incluidos navegador, peticiones concurrentes, doble clic y fallo de guardado inyectado.
 - F5.1–F5.3: 18 escenarios aprobados; autenticación: 24 escenarios aprobados, incluido reinicio real.
 - Matriz F2: 22 comprobaciones aprobadas; smoke: 18/18.
 - Capturas revisadas de detalle en escritorio claro y móvil oscuro. No equivale a una auditoría WCAG completa.
 - Los hashes de `data/db.json` y `test_puppeteer.js` siguen siendo idénticos a los anteriores a la implementación.
+
+## Ajustes de navegación y presentación
+
+Los botones del shell registran su navegación una sola vez, incluso al cambiar de etapa. El wizard mantiene una única confirmación, restaura la ruta al cancelar un cambio de URL y espera los guardados pendientes antes de abandonar. Un error al abandonar conserva el formulario para reintentar; al desmontarse, elimina sus interceptores y cierra y descarta el canal para que las respuestas pendientes no lo reutilicen.
+
+El listado compara los datos recibidos con los mostrados antes de anunciar actualizaciones. Abrir la conexión, recuperar el foco o una desconexión no generan por sí solos avisos de cambios. Los estudiantes se presentan en tarjetas con nombre, iniciales y fecha de nacimiento, adaptadas al tema y al ancho móvil.
+
+Verificación adicional: las cinco etapas permiten cancelar sin abandonar, muestran una sola confirmación y liberan sus manejadores tras salir. Se prueban también cambio directo de ruta, fallo y reintento del abandono, recuperación de foco sin cambios y aviso tras una modificación real. Las tres suites de navegador pasaron con bases aisladas. Se revisaron capturas de estudiantes del servidor real 3107 en escritorio y móvil oscuro.
+
+Para pruebas manuales se abrió únicamente en la base temporal del servidor 3107 el Colegio San Rafael, ciclo 2026–2027, inscripción y documentos del 1 de octubre al 31 de diciembre de 2026, con límite de 20 cupos de 1ro de Primaria. Esa configuración de demostración no está incluida en el repositorio ni modifica el archivo pendiente data/db.json.

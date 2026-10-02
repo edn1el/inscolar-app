@@ -69,6 +69,36 @@ test('F5.4: servicio y recorridos reales de inscripción', {timeout:180000},asyn
    await personal.evaluate(id=>location.hash='#/app/inscripciones/'+id+'/detalle',id);await expect(personal.locator('[data-enrollment-action=aceptar]')).toBeEnabled();await personal.locator('[data-enrollment-action=aceptar]').click();await expect(personal.getByRole('dialog')).toContainText('Aspirante recorrido completo');await personal.locator('#mod-confirm').evaluate(b=>{b.click();b.click();});await expect(personal.locator('.enrollment-state')).toContainText('Aceptada');
    await page.evaluate(id=>location.hash='#/app/inscripciones/'+id+'/detalle',id);await expect(page.locator('.enrollment-state')).toContainText('Aceptada');await expect(page.locator('.enrollment-history')).toContainText('Correcciones enviadas');const saved=await(await tutor.get('/api/enrollments/'+id)).json();assert.equal(saved.historial.filter(h=>h.accion==='Inscripción aceptada').length,1);assert.equal(saved.enrollment.disponibilidad.disponibles,0);if(process.env.F54_SCREENSHOTS){await personal.screenshot({path:path.join(process.env.F54_SCREENSHOTS,'personal-aceptada.png'),fullPage:true,animations:'disabled'});await page.screenshot({path:path.join(process.env.F54_SCREENSHOTS,'tutor-aceptada.png'),fullPage:true,animations:'disabled'});}assert.deepEqual(tutorUI.errors,[]);assert.deepEqual(staffUI.errors,[]);
   });
+  await t.test('estudiantes y aviso solo ante cambios reales, también al recuperar foco',async()=>{
+   fixture('ui-list-update',{createdAt:'2026-12-01T00:00:00Z'});const {page,errors}=await pageFor('u002',{viewport:{width:375,height:812},colorScheme:'dark'});
+   await page.evaluate(()=>location.hash='#/app/inscripciones');await expect(page.locator('.student-card').first()).toBeVisible();
+   const checked=page.waitForResponse(r=>r.url().includes('/api/enrollments?'));
+   await page.evaluate(()=>window.dispatchEvent(new Event('focus')));await checked;
+   await expect(page.locator('#enrollment-update')).toBeEmpty();
+   assert.equal(await page.locator('.student-card').count(),db.students.filter(s=>s.tutorId==='u002').length+1);
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),375);
+   await mutate(staff,'ui-list-update','revisar');await expect(page.locator('#enrollment-update')).toContainText('Hay cambios');
+   await page.locator('#refresh-enrollments').click();await expect(page.locator('#enrollment-update')).toBeEmpty();
+   assert.deepEqual(errors,[]);
+  });
+  await t.test('una sola confirmación en las cinco etapas; cancelar conserva y salir limpia el wizard',async()=>{
+   const {page,errors}=await pageFor('u002');
+   await page.evaluate(()=>location.hash='#/app/inscripciones/nueva?inst=i001');
+   await page.locator('#student-sel').selectOption('new');await page.locator('[name=new_nombre]').fill('Borrador navegación');await page.locator('[name=new_fecha]').fill('2015-01-01');
+   for(let step=1;step<=5;step++){
+    await page.locator('#sidebar [data-nav="\#/app/citas"]').click();
+    await expect(page.getByRole('dialog')).toHaveCount(1);assert.ok(page.url().includes('/inscripciones/nueva'));
+    await page.locator('#mod-cancel').click();await expect(page.getByRole('dialog')).toHaveCount(0);
+    if(step<=2){if(step===2)await page.locator('[name=tutorPhone]').fill('8095550123');await page.locator('#step-form button[type=submit]').click();}
+    if(step===3){await page.locator('[name=gradoSolicitado]').selectOption('1ro de Primaria');await page.locator('[name=cicloEscolar]').selectOption('2026-2027');await page.locator('#btn-next-3').click();}
+    if(step===4){await page.locator('#file-0').setInputFiles({name:'acta.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\nacta\n%%EOF')});await page.locator('#btn-next-4').click();}
+   }
+   await page.evaluate(()=>location.hash='#/app/citas');await expect(page.getByRole('dialog')).toHaveCount(1);assert.ok(page.url().includes('/inscripciones/nueva'));await page.locator('#mod-cancel').click();await expect(page.locator('#btn-submit-final')).toBeVisible();
+   await page.route('**/api/drafts/*',async r=>{if(r.request().method()==='DELETE')await r.fulfill({status:500,contentType:'application/json',body:'{"error":"No se pudo abandonar"}'});else await r.continue();});
+   await page.locator('#sidebar [data-nav="\#/app/citas"]').click();await page.locator('#mod-confirm').click();await expect(page.getByRole('dialog')).toHaveCount(1);await expect(page.locator('#mod-confirm')).toBeEnabled();assert.ok(page.url().includes('/inscripciones/nueva'));
+   await page.unroute('**/api/drafts/*');await page.locator('#mod-confirm').click();await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('.main h2')).toHaveText('Citas');
+   await page.locator('#sidebar [data-nav="\#/app/inscripciones"]').click();await expect(page.locator('.main h2')).toHaveText('Inscripciones');await expect(page.getByRole('dialog')).toHaveCount(0);assert.deepEqual(errors,[]);
+  });
   await t.test('otra sesión invalida acciones y foco correcto al cancelar el modal',async()=>{fixture('ui-stale');const {page,errors}=await pageFor('u003');await page.evaluate(()=>location.hash='#/app/inscripciones/ui-stale/detalle');await page.locator('[data-enrollment-action=rechazar]').click();await page.keyboard.press('Escape');await expect(page.locator('[data-enrollment-action=rechazar]')).toBeFocused();await mutate(admin,'ui-stale','revisar');// El aviso llega por SSE desde otra sesión, sin recargar ni esperar un intervalo.
 await expect(page.locator('#enrollment-update')).toContainText('cambió');await expect(page.locator('[data-enrollment-action=rechazar]')).toBeDisabled();await page.locator('#refresh-enrollment').click();await expect(page.locator('.enrollment-state')).toContainText('En revisión');assert.deepEqual(errors,[]);});
  } finally {
