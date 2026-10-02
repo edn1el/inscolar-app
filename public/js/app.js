@@ -3465,7 +3465,7 @@
       if (!iso) return '';
       const d = new Date(iso);
       const pad = (n) => n.toString().padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     };
 
     function renderHito(tipo, title, range, limit, occupied) {
@@ -3768,18 +3768,18 @@
 
         qs('#period-modal-container').innerHTML = `
           <div class="sidebar-backdrop visible" style="z-index:9999; display:flex; align-items:center; justify-content:center;">
-            <div class="card" style="width:480px; padding:24px; position:relative; z-index:10000; text-align:left;">
+            <div class="card" style="width:100%; max-width:480px; padding:24px; position:relative; z-index:10000; text-align:left; box-sizing:border-box; margin: 0 16px;">
               <h3 style="margin-top:0;">${range ? 'Editar' : 'Agregar'} ${title}</h3>
               <div id="hito-err"></div>
               <form id="hito-form">
                 <div class="two-col" style="margin-top:16px;">
                   <div class="field">
                     <label>Desde</label>
-                    <input type="datetime-local" name="desde" value="${toInput(range?.desde)}" required>
+                    <input type="date" name="desde" value="${toInput(range?.desde)}" required>
                   </div>
                   <div class="field">
                     <label>Hasta</label>
-                    <input type="datetime-local" name="hasta" value="${toInput(range?.hasta)}" required>
+                    <input type="date" name="hasta" value="${toInput(range?.hasta)}" required>
                   </div>
                 </div>
                 ${isCitas ? `
