@@ -737,10 +737,35 @@
     qs('#btn-location').addEventListener('click', () => {
       if ('geolocation' in navigator) {
         qs('#btn-location').textContent = '📍 Obteniendo...';
-        navigator.geolocation.getCurrentPosition((pos) => {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
           userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           qs('#btn-location').textContent = '📍 Ubicación activa';
           qs('#btn-location').classList.replace('btn-secondary', 'btn-primary');
+          
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${userCoords.lat}&lon=${userCoords.lng}`);
+            const data = await res.json();
+            if (data && data.address) {
+              const stateStr = data.address.state;
+              const cityStr = data.address.city || data.address.town || data.address.county || data.address.village;
+              
+              const pKeys = Object.keys(MUNICIPIOS);
+              const matchedProv = pKeys.find(p => stateStr && stateStr.toLowerCase().includes(p.toLowerCase()));
+              if (matchedProv) {
+                const provSelect = qs('#s-prov');
+                provSelect.value = matchedProv;
+                provSelect.dispatchEvent(new Event('change'));
+                
+                const matchedMun = MUNICIPIOS[matchedProv].find(m => cityStr && cityStr.toLowerCase().includes(m.toLowerCase()));
+                if (matchedMun) {
+                  qs('#s-mun').value = matchedMun;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Reverse geocoding falló', e);
+          }
+          
           performSearch();
         }, (err) => {
           toast('Permiso denegado. Busca manualmente.', 'err');
