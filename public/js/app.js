@@ -695,7 +695,7 @@
           });
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           if (bounds.length > 0) {
-            currentMap.fitBounds(bounds, { animate: !prefersReduced });
+            currentMap.flyToBounds(bounds, { duration: 1.5, easeLinearity: 0.25, animate: !prefersReduced });
           } else if (currentMap && qs('#map-container')) {
             qs('#map-container').insertAdjacentHTML('beforeend', '<div class="map-empty-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:var(--bg-body); opacity: 0.9; z-index:1000; display:flex; align-items:center; justify-content:center; color:var(--text-muted); text-align:center; padding:20px;">Las instituciones encontradas no tienen coordenadas registradas.</div>');
           }
@@ -736,8 +736,27 @@
 
     qs('#btn-location').addEventListener('click', () => {
       if ('geolocation' in navigator) {
+        const layout = qs('.search-layout');
+        layout.insertAdjacentHTML('beforeend', `
+          <div id="loc-loader" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); backdrop-filter:blur(4px); z-index:9999; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.3s ease;">
+            <div id="loc-loader-box" style="background:var(--bg-card); padding:20px 30px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); border:1px solid var(--border-color); text-align:center; transform:translateY(10px); transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+              <div class="spinner" style="margin:0 auto 15px auto; width:30px; height:30px; border:3px solid var(--border-color); border-top-color:var(--primary-color); border-radius:50%; animation:spin 1s linear infinite;"></div>
+              <strong style="color:var(--text-color); font-size:15px; display:block;">Detectando tu ubicación...</strong>
+              <div style="font-size:13px; color:var(--text-muted); margin-top:5px;">Por favor, acepta el permiso del navegador.</div>
+            </div>
+          </div>
+        `);
+        setTimeout(() => {
+          const l = qs('#loc-loader');
+          if (l) {
+            l.style.opacity = '1';
+            qs('#loc-loader-box').style.transform = 'translateY(0)';
+          }
+        }, 10);
+
         qs('#btn-location').textContent = '📍 Obteniendo...';
         navigator.geolocation.getCurrentPosition(async (pos) => {
+          await new Promise(r => setTimeout(r, 600)); // smooth delay
           userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           qs('#btn-location').textContent = '📍 Ubicación activa';
           qs('#btn-location').classList.replace('btn-secondary', 'btn-primary');
@@ -766,8 +785,18 @@
             console.warn('Reverse geocoding falló', e);
           }
           
+          const l = qs('#loc-loader');
+          if (l) {
+            l.style.opacity = '0';
+            setTimeout(() => l.remove(), 300);
+          }
           performSearch();
         }, (err) => {
+          const l = qs('#loc-loader');
+          if (l) {
+            l.style.opacity = '0';
+            setTimeout(() => l.remove(), 300);
+          }
           toast('Permiso denegado. Busca manualmente.', 'err');
           qs('#btn-location').textContent = '📍 Usar mi ubicación';
         });
