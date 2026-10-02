@@ -30,7 +30,7 @@ function sweepAbandonedEnrollments(db) {
       e.estado = 'Abandonada';
       e.decidedAt = new Date().toISOString();
       e.decidedBy = null;
-      logEvent(db, { actor: null, accion: 'Inscripción abandonada por inactividad', entidad: 'Inscripción', entidadId: e.id, detalle: `Ciclo ${e.cicloEscolar} · ${DIAS_INACTIVIDAD_ABANDONO} días sin respuesta` });
+      logEvent(db, { actor: null, accion: 'Inscripción abandonada por inactividad', entidad: 'Inscripción', entidadId: e.id, detalle: `Ciclo ${e.cicloEscolar} · ${DIAS_INACTIVIDAD_ABANDONO} días sin respuesta`, antes: { estado: 'Pendiente' }, despues: { estado: 'Abandonada' } });
       const tutor = db.users.find((t) => t.id === e.tutorId);
       if (tutor) {
         const student = db.students.find((s) => s.id === e.studentId);
@@ -158,7 +158,7 @@ router.post('/enrollments', (req, res) => {
     decidedBy: null,
   };
   db.enrollments.push(enrollment);
-  logEvent(db, { actor: u, accion: 'Inscripción creada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: `${institucion.nombre} · ${gradoSolicitado}` });
+  logEvent(db, { actor: u, accion: 'Inscripción creada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: `${institucion.nombre} · ${gradoSolicitado}`, datos: { institucionId: institucion.id, institucion: institucion.nombre, estudiante: enrollment.estudianteNombre, gradoSolicitado, cicloEscolar: enrollment.cicloEscolar, estado: enrollment.estado } });
   save(db);
   res.json({ enrollment: publicEnrollment(enrollment, db) });
 });
@@ -182,7 +182,7 @@ router.post('/enrollments/:id/decidir', (req, res) => {
   enrollment.motivoRechazo = estado === 'Rechazada' ? motivo.trim() : '';
   enrollment.decidedAt = new Date().toISOString();
   enrollment.decidedBy = u.id;
-  logEvent(db, { actor: u, accion: estado === 'Aprobada' ? 'Inscripción aprobada' : 'Inscripción rechazada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: estado === 'Rechazada' ? enrollment.motivoRechazo : '' });
+  logEvent(db, { actor: u, accion: estado === 'Aprobada' ? 'Inscripción aprobada' : 'Inscripción rechazada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: estado === 'Rechazada' ? enrollment.motivoRechazo : '', antes: { estado: 'Pendiente' }, despues: { estado }, datos: estado === 'Rechazada' ? { motivo: enrollment.motivoRechazo } : undefined });
 
   const tutor = db.users.find((t) => t.id === enrollment.tutorId);
   if (tutor) {
@@ -209,7 +209,7 @@ router.post('/enrollments/:id/cancelar', (req, res) => {
   if (enrollment.tutorId !== u.id) return res.status(403).json({ error: 'No tienes permiso para cancelar esta solicitud.' });
   if (enrollment.estado !== 'Pendiente') return res.status(400).json({ error: 'Solo se puede cancelar una solicitud pendiente.' });
 
-  logEvent(db, { actor: u, accion: 'Inscripción cancelada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: `Ciclo ${enrollment.cicloEscolar}` });
+  logEvent(db, { actor: u, accion: 'Inscripción cancelada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: `Ciclo ${enrollment.cicloEscolar}`, antes: { estado: 'Pendiente' }, despues: { estado: 'Cancelada por el tutor' }, datos: { institucionId: enrollment.institucionId, estudiante: enrollment.estudianteNombre } });
   db.enrollments = db.enrollments.filter((e) => e.id !== enrollment.id);
   save(db);
   res.json({ status: 'ok' });

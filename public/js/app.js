@@ -4149,15 +4149,16 @@
       </div>
       <div class="table-card dense">
         <table>
-          <thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Detalle</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Detalle</th><th>Evento</th></tr></thead>
           <tbody>
             ${logs.length ? logs.map((l) => `<tr>
                 <td>${fmtDate(l.fecha)}</td>
                 <td>${escapeHtml(l.actorNombre || 'Sistema')}</td>
                 <td>${escapeHtml(l.actorRole || '—')}</td>
                 <td>${escapeHtml(l.accion)}</td>
-                <td>${escapeHtml(l.detalle || '')}</td>
-              </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state">No hay registros que coincidan con los filtros.</div></td></tr>`}
+                <td>${escapeHtml(l.detalle || '')}${l.motivo ? `<div class="help">Motivo: ${escapeHtml(l.motivo)}</div>` : ''}</td>
+                <td><span class="actions-cell"><button class="neutral" data-log="${escapeHtml(l.id)}">Ver detalle</button></span></td>
+              </tr>`).join('') : `<tr><td colspan="6"><div class="empty-state">No hay registros que coincidan con los filtros.</div></td></tr>`}
           </tbody>
         </table>
         <div class="table-footer"><span>Mostrando ${logs.length} de ${total} registros${truncated ? ' (limitado a los más recientes)' : ''}</span></div>
@@ -4179,5 +4180,53 @@
     qs('#f-actor').addEventListener('change', applyFilters);
     qs('#f-desde').addEventListener('change', applyFilters);
     qs('#f-hasta').addEventListener('change', applyFilters);
+    qsa('[data-log]').forEach((b) => b.addEventListener('click', () => {
+      const l = logs.find((x) => x.id === b.dataset.log);
+      if (l) abrirDetalleAuditoria(l);
+    }));
+  }
+
+  // Navegador legible a partir del User-Agent ("Chrome en Windows").
+  function navegadorLegible(ua) {
+    if (!ua) return null;
+    const has = (t) => ua.includes(t);
+    const nav = has('Edg/') ? 'Edge' : has('OPR/') ? 'Opera' : has('Chrome/') ? 'Chrome' : has('Firefox/') ? 'Firefox' : has('Safari/') ? 'Safari' : /curl|node|axios/i.test(ua) ? 'Cliente de API' : 'Otro navegador';
+    const so = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Mac OS/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+    return so ? nav + ' en ' + so : nav;
+  }
+
+  // HU129: detalle completo de un evento de la bitácora.
+  function abrirDetalleAuditoria(l) {
+    const valor = (v) => (v === null || v === undefined || v === '' ? '<span class="help">—</span>' : escapeHtml(typeof v === 'object' ? JSON.stringify(v) : String(v)));
+    const sinDato = '<span class="help">No registrado (evento anterior a esta mejora)</span>';
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = `
+      <div class="modal audit-modal" role="dialog" aria-modal="true" aria-labelledby="audit-title">
+        <h3 id="audit-title">${escapeHtml(l.accion)}</h3>
+        <p class="audit-when">${fmtDate(l.fecha)} · <span class="mono">${escapeHtml(l.fecha)}</span> (UTC)</p>
+        <dl class="audit-facts">
+          <div><dt>Usuario</dt><dd>${escapeHtml(l.actorNombre || 'Sistema')}${l.actorRole ? ' · ' + escapeHtml(l.actorRole) : ''}</dd></div>
+          <div><dt>Entidad</dt><dd>${l.entidad ? escapeHtml(l.entidad) + (l.entidadId ? ' · <span class="mono">' + escapeHtml(l.entidadId) + '</span>' : '') : '—'}</dd></div>
+          <div><dt>Dirección IP</dt><dd>${l.ip ? '<span class="mono">' + escapeHtml(l.ip) + '</span>' : sinDato}</dd></div>
+          <div><dt>Navegador</dt><dd>${l.userAgent ? escapeHtml(navegadorLegible(l.userAgent)) + '<div class="help mono audit-ua">' + escapeHtml(l.userAgent) + '</div>' : sinDato}</dd></div>
+          ${l.detalle ? `<div class="wide"><dt>Detalle</dt><dd>${escapeHtml(l.detalle)}</dd></div>` : ''}
+          ${l.motivo ? `<div class="wide"><dt>Motivo</dt><dd>${escapeHtml(l.motivo)}</dd></div>` : ''}
+        </dl>
+        ${l.cambios && l.cambios.length ? `
+          <h4>Cambios (antes → después)</h4>
+          <div class="audit-changes"><table><thead><tr><th>Campo</th><th>Antes</th><th>Después</th></tr></thead><tbody>
+            ${l.cambios.map((c) => `<tr><td>${escapeHtml(c.campo)}</td><td>${valor(c.antes)}</td><td>${valor(c.despues)}</td></tr>`).join('')}
+          </tbody></table></div>` : ''}
+        ${l.datos ? `<h4>Datos del evento (JSON)</h4><pre class="audit-json">${escapeHtml(JSON.stringify(l.datos, null, 2))}</pre>` : ''}
+        <div class="modal-actions"><button type="button" class="btn btn-ghost" id="audit-close">Cerrar</button></div>
+      </div>`;
+    document.body.appendChild(backdrop);
+    const close = () => { backdrop.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+    qs('#audit-close', backdrop).addEventListener('click', close);
+    qs('#audit-close', backdrop).focus();
   }
 })();

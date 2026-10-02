@@ -114,7 +114,7 @@ router.post('/enrollments/:id/documents', (req, res, next) => {
     decidedBy: null,
   };
   db.documents.push(document);
-  logEvent(db, { actor: u, accion: 'Documento subido', entidad: 'Documento', entidadId: document.id, detalle: `${document.tipoDocumento} — ${document.nombreArchivo}` });
+  logEvent(db, { actor: u, accion: 'Documento subido', entidad: 'Documento', entidadId: document.id, detalle: `${document.tipoDocumento} — ${document.nombreArchivo}`, datos: { inscripcionId: document.enrollmentId, tipoDocumento: document.tipoDocumento, archivo: document.nombreArchivo, tamanoBytes: document.size, formato: document.mimeType } });
   save(db);
   res.json({ document: publicDocument(document) });
 });
@@ -156,7 +156,7 @@ router.post('/documents/:id/decidir', (req, res) => {
   document.motivoRechazo = estado === 'Rechazado' ? motivo.trim() : '';
   document.decidedAt = new Date().toISOString();
   document.decidedBy = u.id;
-  logEvent(db, { actor: u, accion: estado === 'Aceptado' ? 'Documento aceptado' : 'Documento rechazado', entidad: 'Documento', entidadId: document.id, detalle: estado === 'Rechazado' ? document.motivoRechazo : document.tipoDocumento });
+  logEvent(db, { actor: u, accion: estado === 'Aceptado' ? 'Documento aceptado' : 'Documento rechazado', entidad: 'Documento', entidadId: document.id, detalle: estado === 'Rechazado' ? document.motivoRechazo : document.tipoDocumento, antes: { estado: 'Pendiente' }, despues: { estado }, datos: { inscripcionId: document.enrollmentId, tipoDocumento: document.tipoDocumento, motivo: estado === 'Rechazado' ? document.motivoRechazo : undefined } });
 
   const tutor = db.users.find((t) => t.id === document.tutorId);
   if (tutor) {

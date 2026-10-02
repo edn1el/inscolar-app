@@ -1,6 +1,7 @@
 const express = require('express');
 const { save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
+const { logEvent } = require('../lib/audit');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -66,11 +67,12 @@ router.post('/institutions/:id/ratings', (req, res) => {
 
   let rating = db.ratings.find((r) => r.institucionId === institucion.id && r.tutorId === u.id);
   if (rating) {
+    const antes = { estrellas: rating.estrellas, comentario: rating.comentario };
     rating.estrellas = n;
     rating.comentario = (comentario || '').trim();
     rating.updatedAt = new Date().toISOString();
-    // PENDIENTE (Auditoría): Registrar evento 'EdicionCalificacionInstitucion' (Audit.NET no integrado)
-    // Datos sugeridos: { usuarioId: u.id, institucionId: institucion.id, calificacionPrevia: oldEstrellas, nuevaCalificacion: n }
+    // HU109: la edición queda como evento nuevo con la puntuación anterior y la nueva.
+    logEvent(db, { actor: u, accion: 'Calificación modificada', entidad: 'Calificación', entidadId: rating.id, detalle: `${institucion.nombre}: ${antes.estrellas} → ${n} estrellas`, antes, despues: { estrellas: rating.estrellas, comentario: rating.comentario }, datos: { institucionId: institucion.id, institucion: institucion.nombre } });
   } else {
     rating = {
       id: nextId(db.ratings, 'r'),
@@ -83,8 +85,7 @@ router.post('/institutions/:id/ratings', (req, res) => {
       updatedAt: null,
     };
     db.ratings.push(rating);
-    // PENDIENTE (Auditoría): Registrar evento 'CreacionCalificacionInstitucion' (Audit.NET no integrado)
-    // Datos sugeridos: { usuarioId: u.id, institucionId: institucion.id, calificacion: n }
+    logEvent(db, { actor: u, accion: 'Calificación registrada', entidad: 'Calificación', entidadId: rating.id, detalle: `${institucion.nombre}: ${n} estrellas`, datos: { institucionId: institucion.id, institucion: institucion.nombre, estrellas: n, conComentario: !!rating.comentario } });
   }
   save(db);
   res.json({ rating: publicRating(rating) });
@@ -133,6 +134,7 @@ router.post('/institutions/:id/reports', (req, res) => {
     createdAt: new Date().toISOString(),
   };
   db.reports.push(report);
+  logEvent(db, { actor: u, accion: 'Reporte enviado', entidad: 'Reporte', entidadId: report.id, detalle: `${institucion.nombre}: ${motivo}`, datos: { institucionId: institucion.id, institucion: institucion.nombre, motivo, estado: report.estado } });
   save(db);
   res.json({ report: publicReport(report) });
 });

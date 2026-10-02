@@ -8,7 +8,8 @@ const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdminOnly, requireAdminOrSupport, requireCanManageRole, ROLES_QUE_SOPORTE_PUEDE_GESTIONAR } = require('../lib/middleware');
 const { notifyAdmins } = require('../lib/notify');
 const { sendMail } = require('../lib/mailer');
-const { logEvent } = require('../lib/audit');
+const { logEvent, instantanea } = require('../lib/audit');
+const CAMPOS_USUARIO = ['nombre', 'email', 'role', 'estado', 'institucionId', 'telefonoFijo', 'telefonoMovil', 'sexo'];
 const { isEmail, passwordRules, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 
 const router = express.Router();
@@ -60,9 +61,11 @@ router.put('/me/profile', (req, res) => {
   if (telefonoMovil && !isPhoneDigits(telefonoMovil, 10)) errors.push('El teléfono móvil debe contener exactamente 10 dígitos.');
   if (errors.length) return res.status(400).json({ errors });
 
+  const antes = instantanea(user, CAMPOS_USUARIO);
   if (telefonoFijo !== undefined) user.telefonoFijo = telefonoFijo ? formatPhoneDO(telefonoFijo) : '';
   if (telefonoMovil !== undefined) user.telefonoMovil = telefonoMovil ? formatPhoneDO(telefonoMovil) : '';
   if (sexo) user.sexo = sexo;
+  logEvent(db, { actor: user, accion: 'Usuario modificado', entidad: 'Usuario', entidadId: user.id, detalle: 'Desde Mi perfil', antes, despues: instantanea(user, CAMPOS_USUARIO) });
   save(db);
   res.json({ user: publicUser(user, db) });
 });
@@ -84,6 +87,7 @@ router.post('/me/password', (req, res) => {
 
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  logEvent(db, { actor: user, accion: 'Contraseña cambiada', entidad: 'Usuario', entidadId: user.id, detalle: 'Desde Seguridad', datos: { origen: 'El propio usuario' } });
   save(db);
   res.json({ status: 'ok' });
 });
@@ -256,7 +260,7 @@ router.post('/', requireAdminOrSupport, (req, res) => {
     lastAccess: null,
   };
   db.users.push(user);
-  logEvent(db, { actor: req.currentUser, accion: 'Usuario creado', entidad: 'Usuario', entidadId: user.id, detalle: `${user.nombre} (${user.role})` });
+  logEvent(db, { actor: req.currentUser, accion: 'Usuario creado', entidad: 'Usuario', entidadId: user.id, detalle: `${user.nombre} (${user.role})`, datos: instantanea(user, CAMPOS_USUARIO) });
   save(db);
   res.json({ user: publicUser(user, db), emailStatus: 'pendiente de envío (simulado en demo)', devTempPassword: tempPassword });
 });
@@ -282,11 +286,13 @@ router.put('/:id', requireAdminOrSupport, (req, res) => {
   if (email && db.users.some((u) => u.id !== user.id && u.email.toLowerCase() === String(email).toLowerCase())) {
     errors.push('Este correo ya está en uso por otro usuario.');
   }
+  if (errors.length) return res.status(400).json({ errors });
+  const antes = instantanea(user, CAMPOS_USUARIO);
   if (nombre) user.nombre = nombre.trim();
   if (email) user.email = email.trim().toLowerCase();
   if (institucionId !== undefined) user.institucionId = user.role === 'Personal de institución' ? institucionId : null;
   const camposEditados = [nombre && 'nombre', email && 'correo', institucionId !== undefined && 'institución'].filter(Boolean);
-  logEvent(db, { actor: req.currentUser, accion: 'Usuario modificado', entidad: 'Usuario', entidadId: user.id, detalle: camposEditados.length ? `Campos: ${camposEditados.join(', ')}` : '' });
+  logEvent(db, { actor: req.currentUser, accion: 'Usuario modificado', entidad: 'Usuario', entidadId: user.id, detalle: camposEditados.length ? `Campos: ${camposEditados.join(', ')}` : '', antes, despues: instantanea(user, CAMPOS_USUARIO) });
   save(db);
 
   res.json({ user: publicUser(user, db) });
@@ -312,7 +318,7 @@ router.post('/:id/toggle-estado', requireAdminOnly, (req, res) => {
 
   const prev = user.estado;
   user.estado = prev === 'Activo' ? 'Inactivo' : 'Activo';
-  logEvent(db, { actor: req.currentUser, accion: user.estado === 'Activo' ? 'Usuario activado' : 'Usuario desactivado', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
+  logEvent(db, { actor: req.currentUser, accion: user.estado === 'Activo' ? 'Usuario activado' : 'Usuario desactivado', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre, antes: { estado: prev }, despues: { estado: user.estado }, datos: { usuarioAfectado: user.email, rol: user.role } });
   save(db);
   if (user.role === 'Administrador') {
     notifyAdmins(db, { affectedUser: user, campo: 'Estado', anterior: prev, nuevo: user.estado, actor: req.currentUser });
@@ -334,7 +340,7 @@ router.post('/:id/reset-password', requireAdminOrSupport, (req, res) => {
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(tempPassword, 10);
   user.mustChangePassword = true;
-  logEvent(db, { actor: req.currentUser, accion: 'Contraseña de usuario restablecida', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre });
+  logEvent(db, { actor: req.currentUser, accion: 'Contraseña de usuario restablecida', entidad: 'Usuario', entidadId: user.id, detalle: user.nombre, datos: { usuarioAfectado: user.email, rol: user.role, debeCambiarAlEntrar: true } });
   save(db);
   if (user.role === 'Administrador') {
     notifyAdmins(db, { affectedUser: user, campo: 'Contraseña restablecida', actor: req.currentUser });

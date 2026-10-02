@@ -154,6 +154,15 @@ Este es el bloque más grande (37 historias) y el más "todo o nada": es esencia
 
 Actualizado 2026-09-01 (Fase 8): el envío de correos (HU062/HU094) ya está implementado — ver `lib/mailer.js`. La cuenta de prueba de Auditoría (`p.lluberes@inscolar.do`) sigue marcada **Inactiva** en los datos reales — Ed decide si la activa para probar la pantalla él mismo.
 
+**Actualizado 2026-10-02 — auditoría completada contra los criterios de Azure:**
+
+- **Eventos que faltaban:** cambio de contraseña (HU101), calificaciones registradas y modificadas (HU109), reportes enviados (HU110), cita modificada cuando se ajusta la hora (HU119), y un evento específico por cambio de periodo de inscripción, periodo de documentos, periodo de citas, límite de citas y documentos requeridos (HU123-HU125). También se registran los correos enviados y sus errores (HU126-HU127).
+- **Datos de cada evento (HU096-HU104):** dirección IP y navegador (User-Agent) de la petición, capturados con un middleware (`auditContext`, equivalente al Custom Data Provider de Audit.NET); estado anterior y nuevo campo por campo (Target.Old / Target.New); datos del evento en JSON; motivo del fallo en los intentos de inicio de sesión, que ya no se atribuyen al usuario sino al identificador intentado.
+- **Datos sensibles:** contraseñas, hashes, tokens y códigos se excluyen siempre del JSON (equivalente a `[AuditIgnore]`); de los correos solo se guarda el destinatario enmascarado y el asunto, nunca el cuerpo.
+- **Tolerancia a fallos:** si registrar un evento falla, la operación principal continúa y el error queda en el log del servidor.
+- **Pantalla:** cada evento de Auditoría tiene "Ver detalle" con todo lo anterior.
+- **Fuera del alcance del prototipo:** Audit.NET, `[AuditIgnore]` y Serilog son herramientas de .NET; el prototipo en Node.js cumple el comportamiento equivalente. La escritura asíncrona con cola durable queda para el backend definitivo.
+
 ---
 
 ## Plan de fases (acordado con Ed el 2026-08-29)

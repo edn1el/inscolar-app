@@ -122,13 +122,26 @@ router.put('/institutions/:id/periods/:periodId', (req, res) => {
 
   if (errors.length) return res.status(400).json({ errors });
 
+  const antes = JSON.parse(JSON.stringify({ inscripcion: period.inscripcion || null, documentos: period.documentos || null, citas: period.citas || null, documentosRequeridos: period.documentosRequeridos || [] }));
   if (body.inscripcion !== undefined) period.inscripcion = inscripcionR.range;
   if (body.documentos !== undefined) period.documentos = documentosR.range;
   if (body.citas !== undefined) period.citas = citasR.range;
   if (documentosRequeridos !== undefined) period.documentosRequeridos = documentosRequeridos;
   period.updatedAt = new Date().toISOString();
 
-  logEvent(db, { actor: u, accion: 'Periodo de ciclo modificado', entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${period.cicloEscolar}` });
+  // HU123-HU125: cada tipo de cambio queda como su propio evento, con el valor anterior y el nuevo.
+  const detalle = `${institucion.nombre} · ciclo ${period.cicloEscolar}`;
+  const base = { actor: u, entidad: 'Periodo', entidadId: period.id, detalle, datos: { institucionId: institucion.id, cicloEscolar: period.cicloEscolar } };
+  const igual = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+  const rango = (r) => (r ? { desde: r.desde, hasta: r.hasta } : null);
+  let registrados = 0;
+  if (!igual(rango(antes.inscripcion), rango(period.inscripcion))) { logEvent(db, { ...base, accion: 'Periodo de inscripción modificado', antes: { periodo: rango(antes.inscripcion) }, despues: { periodo: rango(period.inscripcion) } }); registrados++; }
+  if (!igual(rango(antes.documentos), rango(period.documentos))) { logEvent(db, { ...base, accion: 'Periodo de envío de documentos modificado', antes: { periodo: rango(antes.documentos) }, despues: { periodo: rango(period.documentos) } }); registrados++; }
+  if (!igual(rango(antes.citas), rango(period.citas))) { logEvent(db, { ...base, accion: 'Periodo para agendar citas modificado', antes: { periodo: rango(antes.citas) }, despues: { periodo: rango(period.citas) } }); registrados++; }
+  const limite = (c) => (c && c.limiteCitas) || null;
+  if (limite(antes.citas) !== limite(period.citas)) { logEvent(db, { ...base, accion: 'Límite de citas modificado', antes: { limiteCitas: limite(antes.citas) }, despues: { limiteCitas: limite(period.citas) } }); registrados++; }
+  if (!igual(antes.documentosRequeridos, period.documentosRequeridos || [])) { logEvent(db, { ...base, accion: 'Documentos requeridos modificados', antes: { documentosRequeridos: antes.documentosRequeridos }, despues: { documentosRequeridos: period.documentosRequeridos || [] } }); registrados++; }
+  if (!registrados) logEvent(db, { ...base, accion: 'Periodo de ciclo modificado', detalle: detalle + ' · sin cambios' });
   save(db);
   res.json({ period });
 });

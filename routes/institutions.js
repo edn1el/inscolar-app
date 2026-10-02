@@ -2,7 +2,8 @@ const express = require('express');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdmin } = require('../lib/middleware');
 const { isPhoneDigits, formatPhoneDO } = require('../lib/validate');
-const { logEvent } = require('../lib/audit');
+const { logEvent, instantanea } = require('../lib/audit');
+const CAMPOS_INSTITUCION = ['nombre', 'rnc', 'correo', 'telefono', 'direccion', 'provincia', 'municipio', 'distrito', 'tipo', 'estado', 'lat', 'lng', 'ubicacionExacta', 'logo', 'fondo'];
 const { haversineKm, dentroDeRD } = require('../lib/geo');
 
 // Punto marcado a mano en el formulario. Devuelve { lat, lng }, null (sin punto) o un error.
@@ -234,7 +235,7 @@ router.post('/', requireAuth, requireAdmin, handleUploadInstitucion, (req, res) 
     createdAt: new Date().toISOString(),
   };
   db.institutions.push(institution);
-  logEvent(db, { actor: req.currentUser, accion: 'Institución creada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre });
+  logEvent(db, { actor: req.currentUser, accion: 'Institución creada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre, datos: instantanea(institution, CAMPOS_INSTITUCION) });
   save(db);
   res.json({ institution });
 });
@@ -291,6 +292,7 @@ router.put('/:id', requireAuth, puedeEditarInstitucion, handleUploadInstitucion,
 
   if (errors.length) return res.status(400).json({ errors });
 
+  const antes = instantanea(institution, CAMPOS_INSTITUCION);
   if (nombre) institution.nombre = nombre.trim();
   if (rnc) institution.rnc = rnc;
   if (correo) institution.correo = correo.toLowerCase();
@@ -314,7 +316,7 @@ router.put('/:id', requireAuth, puedeEditarInstitucion, handleUploadInstitucion,
   institution.logo = logo;
   institution.fondo = fondo;
 
-  logEvent(db, { actor: req.currentUser, accion: 'Institución modificada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre });
+  logEvent(db, { actor: req.currentUser, accion: 'Institución modificada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre, antes, despues: instantanea(institution, CAMPOS_INSTITUCION) });
   save(db);
   res.json({ institution });
 });
@@ -323,8 +325,9 @@ router.post('/:id/toggle-estado', requireAuth, requireAdmin, (req, res) => {
   const db = req.db;
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) return res.status(404).json({ error: 'Institución no encontrada.' });
-  institution.estado = (institution.estado || 'Activo') === 'Activo' ? 'Inactivo' : 'Activo';
-  logEvent(db, { actor: req.currentUser, accion: institution.estado === 'Activo' ? 'Institución activada' : 'Institución desactivada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre });
+  const estadoAnterior = institution.estado || 'Activo';
+  institution.estado = estadoAnterior === 'Activo' ? 'Inactivo' : 'Activo';
+  logEvent(db, { actor: req.currentUser, accion: institution.estado === 'Activo' ? 'Institución activada' : 'Institución desactivada', entidad: 'Institución', entidadId: institution.id, detalle: institution.nombre, antes: { estado: estadoAnterior }, despues: { estado: institution.estado } });
   save(db);
   res.json({ institution });
 });

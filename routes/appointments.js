@@ -94,7 +94,7 @@ router.post('/appointments', (req, res) => {
     decidedBy: null,
   };
   db.appointments.push(appointment);
-  logEvent(db, { actor: u, accion: 'Cita creada', entidad: 'Cita', entidadId: appointment.id, detalle: `${institucion.nombre} · ${motivo}` });
+  logEvent(db, { actor: u, accion: 'Cita creada', entidad: 'Cita', entidadId: appointment.id, detalle: `${institucion.nombre} · ${motivo}`, datos: { institucionId: institucion.id, institucion: institucion.nombre, motivo, fechaHoraSolicitada: appointment.fechaHoraSolicitada, estado: appointment.estado } });
   save(db);
   res.json({ appointment: publicAppointment(appointment, db) });
 });
@@ -121,7 +121,11 @@ router.post('/appointments/:id/confirmar', (req, res) => {
   appointment.fechaHoraConfirmada = finalWhen;
   appointment.decidedAt = new Date().toISOString();
   appointment.decidedBy = u.id;
-  logEvent(db, { actor: u, accion: 'Cita confirmada', entidad: 'Cita', entidadId: appointment.id, detalle: '' });
+  logEvent(db, { actor: u, accion: 'Cita confirmada', entidad: 'Cita', entidadId: appointment.id, detalle: '', antes: { estado: 'Pendiente' }, despues: { estado: 'Confirmada', fechaHora: finalWhen } });
+  // HU119: si se ajustó la hora al confirmar, la modificación queda registrada aparte.
+  if (finalWhen !== appointment.fechaHoraSolicitada) {
+    logEvent(db, { actor: u, accion: 'Cita modificada', entidad: 'Cita', entidadId: appointment.id, detalle: 'Hora ajustada al confirmar', antes: { fechaHora: appointment.fechaHoraSolicitada }, despues: { fechaHora: finalWhen } });
+  }
 
   const tutorConfirm = db.users.find((t) => t.id === appointment.tutorId);
   if (tutorConfirm) {
@@ -159,7 +163,7 @@ router.post('/appointments/:id/rechazar', (req, res) => {
   appointment.motivoRechazo = motivo.trim();
   appointment.decidedAt = new Date().toISOString();
   appointment.decidedBy = u.id;
-  logEvent(db, { actor: u, accion: 'Cita rechazada', entidad: 'Cita', entidadId: appointment.id, detalle: appointment.motivoRechazo });
+  logEvent(db, { actor: u, accion: 'Cita rechazada', entidad: 'Cita', entidadId: appointment.id, detalle: appointment.motivoRechazo, antes: { estado: 'Pendiente' }, despues: { estado: 'Rechazada' }, datos: { motivo: appointment.motivoRechazo } });
 
   const tutorReject = db.users.find((t) => t.id === appointment.tutorId);
   if (tutorReject) {
@@ -199,7 +203,7 @@ router.post('/appointments/:id/cancelar', (req, res) => {
   appointment.motivoCancelacion = (motivo || '').trim();
   appointment.decidedAt = new Date().toISOString();
   appointment.decidedBy = u.id;
-  logEvent(db, { actor: u, accion: 'Cita cancelada', entidad: 'Cita', entidadId: appointment.id, detalle: appointment.motivoCancelacion });
+  logEvent(db, { actor: u, accion: 'Cita cancelada', entidad: 'Cita', entidadId: appointment.id, detalle: appointment.motivoCancelacion, antes: { estado: estadoAnterior }, despues: { estado: 'Cancelada' }, datos: { motivo: appointment.motivoCancelacion || null, canceladaPorElTutor: isOwner } });
 
   // Si fue el propio tutor quien cancelo, no hace falta notificarlo de su propia accion.
   if (!isOwner) {

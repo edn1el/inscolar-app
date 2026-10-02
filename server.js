@@ -55,6 +55,9 @@ app.use(
   })
 );
 
+// Auditoría: cada evento registra la IP y el navegador de la petición que lo originó.
+app.use(require('./lib/audit').auditContext);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/institutions', institutionRoutes);

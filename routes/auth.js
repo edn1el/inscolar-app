@@ -79,12 +79,12 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body || {};
   const user = findByEmail(db, email);
   if (!user || !bcrypt.compareSync(password || '', user.passwordHash)) {
-    logEvent(db, { actor: user || null, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: user ? user.id : null, detalle: `Intento con: ${(email || '').trim()}` });
+    logEvent(db, { actor: null, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: user ? user.id : null, detalle: `Intento con: ${(email || '').trim()}`, motivo: user ? 'Contraseña incorrecta' : 'Correo no registrado', datos: { identificador: (email || '').trim().toLowerCase() } });
     save(db);
     return res.status(401).json({ error: 'Correo o contraseña incorrectos.' });
   }
   if (user.estado === 'Inactivo') {
-    logEvent(db, { actor: user, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: user.id, detalle: 'Cuenta desactivada' });
+    logEvent(db, { actor: null, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: user.id, detalle: 'Cuenta desactivada', motivo: 'Cuenta desactivada', datos: { identificador: user.email } });
     save(db);
     return res.status(403).json({ error: 'Esta cuenta está desactivada. Contacta a un administrador.' });
   }
@@ -124,7 +124,7 @@ router.post('/login', async (req, res) => {
 
   req.session.userId = user.id;
   user.lastAccess = new Date().toISOString();
-  logEvent(db, { actor: user, accion: 'Inicio de sesión exitoso', entidad: 'Usuario', entidadId: user.id });
+  logEvent(db, { actor: user, accion: 'Inicio de sesión exitoso', entidad: 'Usuario', entidadId: user.id, datos: { identificador: user.email, verificacionEnDosPasos: false } });
   save(db);
   res.json({ status: 'ok', user: publicUser(user) });
 });
@@ -137,7 +137,7 @@ router.post('/mfa/verify', (req, res) => {
   const entry = db.mfaCodes.find((c) => c.userId === userId);
   const pendingUser = db.users.find((u) => u.id === userId);
   if (!entry || entry.code !== String(code || '') || new Date(entry.expiresAt) < new Date()) {
-    logEvent(db, { actor: pendingUser || null, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: pendingUser ? pendingUser.id : null, detalle: 'Código de verificación inválido o expirado' });
+    logEvent(db, { actor: null, accion: 'Inicio de sesión fallido', entidad: 'Usuario', entidadId: pendingUser ? pendingUser.id : null, detalle: 'Código de verificación inválido o expirado', motivo: 'Código de verificación inválido o expirado', datos: { identificador: pendingUser ? pendingUser.email : null, paso: 'Verificación en dos pasos' } });
     save(db);
     return res.status(400).json({ error: 'Código inválido o expirado.' });
   }
@@ -152,7 +152,7 @@ router.post('/mfa/verify', (req, res) => {
 
   const user = db.users.find((u) => u.id === userId);
   user.lastAccess = new Date().toISOString();
-  logEvent(db, { actor: user, accion: 'Inicio de sesión exitoso', entidad: 'Usuario', entidadId: user.id, detalle: 'Con verificación en dos pasos' });
+  logEvent(db, { actor: user, accion: 'Inicio de sesión exitoso', entidad: 'Usuario', entidadId: user.id, detalle: 'Con verificación en dos pasos', datos: { identificador: user.email, verificacionEnDosPasos: true, dispositivoRecordado: !!rememberDevice } });
   save(db);
   req.session.userId = userId;
   delete req.session.pendingUserId;
@@ -199,6 +199,7 @@ router.post('/force-change', (req, res) => {
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
   user.mustChangePassword = false;
   user.lastAccess = new Date().toISOString();
+  logEvent(db, { actor: user, accion: 'Contraseña cambiada', entidad: 'Usuario', entidadId: user.id, detalle: 'Cambio obligatorio tras contraseña temporal', datos: { origen: 'Contraseña temporal' } });
   save(db);
 
   req.session.userId = userId;
@@ -313,6 +314,7 @@ router.post('/reset', (req, res) => {
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
   entry.used = true;
+  logEvent(db, { actor: user, accion: 'Contraseña cambiada', entidad: 'Usuario', entidadId: user.id, detalle: 'Mediante el enlace de recuperación', datos: { origen: 'Recuperación por correo' } });
   save(db);
   res.json({ status: 'ok' });
 });
