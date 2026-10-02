@@ -23,14 +23,29 @@ const periodRoutes = require('./routes/periods');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProd = process.env.NODE_ENV === 'production';
+
+// En producción (detrás de un proxy como Render/Railway) hace falta esto
+// para que Express confíe en el HTTPS que termina el proxy y las cookies
+// "secure" funcionen bien.
+if (isProd) app.set('trust proxy', 1);
 
 app.use(express.json());
 app.use(
   session({
-    secret: crypto.randomBytes(24).toString('hex'),
+    // Si no se define SESSION_SECRET en el entorno, se genera uno al azar
+    // (sirve para correrlo en local) pero eso invalida las sesiones activas
+    // cada vez que el proceso reinicia. En producción hay que fijar
+    // SESSION_SECRET para que los usuarios no se desloguen en cada deploy.
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(24).toString('hex'),
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, maxAge: 8 * 60 * 60 * 1000 },
+    cookie: {
+      httpOnly: true,
+      maxAge: 8 * 60 * 60 * 1000,
+      secure: isProd,
+      sameSite: 'lax',
+    },
   })
 );
 

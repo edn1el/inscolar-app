@@ -35,6 +35,29 @@ Administrador y Soporte ven Usuarios, Instituciones, Inscripciones, Citas, Notif
 
 Como no hay correo real conectado, cuando el sistema necesita "enviar" algo (código MFA, link de recuperación, contraseña temporal) lo pone directamente en pantalla en un aviso amarillo que dice "Modo de prueba (sin envío real de correo)". Así se puede probar el flujo completo sin necesitar una bandeja de entrada de verdad. Para producción tocaría conectar algo como SendGrid o SES — el resto de la lógica (expiración de códigos, límite de intentos, historial de contraseñas) ya está hecha.
 
+## Correo real (en vez del modo de prueba)
+
+El código ya soporta mandar correos de verdad por SMTP (con `nodemailer`), simplemente no tenía credenciales configuradas. Para activarlo:
+
+1. Copia `.env.example` a `.env`.
+2. Si usas Gmail: activa la verificación en 2 pasos en tu cuenta y genera una "contraseña de aplicación" en https://myaccount.google.com/apppasswords (no es tu contraseña normal). Pon tu correo en `SMTP_USER` y esa contraseña de 16 caracteres en `SMTP_PASS`.
+3. Corre `npm start` de nuevo.
+
+Si `SMTP_USER`/`SMTP_PASS` están vacíos, sigue funcionando en modo de prueba como antes (nada se rompe). En `data/db.json` → `emailLog` queda registrado cada correo con `via: "smtp"` (se mandó de verdad) o `via: "simulado..."`.
+
+## Ponerlo en línea (deploy)
+
+Para que la app tenga una URL real y no dependa de que alguien tenga su laptop prendida, incluí `render.yaml` para desplegar en [Render](https://render.com) (tiene capa gratis, sin tarjeta):
+
+1. Sube el repo a GitHub (ya está).
+2. En Render: New → Blueprint → conecta el repo → Render detecta `render.yaml` solo.
+3. Rellena las variables de SMTP si quieres correo real (si las dejas vacías, queda en modo de prueba).
+4. Dale deploy. Te da una URL tipo `https://inscolar-app.onrender.com`.
+
+**Importante, para no llevarse una sorpresa en la presentación:** el plan gratis de Render no permite disco persistente — el servicio se "duerme" tras 15 minutos sin tráfico, y al despertar pierde lo que se guardó en `data/db.json` durante esa sesión (vuelve a los datos de prueba originales). Para una demo en vivo esto en realidad no es un problema (siempre arranca con datos limpios), pero si necesitan que los cambios persisten de verdad entre sesiones, tocaría subir al plan pagado de Render (~$7/mes) o usar una base de datos real aparte (Render también ofrece un Postgres gratis) en vez del archivo JSON — eso sí es un cambio más grande que no hicimos todavía.
+
+Que la URL aparezca en resultados de Google no es algo que se pueda forzar ni garantizar en poco tiempo — eso depende de que Google la rastree e indexe, que normalmente tarda días o semanas sin importar qué tan bien esté hecha la página. Lo que sí tienes garantizado con esto es una URL pública real, funcionando como cualquier otra página.
+
 ## Resetear los datos
 
 Para volver todo al estado inicial y deshacer lo que se haya creado o cambiado:
