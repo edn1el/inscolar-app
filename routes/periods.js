@@ -47,6 +47,22 @@ router.get('/institutions/:id/periods', (req, res) => {
   const { cicloEscolar } = req.query;
   let list = db.periods.filter((p) => p.institucionId === req.params.id);
   if (cicloEscolar) list = list.filter((p) => p.cicloEscolar === cicloEscolar);
+  
+  // Clonar profundamente para no mutar la DB y añadir la ocupación
+  list = JSON.parse(JSON.stringify(list));
+  
+  for (const period of list) {
+    if (period.citas && period.citas.limiteCitas) {
+      const occupied = db.appointments.filter(a => 
+        a.institucionId === req.params.id && 
+        (a.estado === 'Pendiente' || a.estado === 'Aceptada' || a.estado === 'Confirmada') &&
+        new Date(a.createdAt) >= new Date(period.citas.desde) && 
+        new Date(a.createdAt) <= new Date(new Date(period.citas.hasta).setHours(23, 59, 59, 999))
+      ).length;
+      period.citas.ocupados = occupied;
+    }
+  }
+  
   list.sort((a, b) => b.cicloEscolar.localeCompare(a.cicloEscolar));
   res.json({ periods: list, tiposDocumentoDisponibles: DOC_TYPES });
 });
@@ -109,6 +125,20 @@ router.put('/institutions/:id/periods/:periodId', (req, res) => {
     documentosRequeridos = Array.isArray(body.documentosRequeridos) ? body.documentosRequeridos : [];
     const invalid = documentosRequeridos.filter((d) => !DOC_TYPES.includes(d));
     if (invalid.length) errors.push(`Tipo(s) de documento no reconocido(s): ${invalid.join(', ')}.`);
+  }
+
+  if (citasR.range && citasR.range.limiteCitas !== undefined && citasR.range.limiteCitas !== null) {
+    const newLimit = citasR.range.limiteCitas;
+    const occupiedCount = db.appointments.filter(a =>
+      a.institucionId === institucion.id &&
+      (a.estado === 'Pendiente' || a.estado === 'Aceptada' || a.estado === 'Confirmada') &&
+      new Date(a.createdAt) >= new Date(citasR.range.desde) &&
+      new Date(a.createdAt) <= new Date(new Date(citasR.range.hasta).setHours(23, 59, 59, 999))
+    ).length;
+    
+    if (newLimit < occupiedCount) {
+      errors.push(`Periodo de citas: No se puede reducir el límite a ${newLimit} porque ya hay ${occupiedCount} cita(s) ocupada(s) en este periodo.`);
+    }
   }
 
   if (errors.length) return res.status(400).json({ errors });
