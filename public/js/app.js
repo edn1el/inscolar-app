@@ -458,7 +458,7 @@
             ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small" style="float:right">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>'}
           </div>
           
-          <div style="padding:20px; max-width:800px; margin:0 auto;">
+          <div style="padding:20px; max-width:800px; margin:0 auto; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0;">
             <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}')` : 'background:#e1ecf7;'} border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
               <div class="inst-hero-overlay" style="border-radius: 12px; padding: 30px;">
                 <div class="inst-hero-body" style="display:flex; align-items:center; gap:20px;">
@@ -686,7 +686,15 @@
               marker.instId = i.id;
               
               marker.on('click', () => {
-                navigate('#/buscar/' + i.id);
+                const layout = qs('.search-layout');
+                if (layout) {
+                  layout.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                  layout.style.opacity = '0';
+                  layout.style.transform = 'scale(0.98)';
+                  setTimeout(() => navigate('#/buscar/' + i.id), 250);
+                } else {
+                  navigate('#/buscar/' + i.id);
+                }
               });
               
               currentMarkers.push(marker);
@@ -716,6 +724,25 @@
       } catch (err) {
         qs('#search-results').innerHTML = '<div class="notice err">Error al buscar: ' + escapeHtml(err.message) + '</div>';
       }
+    }
+
+    const searchResults = qs('#search-results');
+    if (searchResults) {
+      searchResults.addEventListener('click', (e) => {
+        const a = e.target.closest('a[href^="#/buscar/"]');
+        if (a) {
+          e.preventDefault();
+          const layout = qs('.search-layout');
+          if (layout) {
+            layout.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+            layout.style.opacity = '0';
+            layout.style.transform = 'scale(0.98)';
+            setTimeout(() => navigate(a.getAttribute('href')), 250);
+          } else {
+            navigate(a.getAttribute('href'));
+          }
+        }
+      });
     }
 
     const searchForm = qs('#search-form');
