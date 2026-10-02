@@ -125,13 +125,17 @@ router.post('/me/mfa/disable', (req, res) => {
 });
 
 // HU066: preferencias del propio usuario para notificaciones por correo.
-router.put('/me/notification-prefs', (req, res) => {
-  const db = req.db;
-  const user = db.users.find((u) => u.id === req.currentUser.id);
-  const { notifyByEmail } = req.body || {};
-  user.notifyByEmail = notifyByEmail !== false;
-  save(db);
-  res.json({ user: publicUser(user, db) });
+router.get('/me/notification-prefs',(req,res)=>{
+ const prefs=require('../lib/communication-prefs');
+ res.json({preferences:prefs.preferences(req.currentUser),types:prefs.TYPES});
+});
+router.put('/me/notification-prefs',(req,res)=>{
+ const prefs=require('../lib/communication-prefs');
+ try{
+   const value=prefs.validate(req.body?.preferences);
+   req.currentUser.communicationPreferences={...prefs.preferences(req.currentUser),...value};
+   save(req.db);res.json({preferences:prefs.preferences(req.currentUser),user:publicUser(req.currentUser,req.db)});
+ }catch(e){res.status(e.status||500).json({error:e.status?e.message:'No se pudieron guardar las preferencias. Conserva tus cambios e intenta de nuevo.'});}
 });
 
 // ---- foto de perfil ----

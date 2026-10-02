@@ -34,6 +34,11 @@
     bell && bell.setAttribute('aria-expanded', 'false');
   });
 
+  ['click','focusin'].forEach(type=>document.addEventListener(type,e=>{
+    const menu=qs('#settings-menu'),button=qs('#settings-menu-btn');
+    if(menu&&!menu.hidden&&!menu.contains(e.target)&&!button?.contains(e.target)){menu.hidden=true;button?.setAttribute('aria-expanded','false');}
+  }));
+
   async function api(path, opts) {
     opts = opts || {};
     const isFormData = opts.body instanceof FormData;
@@ -282,6 +287,8 @@
 
   async function router() {
     if (window._wizardNavigation && window._wizardNavigation() === false) return;
+    if (window._notificationCleanup) { window._notificationCleanup(); window._notificationCleanup=null; }
+    if (window._analyticsCleanup) { window._analyticsCleanup(); window._analyticsCleanup=null; }
     if (window._enrollmentCleanup) { window._enrollmentCleanup(); window._enrollmentCleanup=null; }
     if (window._wizardCleanup) { window._wizardCleanup(); window._wizardCleanup = null; }
     const version = ++routerVersion;
@@ -1343,7 +1350,7 @@
         return;
       }
     }
-    if (section === 'notificaciones' && !(isAdmin() || (state.user || {}).role === 'Tutor')) {
+    if (section === 'notificaciones' && !state.user) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -1365,8 +1372,8 @@
     }
 
     let unread = 0;
-    if (isAdmin() || isTutor()) {
-      try { const n = await api('/notifications'); unread = n.unreadCount; } catch (e) {}
+    if (state.user) {
+      try { const n = await api('/notifications?page=1&limit=6'); unread = n.unreadCount; } catch (e) { unread = null; }
     }
 
     let contentHtml = '<div class="loading">Cargando…</div>';
@@ -1395,6 +1402,7 @@
       else if (section === 'calificar' && segs[1]) await renderCalificarForm(segs[1]);
       else if (section === 'reportar' && segs[1]) await renderReportarForm(segs[1]);
       else if (section === 'inscripciones' && segs[1] === 'estudiante-nuevo') await renderEstudianteForm();
+      else if (section === 'inscripciones' && segs[1] === 'borradores' && segs[3] === 'detalle') await renderDraftNotice(segs[2]);
       else if (section === 'inscripciones' && segs[1] === 'nueva') await renderInscripcionForm();
       else if (section === 'inscripciones' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteInscripcion(segs[2]);
       else if (section === 'inscripciones' && segs[2] === 'detalle') await renderInscripcionDetalle(segs[1]);
@@ -1424,7 +1432,7 @@
     const sectionNames = {
       'usuarios': 'Usuarios', 'instituciones': 'Instituciones',
       'inscripciones': 'Inscripciones', 'citas': 'Citas', 'analiticas': 'Analíticas',
-      'auditoria': 'Auditoría', 'perfil': 'Mi perfil', 'seguridad': 'Seguridad',
+      'auditoria': 'Auditoría', 'notificaciones':'Notificaciones', 'perfil': 'Mi perfil', 'seguridad': 'Seguridad',
       'configuracion': 'Configuración', 'manual': 'Instrucciones'
     };
     const currentName = sectionNames[activeSection] || 'Inicio';
@@ -1441,8 +1449,15 @@
             <button class="theme-toggle" id="theme-toggle" title="Cambiar tema">
               ${ICONS.contrast}
             </button>
-            ${(admin || u.role === 'Tutor') ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
+            <div class="notif-wrap"><button class="bell" id="bell-btn" aria-label="Notificaciones${unread === null ? ': contador no disponible' : ': '+(unread||0)+' no leídas'}" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>
             <a href="#/app/perfil" class="who" style="text-decoration:none; color:inherit;"><span class="avatar" style="${topbarAvatarStyle}">${u.foto ? '' : initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></a>
+            <div class="notif-wrap"><button class="btn btn-ghost btn-small" id="settings-menu-btn" aria-label="Configuración" aria-expanded="false" aria-controls="settings-menu"><svg class="settings-menu-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4M5 5l3 3m8 8l3 3M5 19l3-3m8-8l3-3"/></svg><span class="settings-menu-label">Configuración</span></button>
+              <div class="notif-panel" id="settings-menu" hidden aria-label="Menú de configuración">
+                <a class="settings-menu-link" href="#/app/seguridad">Cambiar contraseña y preferencias</a>
+                <button class="settings-menu-link" id="settings-email">Cambiar correo electrónico</button>
+                <a class="settings-menu-link" href="#/app/manual">Manual de instrucciones</a>
+                <button class="settings-menu-link" id="settings-logout">Cerrar sesión</button>
+              </div></div>
             <button class="logout" id="logout-btn">Cerrar sesión</button>
           </div>
         </div>
@@ -1582,6 +1597,16 @@
       navigate('#/login');
     });
     }
+    const settingsButton=qs('#settings-menu-btn'),settingsMenu=qs('#settings-menu');
+    if(settingsButton&&settingsMenu&&!settingsButton.dataset.bound){
+      settingsButton.dataset.bound='1';
+      const close=()=>{settingsMenu.hidden=true;settingsButton.setAttribute('aria-expanded','false');};
+      settingsButton.addEventListener('click',()=>{settingsMenu.hidden=!settingsMenu.hidden;settingsButton.setAttribute('aria-expanded',String(!settingsMenu.hidden));});
+      settingsMenu.addEventListener('keydown',e=>{if(e.key==='Escape'){close();settingsButton.focus();}});
+      qs('#settings-email').addEventListener('click',()=>{toast('El correo de tu cuenta lo actualiza un administrador autorizado desde Usuarios.','ok');close();});
+      qs('#settings-logout').addEventListener('click',()=>{close();qs('#logout-btn').click();});
+    }
+
     const bellBtn = qs('#bell-btn');
     const notifPanel = qs('#notif-panel');
     // bindShellEvents() se llama dos veces por render (una vez en viewApp al armar
@@ -1596,59 +1621,29 @@
         notifPanel.innerHTML = '';
         bellBtn.setAttribute('aria-expanded', 'false');
       };
-      const updateBellDot = (count) => {
-        const existing = qs('.dot', bellBtn);
-        if (count > 0) {
-          if (existing) existing.textContent = count;
-          else bellBtn.insertAdjacentHTML('beforeend', `<span class="dot">${count}</span>`);
-        } else if (existing) {
-          existing.remove();
-        }
+      const renderPanel = (data) => {
+        if (!notifPanel.isConnected || notifPanel.hidden) return;
+        notifPanel.innerHTML = `<div class="notif-panel-head" role="status">Notificaciones · ${data.unreadCount} no leídas</div>
+          ${notificationCards(data.notifications, 'panel')}
+          <div class="notif-panel-foot"><button type="button" id="notif-panel-viewall">Ver todas</button></div>`;
+        bindNotificationActions(notifPanel, loadPanel);
+        qs('#notif-panel-viewall', notifPanel).addEventListener('click', () => {closePanel();navigate('#/app/notificaciones');});
       };
-      const renderPanel = (notifications) => {
-        const recent = notifications.slice(0, 6);
-        notifPanel.innerHTML = `
-          <div class="notif-panel-head">Notificaciones</div>
-          ${recent.length ? recent.map((n) => `
-            <div class="notif-item ${n.read ? '' : 'unread'}">
-              <div>
-                <div class="t1">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)}</div>
-                <div class="t2">${n.anterior || n.nuevo ? `Campo ${escapeHtml(n.campo)}: ${escapeHtml(n.anterior || '—')} → ${escapeHtml(n.nuevo || '—')}. ` : ''}Realizado por ${escapeHtml(n.actorNombre)}.</div>
-                <div class="t3">${fmtDate(n.createdAt)}</div>
-              </div>
-              ${!n.read ? `<button class="btn btn-ghost btn-small" data-panel-read="${n.id}">Marcar leída</button>` : ''}
-            </div>
-          `).join('') : '<div class="notif-panel-empty">No hay notificaciones.</div>'}
-          <div class="notif-panel-foot"><button type="button" id="notif-panel-viewall">Ver todas</button></div>
-        `;
-        qsa('[data-panel-read]', notifPanel).forEach((b) => b.addEventListener('mousedown', async (e) => {
-          e.preventDefault();
-          await api('/notifications/' + b.dataset.panelRead + '/read', { method: 'POST' });
-          const { notifications: fresh } = await api('/notifications');
-          renderPanel(fresh);
-          updateBellDot(fresh.filter((n) => !n.read).length);
-        }));
-        const viewAllBtn = qs('#notif-panel-viewall', notifPanel);
-        viewAllBtn && viewAllBtn.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          closePanel();
-          navigate('#/app/notificaciones');
-        });
+      const loadPanel = async () => {
+        notifPanel.innerHTML='<div class="notif-panel-empty" role="status">Cargando…</div>';
+        try {const data=await api('/notifications?page=1&limit=6');updateNotificationBadge(data.unreadCount);renderPanel(data);}
+        catch(err){if(!notifPanel.isConnected||notifPanel.hidden)return;notifPanel.innerHTML='<div class="notice err" role="alert">No se pudieron cargar las notificaciones.</div><button class="btn btn-secondary" id="notif-retry">Reintentar</button>';qs('#notif-retry',notifPanel).addEventListener('click',loadPanel);}
       };
-
-      bellBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!notifPanel.hidden) { closePanel(); return; }
-        notifPanel.hidden = false;
-        bellBtn.setAttribute('aria-expanded', 'true');
-        notifPanel.innerHTML = '<div class="notif-panel-empty">Cargando…</div>';
-        try {
-          const { notifications } = await api('/notifications');
-          renderPanel(notifications);
-        } catch (err) {
-          notifPanel.innerHTML = '<div class="notif-panel-empty">No se pudieron cargar.</div>';
-        }
+      bellBtn.addEventListener('click', () => {
+        if (!notifPanel.hidden) {closePanel();return;}
+        notifPanel.hidden=false;bellBtn.setAttribute('aria-expanded','true');loadPanel();
       });
+      notifPanel.addEventListener('keydown', e=>{if(e.key==='Escape'){closePanel();bellBtn.focus();}});
+      const refreshCount=async()=>{try{const data=await api('/notifications?page=1&limit=1');if(bellBtn.isConnected)updateNotificationBadge(data.unreadCount);}catch{if(bellBtn.isConnected){bellBtn.setAttribute('aria-label','Notificaciones: contador no disponible');qs('.dot',bellBtn)?.remove();}}};
+      const timer=setInterval(refreshCount,30000);
+      window.addEventListener('focus',refreshCount);
+      window._notificationCleanup=()=>{clearInterval(timer);window.removeEventListener('focus',refreshCount);};
+
     }
   }
 
@@ -1803,12 +1798,8 @@
           }
         </div>
         <div class="chart-card">
-          <h3>Preferencias de notificaciones</h3>
-          <p class="help" style="margin-bottom:16px;">Recibe un correo electrónico cada vez que haya una actualización importante en tu cuenta, tus solicitudes o tus citas.</p>
-          <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-            <input type="checkbox" id="notif-email-toggle" ${state.user && state.user.notifyByEmail !== false ? 'checked' : ''}>
-            Recibir notificaciones por correo electrónico
-          </label>
+          <h3>Preferencias de correo</h3>
+          <div id="email-preferences" role="region" aria-label="Preferencias de correo"></div>
         </div>
       </div>
     `;
@@ -1860,18 +1851,26 @@
       });
     });
 
-    const notifToggle = qs('#notif-email-toggle');
-    notifToggle && notifToggle.addEventListener('change', async () => {
-      const checked = notifToggle.checked;
-      try {
-        const data = await api('/users/me/notification-prefs', { method: 'PUT', body: { notifyByEmail: checked } });
-        state.user = data.user;
-        toast(checked ? 'Notificaciones por correo activadas.' : 'Notificaciones por correo desactivadas.', 'ok');
-      } catch (err) {
-        notifToggle.checked = !checked;
-        toast(err.message || 'No se pudo actualizar la preferencia.', 'err');
-      }
-    });
+    await renderEmailPreferences();
+  }
+
+  async function renderEmailPreferences() {
+    const host=qs('#email-preferences');if(!host)return;
+    host.innerHTML='<p role="status">Cargando preferencias…</p>';
+    try {
+      const data=await api('/users/me/notification-prefs');if(!host.isConnected)return;
+      host.innerHTML=`<p class="help">Estas opciones solo afectan a futuros correos. Los avisos internos permanecen disponibles. Recordatorios y mantenimiento requieren eventos configurados; no hay recordatorios automáticos programados.</p>
+        <form id="email-prefs-form">${Object.entries(data.types).filter(([k])=>k!=='accounts'||isAdmin()).map(([key,label])=>`<label class="preference-option"><input type="checkbox" name="${key}" ${data.preferences[key]?'checked':''}> ${escapeHtml(label)}</label>`).join('')}
+        <div id="email-prefs-result" role="status" aria-live="polite"></div><button class="btn btn-primary" type="submit">Guardar cambios</button></form>`;
+      qs('#email-prefs-form',host).addEventListener('submit',async e=>{
+        e.preventDefault();const button=e.target.querySelector('button'),result=qs('#email-prefs-result',host);
+        const preferences=Object.fromEntries(Array.from(e.target.querySelectorAll('input')).map(input=>[input.name,input.checked]));
+        button.disabled=true;result.textContent='Guardando…';
+        try {const saved=await api('/users/me/notification-prefs',{method:'PUT',body:{preferences}});state.user=saved.user;result.textContent='Preferencias guardadas.';}
+        catch(err){result.textContent='No se pudieron guardar. Tus cambios se conservan; pulsa Guardar cambios para reintentar.';}
+        finally{button.disabled=false;}
+      });
+    }catch(err){if(!host.isConnected)return;host.innerHTML='<p role="alert">No se pudieron cargar las preferencias.</p><button class="btn btn-secondary" id="prefs-retry">Reintentar</button>';qs('#prefs-retry',host).addEventListener('click',renderEmailPreferences);}
   }
 
   // ---------------- HU065 menu de configuracion ----------------
@@ -1893,11 +1892,11 @@
       <div class="page-head"><div><h2>Configuración</h2><div class="sub">Accesos rápidos a los ajustes de tu cuenta${admin ? ' y del sistema' : ''}.</div></div></div>
       <div class="settings-grid">
         ${cards.map((c) => `
-          <div class="settings-card" data-nav="${c.href}">
+          <button type="button" class="settings-card" data-nav="${c.href}">
             <div class="kpi-icon">${c.icon}</div>
             <h3>${escapeHtml(c.title)}</h3>
             <p>${escapeHtml(c.desc)}</p>
-          </div>
+          </button>
         `).join('')}
       </div>
     `;
@@ -1917,7 +1916,7 @@
         <ul>
           <li>¿Olvidaste tu contraseña? Usa el enlace "¿Olvidaste tu contraseña?" en la pantalla de inicio de sesión.</li>
           <li>Puedes cambiar tu contraseña y activar/desactivar el MFA desde <a href="#/app/seguridad">Seguridad</a>.</li>
-          <li>Desde <a href="#/app/seguridad">Seguridad</a> también puedes activar o desactivar el envío de notificaciones por correo electrónico.</li>
+          <li>Desde <a href="#/app/seguridad">Seguridad</a> puedes elegir cada tipo de correo y pulsar Guardar cambios. Los avisos internos no se desactivan.</li>
           <li>Tus datos personales se editan desde <a href="#/app/perfil">Mi perfil</a>.</li>
         </ul>
       `,
@@ -1929,9 +1928,9 @@
         html: `
           <ol>
             <li>Ve a <a href="#/app/inscripciones">Inscripciones</a> y, si es la primera vez, agrega primero al estudiante.</li>
-            <li>Presiona "Nueva inscripción", elige la institución y el ciclo escolar, y confirma.</li>
-            <li>Sube los documentos solicitados desde el botón "Documentos" de la inscripción.</li>
-            <li>El estado (Pendiente, Aprobada o Rechazada) se actualiza en la misma lista, y recibirás una notificación (y un correo, si lo tienes activado) cuando la institución decida.</li>
+            <li>Presiona "Nueva inscripción", elige la institución y el ciclo escolar, completa el contacto y carga los documentos exigidos antes de revisar el resumen y enviar.</li>
+            <li>Si un documento se rechaza, abre el detalle, consulta el motivo, carga el reemplazo y pulsa "Enviar correcciones". El formato y tamaño permitidos se indican en cada requisito.</li>
+            <li>El estado (Enviada, En revisión, Documentos pendientes, Aceptada o Rechazada) se actualiza en la misma lista, y recibirás una notificación (y un correo si tu preferencia lo permite y el proveedor está configurado) cuando la institución decida.</li>
             <li>Solo los borradores expiran después de 20 minutos de inactividad; recibirás un aviso a los 10 minutos.</li>
           </ol>
         `,
@@ -1940,13 +1939,13 @@
         titulo: 'Agendar una cita',
         html: `
           <p>Desde <a href="#/app/citas">Citas</a> puedes solicitar una cita con una institución eligiendo fecha y hora disponibles. Antes de elegir la fecha, puedes revisar el enlace "Ver calendario de citas de esta institución" en el formulario para ver qué días ya tienen citas agendadas.</p>
-          <p>La institución puede confirmar la cita, rechazarla (si todavía está Pendiente) o cancelarla (si ya estaba Confirmada); en cualquier caso, se te notificará el cambio.</p>
+          <p>Elige una franja disponible y confirma el resumen. La cita Pendiente ocupa cupo. La institución puede aceptarla o rechazarla con motivo; tú o el personal autorizado pueden cancelarla o reprogramarla. Reprogramar devuelve la cita a Pendiente y conserva el horario anterior si falla. Las horas se muestran en America/Santo_Domingo (UTC−4).</p>
         `,
       });
       secciones.push({
         titulo: 'Calificar y reportar una institución',
         html: `
-          <p>Una vez tengas una inscripción aprobada o una cita confirmada con una institución, podrás calificarla (1 a 5 estrellas) o reportar un problema desde los botones que aparecen junto a esa inscripción o cita.</p>
+          <p>Una vez tengas una inscripción aceptada o una cita aceptada con una institución, podrás calificarla (1 a 5 estrellas) o reportar un problema desde los botones que aparecen junto a esa inscripción o cita.</p>
         `,
       });
     }
@@ -1967,7 +1966,7 @@
       secciones.push({
         titulo: 'Configurar ciclos y periodos de inscripción',
         html: `
-          <p>Desde la ficha de tu institución (menú Instituciones) puedes definir los periodos habilitados para cada ciclo escolar, con sus fechas de inicio y cierre. Mientras no definas un periodo, las inscripciones se aceptan sin restricción de fecha.</p>
+          <p>Desde la ficha de tu institución (menú Instituciones) puedes definir los periodos habilitados para cada ciclo escolar, con sus fechas de inicio y cierre. Sin un periodo de inscripción abierto no se admiten envíos. Configura cupos de inscripción por grado y, para citas, franjas explícitas con capacidad; son capacidades independientes.</p>
         `,
       });
     }
@@ -4892,30 +4891,52 @@
     });
   }
 
-  // ---------------- HU017 notificaciones ----------------
-  async function renderNotificaciones() {
-    const { notifications } = await api('/notifications');
-    qs('.main').innerHTML = `
-      <div class="page-head"><div><h2>Notificaciones</h2><div class="sub">Actividad y cambios recientes relacionados con tu cuenta.</div></div></div>
-      <div class="notif-list">
-        ${notifications.length ? notifications.map((n) => `
-          <div class="notif-item ${n.read ? '' : 'unread'}">
-            <div>
-              <div class="t1">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)}</div>
-              <div class="t2">${n.anterior || n.nuevo ? `Campo ${escapeHtml(n.campo)}: ${escapeHtml(n.anterior || '—')} → ${escapeHtml(n.nuevo || '—')}. ` : ''}Realizado por ${escapeHtml(n.actorNombre)}.</div>
-              <div class="t3">${fmtDate(n.createdAt)}</div>
-            </div>
-            ${n.entityId ? `<button class="btn btn-secondary btn-small" data-nav="${escapeHtml(n.url || '#/app/inscripciones/'+encodeURIComponent(n.entityId)+'/detalle')}">${n.url?.startsWith('#/app/citas/')?'Ver cita':'Ver solicitud'}</button>` : ''}
-            ${!n.read ? `<button class="btn btn-ghost btn-small" data-read="${n.id}">Marcar leída</button>` : ''}
-          </div>
-        `).join('') : '<div class="empty-state">No hay notificaciones.</div>'}
-      </div>
-    `;
-    bindShellEvents();
-    qsa('[data-read]').forEach((b) => b.addEventListener('click', async () => {
-      await api('/notifications/' + b.dataset.read + '/read', { method: 'POST' });
-      renderNotificaciones();
+  async function renderDraftNotice(id){
+    const {draft}=await api('/drafts/'+encodeURIComponent(id)+'/summary');
+    qs('.main').innerHTML=`<div class="page-head"><h2>Borrador ${escapeHtml(draft.id)}</h2></div><div class="chart-card"><p>Estado: <strong>${escapeHtml(draft.estado)}</strong></p><p>${escapeHtml(draft.institucionNombre)}</p><p>Creado: ${fmtDate(draft.createdAt)}</p><p>Un borrador abandonado no se envió a la institución. Las solicitudes enviadas conservan su estado y no expiran por inactividad.</p><button class="btn btn-secondary" data-nav="#/app/inscripciones">Volver a inscripciones</button></div>`;bindShellEvents();
+  }
+  function updateNotificationBadge(count) {
+    const bell=qs('#bell-btn');if(!bell)return;
+    bell.setAttribute('aria-label',`Notificaciones: ${count} no leídas`);
+    let dot=qs('.dot',bell);
+    if(count){if(!dot){bell.insertAdjacentHTML('beforeend','<span class="dot" aria-hidden="true"></span>');dot=qs('.dot',bell);}dot.textContent=count;}else dot?.remove();
+  }
+  function notificationCards(items,prefix='center') {
+    return items.length?items.map(n=>`<article class="notif-item ${n.read?'':'unread'}">
+      <div><div class="t1">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)}</div>
+      <div class="t2">${escapeHtml(n.action||'')} ${escapeHtml(n.anterior||'—')} → <strong>${escapeHtml(n.nuevo||'Actualizado')}</strong></div>
+      ${n.motivo?`<p>Motivo: ${escapeHtml(n.motivo)}</p>`:''}
+      <div class="t3">${fmtDate(n.createdAt)} · ${n.read?'Leída':'No leída'}</div></div>
+      <div class="notification-actions">${n.url?`<button class="btn btn-secondary btn-small" data-notification-target="${escapeHtml(n.id)}">${n.url.startsWith('#/app/citas/')?'Ver cita':'Ver solicitud'}</button>`:''}
+      ${!n.read?`<button class="btn btn-ghost btn-small" data-${prefix}-read="${escapeHtml(n.id)}" data-notification-read="${escapeHtml(n.id)}">Marcar leída</button>`:''}</div>
+    </article>`).join(''):'<div class="empty-state">No hay notificaciones.</div>';
+  }
+  function bindNotificationActions(host,reload) {
+    qsa('[data-notification-read]',host).forEach(button=>button.addEventListener('click',async()=>{
+      button.disabled=true;
+      try{const result=await api('/notifications/'+encodeURIComponent(button.dataset.notificationRead)+'/read',{method:'POST'});updateNotificationBadge(result.unreadCount);await reload();}
+      catch(err){button.disabled=false;toast('No se pudo guardar la lectura. Intenta de nuevo.','err');}
     }));
+    qsa('[data-notification-target]',host).forEach(button=>button.addEventListener('click',async()=>{
+      button.disabled=true;
+      try{const {url}=await api('/notifications/'+encodeURIComponent(button.dataset.notificationTarget)+'/target');navigate(url);}
+      catch(err){toast(err.message||'El detalle no está disponible.','err');button.disabled=false;}
+    }));
+  }
+  async function renderNotificaciones(page=1) {
+    const main=qs('.main');main.innerHTML='<div class="loading" role="status">Cargando notificaciones…</div>';
+    try{
+      const data=await api(`/notifications?page=${page}&limit=20`);if(!main.isConnected)return;
+      updateNotificationBadge(data.unreadCount);
+      main.innerHTML=`<div class="page-head"><div><h2>Notificaciones</h2><div class="sub" role="status">${data.unreadCount} no leídas · ${data.total} avisos</div></div><button class="btn btn-secondary" id="notifications-refresh">Actualizar</button></div>
+      <div class="notif-list">${notificationCards(data.notifications)}</div>
+      <div class="pagination">Página ${data.page} de ${Math.max(1,Math.ceil(data.total/data.limit))}
+      <button class="btn btn-secondary" id="notifications-prev" ${page<=1?'disabled':''}>Anterior</button><button class="btn btn-secondary" id="notifications-next" ${page*data.limit>=data.total?'disabled':''}>Siguiente</button></div>`;
+      bindNotificationActions(main,()=>renderNotificaciones(page));
+      qs('#notifications-refresh',main).addEventListener('click',()=>renderNotificaciones(page));
+      qs('#notifications-prev',main).addEventListener('click',()=>renderNotificaciones(page-1));
+      qs('#notifications-next',main).addEventListener('click',()=>renderNotificaciones(page+1));
+    }catch(err){if(!main.isConnected)return;main.innerHTML='<div class="notice err" role="alert">No se pudieron cargar las notificaciones.</div><button class="btn btn-secondary" id="notifications-retry">Reintentar</button>';qs('#notifications-retry',main).addEventListener('click',()=>renderNotificaciones(page));}
   }
 
   // ---------------- Mapa interactivo de provincias ----------------
