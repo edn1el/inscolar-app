@@ -50,7 +50,14 @@ router.get('/emails', requireAdmin, (req, res) => {
 });
 
 // ---- analíticas ----
-router.get('/analytics/summary', requireAdmin, (req, res) => {
+// HU067: el dashboard de analíticas es para Administrador, Soporte y Auditoría.
+const ANALYTICS_ROLES = ['Administrador', 'Soporte', 'Auditoría'];
+function requireAnalytics(req, res, next) {
+  if (!ANALYTICS_ROLES.includes(req.currentUser.role)) return res.status(403).json({ error: 'No tienes permiso para ver las analíticas.' });
+  next();
+}
+
+router.get('/analytics/summary', requireAnalytics, (req, res) => {
   const db = req.db;
   const users = db.users;
   const now = Date.now();

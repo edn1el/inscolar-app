@@ -1245,7 +1245,7 @@ html { scrollbar-color: var(--c-border-str) transparent; }
 }
 @media (max-width: 480px) {
   .search-filters { grid-template-columns: 1fr 1fr; }
-  .search-filters .ff:last-child { grid-column: 1 / -1; }
+  .search-filters .ff:nth-child(3):last-child { grid-column: 1 / -1; }
   .pub-link { display: none; }
   .result-card { grid-template-columns: 64px 1fr; gap: 12px; }
   .result-thumb { width: 64px; height: 64px; }
@@ -1545,3 +1545,6 @@ input[type=file]::file-selector-button:hover { background: var(--c-garnet-subtle
 .ins-pin.is-approx svg { opacity: .55; }
 .ins-pin.is-approx::after { display: none; }
 @media (max-width: 600px) { .loc-map { height: 220px; } }
+
+/* Buscador con dos filtros (el personal de institución no filtra por calificación, HU024) */
+.search-filters:has(> .ff:nth-child(2):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }

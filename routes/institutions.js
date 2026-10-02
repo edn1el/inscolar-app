@@ -83,7 +83,9 @@ router.get('/', (req, res) => {
   if (municipio && municipio !== 'Todos') list = list.filter((i) => i.municipio === municipio);
   list.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
   let withRatings = list.map((i) => withRating(i, db));
-  if (calificacionMin && calificacionMin !== 'Cualquiera') {
+  // HU024: el filtro por calificación no está disponible para el personal de institución.
+  const puedeFiltrarPorCalificacion = !(currentUser && currentUser.role === 'Personal de institución');
+  if (puedeFiltrarPorCalificacion && calificacionMin && calificacionMin !== 'Cualquiera') {
     const min = Number(calificacionMin);
     withRatings = withRatings.filter((i) => i.calificacionPromedio !== null && i.calificacionPromedio >= min);
   }

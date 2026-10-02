@@ -675,7 +675,7 @@
             <div class="search-filters">
               <label class="ff"><span class="ff-label">Provincia</span><select name="provincia" id="s-prov"><option value="">Todas</option></select></label>
               <label class="ff"><span class="ff-label">Municipio</span><select name="municipio" id="s-mun" disabled><option value="">Todos</option></select></label>
-              <label class="ff"><span class="ff-label">Calificación</span><select name="calificacionMin"><option value="">Cualquiera</option><option value="4">4+ estrellas</option><option value="3">3+ estrellas</option></select></label>
+              ${state.user && state.user.role === 'Personal de institución' ? '' : '<label class="ff"><span class="ff-label">Calificación</span><select name="calificacionMin"><option value="">Cualquiera</option><option value="4">4+ estrellas</option><option value="3">3+ estrellas</option></select></label>'}
             </div>
             <div class="search-actions">
               <button type="button" class="chip-btn" id="btn-location" aria-pressed="false">
@@ -1270,6 +1270,8 @@
   const ROLES_ADMIN_PUEDE_CREAR = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
 
   const AUDIT_ROLES = ['Administrador', 'Auditoría'];
+  // HU067: Administrador, Soporte y Auditoría ven el dashboard de analíticas.
+  function canSeeAnaliticas() { return isAdmin() || isAudit(); }
   function canSeeAuditoria() { return state.user && AUDIT_ROLES.includes(role()); }
 
 
@@ -1283,7 +1285,7 @@
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
-    if (section === 'analiticas' && !isAdmin()) {
+    if (section === 'analiticas' && !canSeeAnaliticas()) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -1461,6 +1463,9 @@
             <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
             </button>
+            <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Analíticas
+            </button>
             ` : (isTutor() || isStaff()) ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
@@ -1474,6 +1479,9 @@
             ` : (u.role === 'Auditoría') ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
+            <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Analíticas
+            </button>
             <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
             </button>
