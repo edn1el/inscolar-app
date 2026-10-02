@@ -1220,6 +1220,11 @@ button.link:hover {
   display: flex;
   align-items: center;
   gap: 10px;
+  transition: opacity var(--t-base) ease;
+}
+
+.who:hover {
+  opacity: 0.8;
 }
 
 .avatar {
