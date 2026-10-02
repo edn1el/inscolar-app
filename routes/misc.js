@@ -6,40 +6,28 @@ const { logEvent } = require('../lib/audit');
 const router = express.Router();
 router.use(requireAuth);
 
-// ---- notificaciones ----
-// Sin recipientId: notificacion "broadcast" para el equipo administrativo (Administrador/Soporte).
-// Con recipientId: notificacion dirigida a ese usuario especifico (ej. un tutor).
-const NOTIF_ADMIN_ROLES = ['Administrador', 'Soporte'];
-
-router.get('/notifications', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
-  const isAdminRole = NOTIF_ADMIN_ROLES.includes(u.role);
-  const list = db.notifications
-    .filter((n) => (n.recipientId ? n.recipientId === u.id : isAdminRole))
-    .slice()
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  res.json({ notifications: list, unreadCount: list.filter((n) => !n.read).length });
+// Notifications are scoped to the authenticated recipient; broadcast reads are per-user.
+const notifications=require('../lib/notify');
+router.get('/notifications', (req,res)=>{
+ const page=req.query.page===undefined?null:Number(req.query.page),limit=Number(req.query.limit||20);
+ if((page!==null&&(!Number.isInteger(page)||page<1))||!Number.isInteger(limit)||limit<1||limit>100)return res.status(400).json({error:'Paginación inválida.'});
+ res.json(notifications.list(req.db,req.currentUser,{page,limit}));
 });
-
-router.post('/notifications/:id/read', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
-  const isAdminRole = NOTIF_ADMIN_ROLES.includes(u.role);
-  const n = db.notifications.find((n) => n.id === req.params.id);
-  if (n) {
-    const canMark = n.recipientId ? n.recipientId === u.id : isAdminRole;
-    if (!canMark) return res.status(403).json({ error: 'No tienes permiso para modificar esta notificación.' });
-    const wasUnread = !n.read;
-    n.read = true;
-    // Las notificaciones "broadcast" (sin recipientId) avisan de cambios en cuentas de Administrador:
-    // se consideran importantes para la bitácora de auditoría.
-    if (wasUnread && !n.recipientId) {
-      logEvent(db, { actor: u, accion: 'Notificación importante leída', entidad: 'Notificación', entidadId: n.id, detalle: `${n.campo} · ${n.userNombre}` });
-    }
-    save(db);
-  }
-  res.json({ status: 'ok' });
+router.post('/notifications/:id/read',(req,res)=>{
+ try{if(notifications.markRead(req.db,req.currentUser,req.params.id)){const n=req.db.notifications.find(n=>n.id===req.params.id);if(!n.recipientId||n.type==='accounts')logEvent(req.db,{actor:req.currentUser,accion:'Notificación importante leída',entidad:'Notificación',entidadId:n.id,detalle:n.campo});save(req.db);}res.json({status:'ok',unreadCount:notifications.list(req.db,req.currentUser).unreadCount});}
+ catch(e){res.status(e.status||500).json({error:e.status?e.message:'No se pudo guardar la lectura. Intenta de nuevo.'});}
+});
+router.get('/notifications/:id/target',(req,res)=>{
+ const n=req.db.notifications.find(n=>n.id===req.params.id);
+ if(!n)return res.status(404).json({error:'Notificación no disponible.'});
+ if(!notifications.canRead(req.currentUser,n))return res.status(403).json({error:'Aviso fuera de tu ámbito.'});
+ const url=notifications.link(n),appointment=url?.startsWith('#/app/citas/');
+ if(n.resourceKind==='draft'){const d=req.db.drafts?.find(d=>d.id===n.entityId);if(!d)return res.status(404).json({error:'Borrador no disponible.'});if(d.tutorId!==req.currentUser.id)return res.status(403).json({error:'Ya no tienes acceso a este recurso.'});return res.json({url});}
+ const resource=(appointment?req.db.appointments:req.db.enrollments).find(e=>e.id===n.entityId);
+ const service=require(appointment?'../lib/appointment-service':'../lib/enrollment-service');
+ if(!url||!resource)return res.status(404).json({error:'El recurso de esta notificación ya no está disponible.'});
+ if(!(appointment?service.read:service.canRead)(req.currentUser,resource))return res.status(403).json({error:'Ya no tienes acceso a este recurso.'});
+ res.json({url});
 });
 
 // ---- correos (HU062/HU094): visibilidad de los envios (reales o simulados) ----
