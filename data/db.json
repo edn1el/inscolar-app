@@ -382,7 +382,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-11-05T13:58:00.000Z",
-      "lastAccess": "2026-09-30T21:22:10.955Z",
+      "lastAccess": "2026-10-02T16:19:36.139Z",
       "notifyByEmail": true
     },
     {
@@ -402,7 +402,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-10-02T16:01:12.532Z",
+      "lastAccess": "2026-10-02T16:20:09.011Z",
       "notifyByEmail": true
     },
     {
@@ -422,7 +422,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-02-14T11:00:00.000Z",
-      "lastAccess": "2026-10-02T15:09:02.051Z",
+      "lastAccess": "2026-10-02T16:21:26.215Z",
       "notifyByEmail": true
     },
     {
@@ -2665,6 +2665,127 @@
       "entidad": "Usuario",
       "entidadId": "u002",
       "detalle": ""
+    },
+    {
+      "id": "log137",
+      "fecha": "2026-10-02T16:19:02.351Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log138",
+      "fecha": "2026-10-02T16:19:05.360Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log139",
+      "fecha": "2026-10-02T16:19:09.477Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log140",
+      "fecha": "2026-10-02T16:19:15.693Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log141",
+      "fecha": "2026-10-02T16:19:19.342Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log142",
+      "fecha": "2026-10-02T16:19:32.496Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log143",
+      "fecha": "2026-10-02T16:19:36.139Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log144",
+      "fecha": "2026-10-02T16:20:00.748Z",
+      "actorId": "u001",
+      "actorNombre": "María Altagracia Rosario",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u001",
+      "detalle": ""
+    },
+    {
+      "id": "log145",
+      "fecha": "2026-10-02T16:20:09.011Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log146",
+      "fecha": "2026-10-02T16:21:21.543Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log147",
+      "fecha": "2026-10-02T16:21:26.215Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
     }
   ],
   "emailLog": [
@@ -2972,5 +3093,50 @@
   "meta": {
     "defaultPassword": "Inscolar#2026"
   },
-  "drafts": []
+  "drafts": [
+    {
+      "id": "d001",
+      "tutorId": "u002",
+      "createdAt": 1790957953857,
+      "lastActivity": 1790957953857,
+      "expiresAt": 1790959153857,
+      "data": {
+        "step": 1,
+        "studentId": "s001",
+        "newStudent": {
+          "nombre": "",
+          "fechaNacimiento": ""
+        },
+        "tutorName": "Ana Beltré Peña",
+        "tutorPhone": "",
+        "institucionId": "i022",
+        "gradoSolicitado": "Pre-Primario",
+        "cicloEscolar": "2026-2027",
+        "periodosValidos": [],
+        "documentos": []
+      }
+    },
+    {
+      "id": "d002",
+      "tutorId": "u002",
+      "createdAt": 1790958060409,
+      "lastActivity": 1790958079574,
+      "expiresAt": 1790959279574,
+      "data": {
+        "step": 3,
+        "studentId": "s001",
+        "newStudent": {
+          "nombre": "",
+          "fechaNacimiento": ""
+        },
+        "tutorName": "Ana Beltré Peña",
+        "tutorPhone": "8099992323",
+        "institucionId": "i022",
+        "gradoSolicitado": "3ro de Primaria",
+        "cicloEscolar": "2026-2027",
+        "periodosValidos": [],
+        "documentos": []
+      }
+    }
+  ]
 }

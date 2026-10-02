@@ -450,11 +450,16 @@
         const destEl = document.querySelector(destId || '.medallion');
         if (destEl) {
           const rect = destEl.getBoundingClientRect();
-          const heroRect = canvas.closest('.hero').getBoundingClientRect();
-          successTarget = {
-            x: rect.left - heroRect.left + rect.width / 2,
-            y: rect.top - heroRect.top + rect.height / 2
-          };
+          const hero = canvas.closest('.hero');
+          if (hero) {
+            const heroRect = hero.getBoundingClientRect();
+            successTarget = {
+              x: rect.left - heroRect.left + rect.width / 2,
+              y: rect.top - heroRect.top + rect.height / 2
+            };
+          } else {
+            successTarget = { x: canvas.width / 2, y: canvas.height / 2 };
+          }
         } else {
           successTarget = { x: canvas.width / 2, y: canvas.height / 2 };
         }
