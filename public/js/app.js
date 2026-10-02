@@ -2419,6 +2419,12 @@
               <span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${institution.estado || 'Activo'}</span>
             </div>
           </div>
+          ${(isAdmin() || (state.user.role === 'Personal de institución' && String(state.user.institucionId) === String(institution.id))) ? `
+          <div class="inst-hero-actions">
+            <button class="btn btn-secondary btn-small" data-nav="#/app/instituciones/${institution.id}/editar">Editar detalles</button>
+            <button class="btn btn-secondary btn-small" data-nav="#/app/instituciones/${institution.id}/periodos">Ajustar periodos</button>
+          </div>
+          ` : ''}
         </div>
       </div>
       <div id="foto-err"></div>
@@ -2779,7 +2785,7 @@
     };
 
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      <button class="back-link" data-nav="${isAdmin() ? '#/app/instituciones' : '#/app/instituciones/' + (editing ? editing.id : id) + '/detalle'}">${ICONS.back} Volver a ${isAdmin() ? 'instituciones' : 'detalles'}</button>
       <div class="page-head"><h2>${editing ? 'Modificar institución' : 'Nueva institución'}</h2></div>
       <div class="chart-card" style="max-width:760px;">
         <div id="err"></div>
@@ -3356,7 +3362,7 @@
       api('/institutions/' + institucionId + '/periods'),
     ]);
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      <button class="back-link" data-nav="${isAdmin() ? '#/app/instituciones' : '#/app/instituciones/' + institucionId + '/detalle'}">${ICONS.back} Volver a ${isAdmin() ? 'instituciones' : 'detalles'}</button>
       <div class="page-head"><div><h2>Periodos \u2014 ${escapeHtml(nombre)}</h2><div class="sub">Ventanas de inscripci\u00f3n, env\u00edo de documentos y citas por ciclo escolar.</div></div>
         <button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/instituciones/${institucionId}/periodos/nueva">Nuevo ciclo</button>
       </div>
