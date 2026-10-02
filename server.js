@@ -10,6 +10,10 @@ if (!fs.existsSync(DB_PATH)) {
   console.log('No se encontró data/db.json — generando datos de prueba...');
   require('./lib/seed');
 }
+{
+  const asignadas = require('./lib/demo-assets').asignarImagenesDemo();
+  if (asignadas) console.log(`Imágenes de demo asignadas a instituciones: ${asignadas}`);
+}
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');

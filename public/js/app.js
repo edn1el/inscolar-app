@@ -607,6 +607,7 @@
           <section class="pub-cover ${cover ? 'has-photo' : ''}" ${cover ? `style="--cover:url('${cover}')"` : ''}>
             ${cover ? '' : `<div class="arches" aria-hidden="true">${'<div class="arch"></div>'.repeat(6)}</div>`}
             <div class="pub-cover-body">
+              ${i.logo ? `<img class="pub-cover-logo" src="/api/institutions/${i.id}/logo?v=${encodeURIComponent(i.logo.uploadedAt || '')}" alt="Logo de ${escapeHtml(i.nombre)}" onerror="this.remove()">` : ''}
               <h1>${escapeHtml(i.nombre)}</h1>
               <p>${escapeHtml(instPlace(i))}</p>
             </div>
