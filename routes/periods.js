@@ -248,4 +248,23 @@ router.delete('/institutions/:id/periods/:periodId', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// Cupos de inscripción por ciclo y grado: contrato del prototipo F5.4.
+router.put('/institutions/:id/periods/:periodId/cupos-inscripcion', (req,res) => {
+  const db=req.db,u=req.currentUser;
+  const period=db.periods.find(p=>p.id===req.params.periodId && p.institucionId===req.params.id);
+  if(!period) return res.status(404).json({error:'Periodo no encontrado.'});
+  if(!canManage(u,req.params.id)) return res.status(403).json({error:'No tienes permiso para configurar cupos.'});
+  const service=require('../lib/enrollment-service'), {grado,limite}=req.body || {};
+  if(!service.GRADOS.includes(grado) || !Number.isInteger(limite) || limite<1 || limite>100000) return res.status(400).json({error:'Selecciona un grado y un cupo entero positivo (máximo 100000).'});
+  if(!Array.isArray(db.enrollmentCapacities)) db.enrollmentCapacities=[];
+  const context={institucionId:period.institucionId,cicloEscolar:period.cicloEscolar,gradoSolicitado:grado};
+  const c=service.capacity(db,context);
+  if(limite<c.ocupados+c.reservados) return res.status(409).json({error:'El límite no puede ser menor que las inscripciones aceptadas y reservas vigentes.'});
+  let config=c.config;
+  if(!config){config={id:nextId(db.enrollmentCapacities,'ec'),institucionId:period.institucionId,cicloEscolar:period.cicloEscolar,grado};db.enrollmentCapacities.push(config);}
+  config.limite=limite;config.updatedAt=new Date().toISOString();config.updatedBy=u.id;
+  logEvent(db,{actor:u,accion:'Cupos de inscripción configurados',entidad:'Periodo',entidadId:period.id,detalle:`${grado} · límite ${limite}`});
+  try {save(db);require('../lib/enrollment-updates').publish({institucionId:period.institucionId,cicloEscolar:period.cicloEscolar});res.json({capacity:config});} catch(_){res.status(500).json({error:'No se pudieron guardar los cupos. Reintenta.'});}
+});
+
 module.exports = router;

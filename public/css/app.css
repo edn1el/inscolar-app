@@ -3059,3 +3059,32 @@ tbody tr:last-child td {
   .topbar-right { gap: 6px; min-width: 0; }
   .logout { padding-inline: 6px; font-size: .75rem; }
 }
+
+/* Seguimiento y revisión de inscripciones F5.4 */
+.enrollment-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.enrollment-actions .btn { width: auto; }
+.enrollment-summary { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 8px 16px; }
+.enrollment-summary dt { font-weight: 600; }
+.enrollment-summary dd { margin: 0; overflow-wrap: anywhere; }
+.enrollment-documents li, .enrollment-history li { margin-bottom: 16px; overflow-wrap: anywhere; }
+.enrollment-state { background: var(--c-surface-3); color: var(--c-ink); }
+.enrollment-state[data-state="Aceptada"] { border: 1px solid #24864e; }
+.enrollment-state[data-state="Rechazada"], .enrollment-state[data-state="Documentos pendientes"] { border: 1px solid #c44848; }
+.enrollment-modal-error { color: var(--c-ink); font-weight: 600; overflow-wrap: anywhere; }
+#enrollment-filters label { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; }
+#enrollment-filters input, #enrollment-filters select { max-width: 280px; }
+@media (max-width:640px) {
+  #enrollment-filters label { width: 100%; min-width: 0; }
+  #enrollment-filters input, #enrollment-filters select { width: 100%; max-width: 100%; }
+  .enrollment-summary { grid-template-columns: 1fr; gap: 4px; }
+  .enrollment-summary dd { margin-bottom: 8px; }
+}
+
+.students-panel { padding: 20px; margin-bottom: 20px; }
+.students-head { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.students-head h3 { margin:0; }
+.students-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr)); gap:12px; }
+.student-card { display:flex; align-items:center; gap:12px; padding:16px; border:1px solid var(--c-border); border-radius:12px; min-width:0; }
+.student-card h4 { margin:0 0 6px; overflow-wrap:anywhere; }
+.student-card p { margin:0; font-size:.85rem; color:var(--c-ink-soft); }
+.student-avatar { flex-shrink:0; width:42px; height:42px; display:grid; place-items:center; background:var(--c-garnet-subtle); color:var(--c-ink); border-radius:50%; font-weight:700; }

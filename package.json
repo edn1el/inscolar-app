@@ -8,7 +8,8 @@
     "dev": "node server.js",
     "reset-data": "node lib/seed.js",
     "test:login": "node --test test/login.browser.cjs",
-    "test:review": "node --test test/review.browser.cjs"
+    "test:review": "node --test test/review.browser.cjs",
+    "test:f54": "node --test test/enrollments.browser.cjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

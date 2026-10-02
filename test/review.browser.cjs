@@ -43,7 +43,7 @@ test('regresiones hasta F5.3 con datos aislados', {timeout:120000}, async t => {
   await t.test('envío atómico e idempotente del estudiante y borrador',async()=>{const before=JSON.parse(fs.readFileSync(dbp)).students.length;for(let i=0;i<2;i++){const r=await tutor.post('/api/enrollments',{data:{...data,draftId:draft.draft.id}});assert.equal(r.status(),200);const e=(await r.json()).enrollment;if(enrollment)assert.equal(e.id,enrollment.id);enrollment=e;}assert.equal(JSON.parse(fs.readFileSync(dbp)).students.length,before+1);assert.deepEqual(enrollment.requisitosSnapshot.map(r=>r.tipo),['Acta de prueba']);});
   await t.test('borrador enviado no admite cargas',async()=>assert.equal((await upload(tutor,draft.draft.id)).status(),404));
   await t.test('fallo de envío no crea estudiantes',async()=>{const before=JSON.parse(fs.readFileSync(dbp)).students.length;const bad={...data,institucionId:'inexistente'};const d=(await(await tutor.post('/api/drafts',{data:bad})).json()).draft;assert.equal((await tutor.post('/api/enrollments',{data:{...bad,draftId:d.id}})).status(),400);assert.equal(JSON.parse(fs.readFileSync(dbp)).students.length,before);});
-  await t.test('solicitud enviada no abandona por antigüedad',async()=>{const r=await(await tutor.get('/api/enrollments')).json();assert.equal(r.enrollments.find(e=>e.id==='reviewold').estado,'Pendiente');});
+  await t.test('solicitud enviada no abandona por antigüedad',async()=>{const r=await(await tutor.get('/api/enrollments')).json();assert.equal(r.enrollments.find(e=>e.id==='reviewold').estado,'Enviada');});
   await t.test('Soporte no desactiva instituciones',async()=>assert.equal((await support.post('/api/institutions/i001/toggle-estado')).status(),403));
   await t.test('ciclo asociado no se elimina',async()=>assert.equal((await admin.delete('/api/institutions/i001/periods/reviewper')).status(),400));
   await t.test('rangos iguales inválidos y hora de cierre exacta',async()=>{assert.equal((await admin.put('/api/institutions/i001/periods/reviewper',{data:{inscripcion:{desde:'2026-10-02T12:00:00Z',hasta:'2026-10-02T12:00:00Z'}}})).status(),400);assert.equal(require('../lib/periods').withinRange({desde:'2026-10-02T08:00:00Z',hasta:'2026-10-02T10:00:00Z'},new Date('2026-10-02T18:00:00Z')),false);});
@@ -55,11 +55,12 @@ test('regresiones hasta F5.3 con datos aislados', {timeout:120000}, async t => {
    const after=JSON.parse(fs.readFileSync(dbp));assert.equal(after.logs.filter(l=>l.entidadId===d.id && l.accion==='Borrador abandonado por inactividad').length,1);
   });
   await t.test('correcciones exigen reemplazo y conservan motivos e historial',async()=>{
+   assert.equal((await admin.post('/api/enrollments/'+enrollment.id+'/revisar',{data:{version:(await(await admin.get('/api/enrollments/'+enrollment.id)).json()).enrollment.version}})).status(),200);
    let docs=await(await tutor.get('/api/enrollments/'+enrollment.id+'/documents')).json();const doc=docs.documents[0];
-   assert.equal((await admin.post('/api/documents/'+doc.id+'/decidir',{data:{estado:'Rechazado',motivo:'Ilegible'}})).status(),200);
-   assert.equal((await tutor.post('/api/enrollments/'+enrollment.id+'/correcciones')).status(),400);
+   assert.equal((await admin.post('/api/documents/'+doc.id+'/decidir',{data:{estado:'Rechazado',motivo:'Ilegible',version:(await(await admin.get('/api/enrollments/'+enrollment.id)).json()).enrollment.version}})).status(),200);
+   assert.equal((await tutor.post('/api/enrollments/'+enrollment.id+'/correcciones',{data:{version:(await(await tutor.get('/api/enrollments/'+enrollment.id)).json()).enrollment.version}})).status(),422);
    const r=await tutor.post('/api/enrollments/'+enrollment.id+'/documents',{multipart:{tipoDocumento:'Acta de prueba',archivo:{name:'corregido.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\ncorregido\n%%EOF')}}});assert.equal(r.status(),200);
-   const sent=await tutor.post('/api/enrollments/'+enrollment.id+'/correcciones');assert.equal(sent.status(),200);assert.equal((await sent.json()).enrollment.estado,'En revisión');
+   const sent=await tutor.post('/api/enrollments/'+enrollment.id+'/correcciones',{data:{version:(await(await tutor.get('/api/enrollments/'+enrollment.id)).json()).enrollment.version}});assert.equal(sent.status(),200);assert.equal((await sent.json()).enrollment.estado,'En revisión');
    docs=await(await tutor.get('/api/enrollments/'+enrollment.id+'/documents')).json();assert.equal(docs.documents.length,2);assert.equal(docs.documents.find(d=>d.id===doc.id).motivoRechazo,'Ilegible');
   });
   await t.test('ocupación cuenta la fecha agendada y bloquea reducir cupos',async()=>{

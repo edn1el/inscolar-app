@@ -4,10 +4,10 @@ const path = require('path');
 const multer = require('multer');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
-const { notifyUser } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
 const { findPeriod, withinRange } = require('../lib/periods');
 
+const service = require('../lib/enrollment-service');
 const router = express.Router();
 router.use(requireAuth);
 
@@ -105,7 +105,7 @@ router.post('/drafts/:id/documents', (req, res, next) => {
   const ext = path.extname(req.file.originalname).slice(1).toUpperCase().replace('JPEG', 'JPG');
   const mime = { PDF: 'application/pdf', PNG: 'image/png', JPG: 'image/jpeg' };
   const existing = db.documents.filter(d => typeof draft !== 'undefined' ? d.draftId === draft.id : d.enrollmentId === enrollment.id).sort((a,b) => new Date(b.uploadedAt)-new Date(a.uploadedAt)).find(d => d.tipoDocumento === tipoDocumento);
-  if (!rule || !format || ext !== format || req.file.mimetype !== mime[format] || !rule.formatos.map(f => f.replace('JPEG','JPG')).includes(format) || !bytes.length || bytes.length > rule.maxSizeMB * 1024 * 1024 || (existing && existing.estado !== 'Rechazado') || (typeof enrollment !== 'undefined' && !['Pendiente', 'Enviada', 'En revisión', 'Documentos pendientes'].includes(enrollment.estado))) {
+  if (!rule || !format || ext !== format || req.file.mimetype !== mime[format] || !rule.formatos.map(f => f.replace('JPEG','JPG')).includes(format) || !bytes.length || bytes.length > rule.maxSizeMB * 1024 * 1024 || (existing && existing.estado !== 'Rechazado') || (typeof enrollment !== 'undefined' && !['Enviada', 'En revisión', 'Documentos pendientes'].includes(service.status(enrollment)))) {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: 'Documento inválido: revisa el requisito, formato, tamaño y estado de la solicitud.' });
   }
@@ -210,7 +210,7 @@ router.post('/enrollments/:id/documents', (req, res, next) => {
   const ext = path.extname(req.file.originalname).slice(1).toUpperCase().replace('JPEG', 'JPG');
   const mime = { PDF: 'application/pdf', PNG: 'image/png', JPG: 'image/jpeg' };
   const existing = db.documents.filter(d => typeof draft !== 'undefined' ? d.draftId === draft.id : d.enrollmentId === enrollment.id).sort((a,b) => new Date(b.uploadedAt)-new Date(a.uploadedAt)).find(d => d.tipoDocumento === tipoDocumento);
-  if (!rule || !format || ext !== format || req.file.mimetype !== mime[format] || !rule.formatos.map(f => f.replace('JPEG','JPG')).includes(format) || !bytes.length || bytes.length > rule.maxSizeMB * 1024 * 1024 || (existing && existing.estado !== 'Rechazado') || (typeof enrollment !== 'undefined' && !['Pendiente', 'Enviada', 'En revisión', 'Documentos pendientes'].includes(enrollment.estado))) {
+  if (!rule || !format || ext !== format || req.file.mimetype !== mime[format] || !rule.formatos.map(f => f.replace('JPEG','JPG')).includes(format) || !bytes.length || bytes.length > rule.maxSizeMB * 1024 * 1024 || (existing && existing.estado !== 'Rechazado') || (typeof enrollment !== 'undefined' && !['Enviada', 'En revisión', 'Documentos pendientes'].includes(service.status(enrollment)))) {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: 'Documento inválido: revisa el requisito, formato, tamaño y estado de la solicitud.' });
   }
@@ -232,8 +232,10 @@ router.post('/enrollments/:id/documents', (req, res, next) => {
     decidedBy: null,
   };
   db.documents.push(document);
+  service.recordEvent(db, enrollment, u, 'Corrección documental cargada', service.status(enrollment), '', {documentId:document.id});
   logEvent(db, { actor: u, accion: 'Documento subido', entidad: 'Documento', entidadId: document.id, detalle: `${document.tipoDocumento} — ${document.nombreArchivo}` });
   save(db);
+  require('../lib/enrollment-updates').publish({id:enrollment.id});
   res.json({ document: publicDocument(document) });
 });
 
@@ -264,33 +266,25 @@ router.post('/documents/:id/decidir', (req, res) => {
 
   const canDecide = STAFF_ROLES.includes(u.role) || (u.role === 'Personal de institución' && u.institucionId === enrollment.institucionId);
   if (!canDecide) return res.status(403).json({ error: 'No tienes permiso para decidir sobre este documento.' });
-  if (!['Pendiente', 'Enviada', 'En revisión', 'Documentos pendientes'].includes(enrollment.estado)) return res.status(400).json({ error: 'La solicitud ya fue finalizada.' });
+  if (!['Enviada', 'En revisión', 'Documentos pendientes'].includes(service.status(enrollment))) return res.status(400).json({ error: 'La solicitud ya fue finalizada.' });
+  if (!['En revisión','Documentos pendientes'].includes(service.status(enrollment))) return res.status(409).json({error:'Inicia la revisión de la solicitud antes de decidir sus documentos.'});
   if (document.estado !== 'Pendiente') return res.status(400).json({ error: 'Este documento ya fue decidido.' });
 
+  try { service.requireVersion(enrollment,req.body?.version); }
+  catch(err) { return res.status(err.status).json({error:err.message}); }
   const { estado, motivo } = req.body || {};
   if (!['Aceptado', 'Rechazado'].includes(estado)) return res.status(400).json({ error: 'Decisión inválida.' });
-  if (estado === 'Rechazado' && (!motivo || !motivo.trim())) return res.status(400).json({ error: 'Indica el motivo del rechazo.' });
+  if (estado === 'Rechazado' && (typeof motivo !== 'string' || motivo.trim().length < 3 || motivo.trim().length > 2000)) return res.status(400).json({ error: 'Indica el motivo del rechazo.' });
 
   document.estado = estado;
   document.motivoRechazo = estado === 'Rechazado' ? motivo.trim() : '';
   document.decidedAt = new Date().toISOString();
   document.decidedBy = u.id;
-  if (estado === 'Rechazado') enrollment.estado = 'Documentos pendientes';
-  logEvent(db, { actor: u, accion: estado === 'Aceptado' ? 'Documento aceptado' : 'Documento rechazado', entidad: 'Documento', entidadId: document.id, detalle: estado === 'Rechazado' ? document.motivoRechazo : document.tipoDocumento });
-
-  const tutor = db.users.find((t) => t.id === document.tutorId);
-  if (tutor) {
-    notifyUser(db, {
-      recipient: tutor,
-      campo: 'Estado de documento',
-      anterior: 'Pendiente',
-      nuevo: estado,
-      actor: u,
-      userNombre: document.tipoDocumento || document.nombreArchivo,
-    });
-  }
+  service.recordEvent(db, enrollment, u, estado === 'Rechazado' ? 'Correcciones solicitadas' : 'Documento aprobado', estado === 'Rechazado' ? 'Documentos pendientes' : service.status(enrollment), document.motivoRechazo, {documentId:document.id});
+  logEvent(db, { actor: u, accion: estado === 'Aceptado' ? 'Documento aceptado' : 'Documento rechazado', entidad: 'Documento', entidadId: document.id, detalle: document.motivoRechazo || document.tipoDocumento });
 
   save(db);
+  require('../lib/enrollment-updates').publish({id:enrollment.id});
   res.json({ document: publicDocument(document) });
 });
 
