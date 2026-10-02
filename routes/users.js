@@ -35,7 +35,7 @@ function publicUser(u, db) {
   if (!u) return null;
   const { passwordHash, passwordHistory, recoveryAttempts, ...rest } = u;
   const institucion = db && u.institucionId ? db.institutions.find((i) => i.id === u.institucionId) : null;
-  return { ...rest, institucionNombre: institucion ? institucion.nombre : null };
+  return { ...rest, auditEnabled: u.role === 'Administrador' && require('../lib/audit-contract').enabled(u), institucionNombre: institucion ? institucion.nombre : null };
 }
 
 function genTempPassword() {
@@ -83,6 +83,7 @@ router.post('/me/password', (req, res) => {
 
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  logEvent(db, {actor:user, accion:"Contraseña cambiada", entidad:"Usuario", entidadId:user.id});
   save(db);
   res.json({ status: 'ok' });
 });
@@ -281,6 +282,7 @@ router.put('/:id', requireAdminOrSupport, (req, res) => {
   if (email && db.users.some((u) => u.id !== user.id && u.email.toLowerCase() === String(email).toLowerCase())) {
     errors.push('Este correo ya está en uso por otro usuario.');
   }
+  if (errors.length) return res.status(400).json({ errors });
   if (nombre) user.nombre = nombre.trim();
   if (email) user.email = email.trim().toLowerCase();
   if (institucionId !== undefined) user.institucionId = user.role === 'Personal de institución' ? institucionId : null;
