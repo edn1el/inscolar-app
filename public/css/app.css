@@ -3176,3 +3176,8 @@ a.enroll-cta, .leaflet-container a.enroll-cta {
   display:flex !important; align-items:center; justify-content:center;
   box-sizing:border-box; text-align:center; line-height:1.25; padding:12px 16px;
 }
+
+/* A continuous shell while requests run; loaders never impose a minimum wait. */
+.loading { flex-direction:column; gap:16px; font-weight:600; animation:loading-arrival 180ms ease-out; }
+.loading-spinner { width:32px; height:32px; border-width:3px; }
+@keyframes loading-arrival { from { opacity:.25; } to { opacity:1; } }

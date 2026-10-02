@@ -19,3 +19,11 @@ Configurado mediante la API del servidor de este worktree en http://localhost:31
 6. Como tutor, consultar estado y solicitar una cita disponible; como personal, aceptar/rechazar/reprogramar según corresponda.
 
 La configuración permanece al reiniciar el servidor si se utiliza el mismo DB_PATH. No se traslada automáticamente a otra base ni al backend. Para replicarla en otra base de prueba, configurar el ciclo, documentos, cupos y franjas desde las pantallas de institución. Los horarios del 3 de octubre dejan de estar disponibles cuando hayan pasado; añadir nuevas franjas desde el calendario.
+
+## Personal de Calasanz
+
+Cuenta local `personal.calasanz@inscolar.test`, nombre Personal de prueba Calasanz, ID u010, rol Personal de institución e institución i001. Se creó mediante la API administrativa y se completó el cambio obligatorio de contraseña. Acceso propio comprobado (200); disponibilidad de institución ajena rechazada (403). La contraseña se entrega en el chat y no se incluye en este documento. Solo existe en la base temporal indicada; el usuario anterior u003 se conserva.
+
+## Transiciones y carga
+
+Fundido de entrada de 320 ms en pantallas y pasos, sin esperas mínimas ni bloqueo de controles. Durante las peticiones entre apartados del panel se conserva la navegación y aparece un indicador de carga accesible. La preferencia del sistema de movimiento reducido desactiva las transiciones. Los recursos CSS/JS se versionan para volver a validarlos al abrir la app; una pestaña que ya ejecutaba el código anterior necesita una recarga manual inicial, sin recargas programáticas durante los recorridos.

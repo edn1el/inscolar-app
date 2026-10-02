@@ -60,8 +60,19 @@ test('F5.4: servicio y recorridos reales de inscripción', {timeout:180000},asyn
   await t.test('fallo conserva motivo, teclado y recuperación de rechazo en móvil oscuro',async()=>{fixture('ui-reject');const {page,errors}=await pageFor('u003',{viewport:{width:375,height:812},colorScheme:'dark'});await page.evaluate(()=>location.hash='#/app/inscripciones/ui-reject/detalle');await page.locator('[data-enrollment-action=rechazar]').click();await expect(page.getByRole('dialog')).toBeVisible();await page.locator('#enrollment-motive').focus();await page.keyboard.press('Shift+Tab');await expect(page.locator('#mod-confirm')).toBeFocused();await page.keyboard.press('Tab');await expect(page.locator('#enrollment-motive')).toBeFocused();await page.locator('#enrollment-motive').fill('Motivo que debe conservarse');await page.route('**/api/enrollments/ui-reject/decidir',r=>r.fulfill({status:500,contentType:'application/json',body:JSON.stringify({error:'Fallo de prueba'})}));await page.locator('#mod-confirm').click();await expect(page.locator('.enrollment-modal-error')).toContainText('Fallo de prueba');await expect(page.locator('#enrollment-motive')).toHaveValue('Motivo que debe conservarse');await expect(page.locator('#mod-confirm')).toBeEnabled();await page.unroute('**/api/enrollments/ui-reject/decidir');await page.locator('#mod-confirm').click();await expect(page.getByRole('dialog')).toHaveCount(0);await expect(page.locator('.enrollment-state')).toContainText('Rechazada');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),375);if(process.env.F54_SCREENSHOTS){fs.mkdirSync(process.env.F54_SCREENSHOTS,{recursive:true});await page.screenshot({path:path.join(process.env.F54_SCREENSHOTS,'personal-rechazo-mobile.png'),fullPage:true,animations:'disabled'});}assert.deepEqual(errors,[]);});
   await t.test('transiciones de apartados sin bloquear controles, movimiento reducido y alta sin NUP',async()=>{
    const {page,errors}=await pageFor('u002',{viewport:{width:375,height:812}});
-   await page.addInitScript(()=>{const animate=Element.prototype.animate;Element.prototype.animate=function(...args){if(args[1]?.duration===200&&args[0]?.[0]?.opacity===0.72)window.screenArrivals=(window.screenArrivals||0)+1;return animate.apply(this,args);};});
+   await page.addInitScript(()=>{const animate=Element.prototype.animate;Element.prototype.animate=function(...args){if(args[1]?.duration===320&&args[0]?.[0]?.opacity===0.2)window.screenArrivals=(window.screenArrivals||0)+1;return animate.apply(this,args);};});
    await page.reload();await expect(page.locator('.main')).toBeVisible();
+   let releaseRequest, requestEntered;
+   const gate=new Promise(resolve=>releaseRequest=resolve),entered=new Promise(resolve=>requestEntered=resolve);
+   await page.route('**/api/notifications?*',async route=>{requestEntered();await gate;await route.continue();});
+   const shell=await page.locator('.topbar').elementHandle();
+   try{
+    await page.evaluate(()=>location.hash='#/app/manual');await entered;
+    await expect(page.locator('.topbar')).toBeVisible();assert.ok(await shell.evaluate(el=>el.isConnected));
+    await expect(page.locator('.main .loading-spinner')).toBeVisible();await expect(page.locator('.main [role=status]')).toContainText('Cargando');
+    await page.screenshot({path:path.join(dir,'loading-shell-mobile.png'),animations:'disabled'});
+   }finally{releaseRequest();await page.unrouteAll({behavior:'wait'});}
+   await expect(page.locator('.main .loading')).toHaveCount(0);await expect(page.locator('.main h2')).toBeVisible();
    for(const section of ['seguridad','configuracion','manual','notificaciones','inscripciones','citas','inscripciones/estudiante-nuevo']){
     const count=await page.evaluate(()=>window.screenArrivals||0);await page.evaluate(s=>location.hash='#/app/'+s,section);await expect.poll(()=>page.evaluate(()=>window.screenArrivals||0)).toBeGreaterThan(count);await expect(page.locator('.main')).toBeVisible();assert.ok(await page.locator('.main').evaluate(el=>getComputedStyle(el).pointerEvents!=='none'));
    }

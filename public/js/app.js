@@ -13,10 +13,23 @@
   const animateScreen = el => {
     if (!el?.isConnected || el.matches('.loading') || reducedMotion.matches || typeof el.animate !== 'function') return;
     screenAnimation?.cancel();
-    screenAnimation = el.animate([{opacity:0.72},{opacity:1}], {duration:200,easing:'ease-out'});
+    screenAnimation = el.animate([{opacity:0.2},{opacity:1}], {duration:320,easing:'cubic-bezier(0.2, 0.7, 0.3, 1)'});
     screenAnimation.id = 'inscolar-screen-arrival';
   };
   new MutationObserver(records => {
+    // Every loader, including calendar and document views, shares an accessible indicator.
+    for (const record of records) for (const node of record.addedNodes) {
+      if (!(node instanceof Element)) continue;
+      const loaders = node.matches('.loading') ? [node] : node.querySelectorAll('.loading');
+      for (const loader of loaders) {
+        if (!loader.querySelector('.loading-spinner')) {
+          const spinner = document.createElement('span');
+          spinner.className = 'loading-spinner'; spinner.setAttribute('aria-hidden','true');
+          loader.prepend(spinner);
+        }
+        loader.setAttribute('role','status'); loader.setAttribute('aria-live','polite');
+      }
+    }
     const screen = records.some(r => r.target === root) ? root.querySelector('.main') || root.firstElementChild
       : records.find(r => r.target instanceof Element && r.target.matches('.main'))?.target;
     if (screen) animateScreen(screen);
@@ -329,7 +342,10 @@
     if (window._wizardCleanup) { window._wizardCleanup(); window._wizardCleanup = null; }
     const version = ++routerVersion;
     cleanupParticles();
-    root.innerHTML = '<div class="loading">Cargando…</div>';
+    const main = state.user && window.location.hash.startsWith('#/app/') ? root.querySelector('.main') : null;
+    const loading = '<div class="loading">Cargando…</div>';
+    if (main) main.innerHTML = loading;
+    else root.innerHTML = loading;
     try { await renderRoute(version); }
     catch (err) {
       if (version !== routerVersion) return;
