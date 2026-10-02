@@ -3,7 +3,7 @@ const fs=require('fs'),os=require('os'),path=require('path'),{spawn}=require('ch
 const {chromium,request,expect}=require('playwright/test'),bcrypt=require('bcryptjs');
 test('F8: auditoría real, permisos, filtros, detalle y recuperación',{timeout:90000},async t=>{
  const root=path.resolve(__dirname,'..'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'inscolar-f8-browser-'));
- const preserved=['data/db.json','test_puppeteer.js'].map(f=>[f,fs.readFileSync(path.join(root,f))]);
+ const preserved=['data/db.json','test_puppeteer.js'].filter(f=>fs.existsSync(path.join(root,f))).map(f=>[f,fs.readFileSync(path.join(root,f))]);
  for(const f of ['server.js','routes','lib','public'])fs.cpSync(path.join(root,f),path.join(dir,f),{recursive:true});fs.symlinkSync(path.join(root,'node_modules'),path.join(dir,'node_modules'),'dir');fs.mkdirSync(path.join(dir,'data'));
  const dbp=path.join(dir,'data/db.json'),db=JSON.parse(fs.readFileSync(path.join(root,'data/db.json'))),password='Audit#2026';
  db.users.forEach(u=>Object.assign(u,{passwordHash:bcrypt.hashSync(password,4),estado:'Activo',mfaEnabled:false,mustChangePassword:false,auditEnabled:u.id==='u001'}));
