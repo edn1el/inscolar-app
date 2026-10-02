@@ -1512,9 +1512,32 @@
     });
   }
 
+  // Selector de archivos propio, en español (el del navegador sale en el idioma del sistema).
+  // El input real sigue ahí (accesible y con sus listeners); solo se oculta su apariencia.
+  function enhanceFileInputs(scope) {
+    qsa('input[type=file]', scope).forEach((input) => {
+      if (input.dataset.enhanced || input.style.display === 'none') return;
+      input.dataset.enhanced = '1';
+      const wrap = document.createElement('span');
+      wrap.className = 'file-pick';
+      input.parentNode.insertBefore(wrap, input);
+      wrap.appendChild(input);
+      wrap.insertAdjacentHTML('beforeend', '<span class="file-pick-btn" aria-hidden="true">Elegir archivo</span><span class="file-pick-name" aria-hidden="true">Ningún archivo seleccionado</span>');
+      const name = qs('.file-pick-name', wrap);
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        name.textContent = file ? file.name : 'Ningún archivo seleccionado';
+        wrap.classList.toggle('has-file', !!file);
+      });
+      const form = input.form;
+      if (form) form.addEventListener('reset', () => { name.textContent = 'Ningún archivo seleccionado'; wrap.classList.remove('has-file'); });
+    });
+  }
+
   function bindShellEvents() {
     labelTables(qs('.main'));
     markLiveStates(qs('.main'));
+    enhanceFileInputs(qs('.main'));
     qsa('[data-nav]').forEach((btn) => btn.addEventListener('click', () => {
       const sidebar = qs('#sidebar');
       const backdrop = qs('#sidebar-backdrop');
@@ -4027,7 +4050,7 @@
         <label class="ff"><span class="ff-label">Desde</span><input type="date" id="f-desde" value="${escapeHtml(query.desde || '')}" title="Desde"></label>
         <label class="ff"><span class="ff-label">Hasta</span><input type="date" id="f-hasta" value="${escapeHtml(query.hasta || '')}" title="Hasta"></label>
       </div>
-      <div class="table-card">
+      <div class="table-card dense">
         <table>
           <thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Detalle</th></tr></thead>
           <tbody>
