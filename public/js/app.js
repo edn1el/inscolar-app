@@ -3527,7 +3527,8 @@
     `;
 
     bindShellEvents();
-
+    const nivelesDisponibles = ['Inicial', 'Primaria', 'Secundaria'];
+    const formatosDisponibles = ['PDF', 'JPG', 'PNG'];
     let docsState = (period.documentosRequeridos || []).map(d => {
       if (typeof d === 'string') {
         return { id: Math.random().toString(36).substr(2, 9), nombre: d, niveles: nivelesDisponibles ? nivelesDisponibles.slice() : [], descripcion: '', formatos: formatosDisponibles ? formatosDisponibles.slice() : [], maxMb: 5 };
