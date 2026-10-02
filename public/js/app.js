@@ -1319,7 +1319,7 @@
   const ROLES_ADMIN_PUEDE_CREAR = ['Administrador', 'Soporte', 'Personal de institución', 'Auditoría'];
 
   const AUDIT_ROLES = ['Administrador', 'Auditoría'];
-  function canSeeAuditoria() { return state.user && AUDIT_ROLES.includes(role()); }
+  function canSeeAuditoria() { return state.user && (role() === 'Auditoría' || (role() === 'Administrador' && state.user.auditEnabled === true)); }
 
 
   async function viewApp(segs, query) {
@@ -1480,7 +1480,7 @@
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Analíticas
             </button>
-            <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
+            <button ${canSeeAuditoria() ? '' : 'hidden'} class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
             </button>
             ` : isSupport() ? `
@@ -1513,7 +1513,7 @@
             <div class="sec-label">Módulos</div>
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">${ICONS.building} Analíticas</button>
             <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
-            <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
+            <button ${canSeeAuditoria() ? '' : 'hidden'} class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
             </button>
             ` : ''}
@@ -5079,56 +5079,32 @@
 
   // ---------------- Auditoria ----------------
   async function renderAuditoria(query) {
-    const params = new URLSearchParams();
-    if (query.q) params.set('q', query.q);
-    if (query.accion) params.set('accion', query.accion);
-    if (query.actorId) params.set('actorId', query.actorId);
-    if (query.desde) params.set('desde', query.desde);
-    if (query.hasta) params.set('hasta', query.hasta);
-    const { total, logs, truncated, acciones, actores } = await api('/logs?' + params.toString());
-    const accionesFiltro = ['Todas', ...acciones];
-    const actoresFiltro = [{ id: 'Todos', nombre: 'Todos los usuarios' }, ...actores];
-
-    qs('.main').innerHTML = `
-      <div class="page-head"><div><h2>Auditoría</h2><div class="sub">Bitácora de acciones registradas en el sistema.</div></div></div>
-      <div class="filters">
-        <input id="f-q" placeholder="Buscar por usuario o detalle..." value="${escapeHtml(query.q || '')}">
-        <select id="f-accion">${accionesFiltro.map((a) => `<option ${(query.accion || 'Todas') === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</select>
-        <select id="f-actor">${actoresFiltro.map((a) => `<option value="${a.id}" ${(query.actorId || 'Todos') === a.id ? 'selected' : ''}>${escapeHtml(a.nombre)}</option>`).join('')}</select>
-        <input type="date" id="f-desde" value="${escapeHtml(query.desde || '')}" title="Desde">
-        <input type="date" id="f-hasta" value="${escapeHtml(query.hasta || '')}" title="Hasta">
-      </div>
-      <div class="table-card">
-        <table>
-          <thead><tr><th>Fecha</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Detalle</th></tr></thead>
-          <tbody>
-            ${logs.length ? logs.map((l) => `<tr>
-                <td>${fmtDate(l.fecha)}</td>
-                <td>${escapeHtml(l.actorNombre || 'Sistema')}</td>
-                <td>${escapeHtml(l.actorRole || '—')}</td>
-                <td>${escapeHtml(l.accion)}</td>
-                <td>${escapeHtml(l.detalle || '')}</td>
-              </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state">No hay registros que coincidan con los filtros.</div></td></tr>`}
-          </tbody>
-        </table>
-        <div class="table-footer"><span>Mostrando ${logs.length} de ${total} registros${truncated ? ' (limitado a los más recientes)' : ''}</span></div>
-      </div>
-    `;
-    bindShellEvents();
-
-    function applyFilters() {
-      const p = new URLSearchParams();
-      if (qs('#f-q').value) p.set('q', qs('#f-q').value);
-      if (qs('#f-accion').value !== 'Todas') p.set('accion', qs('#f-accion').value);
-      if (qs('#f-actor').value !== 'Todos') p.set('actorId', qs('#f-actor').value);
-      if (qs('#f-desde').value) p.set('desde', qs('#f-desde').value);
-      if (qs('#f-hasta').value) p.set('hasta', qs('#f-hasta').value);
-      navigate('#/app/auditoria?' + p.toString());
-    }
-    qs('#f-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') applyFilters(); });
-    qs('#f-accion').addEventListener('change', applyFilters);
-    qs('#f-actor').addEventListener('change', applyFilters);
-    qs('#f-desde').addEventListener('change', applyFilters);
-    qs('#f-hasta').addEventListener('change', applyFilters);
+    const main=qs('.main'),params=new URLSearchParams();
+    for(const key of ['q','accion','actorId','desde','hasta','page'])if(query[key])params.set(key,query[key]);
+    main.innerHTML='<h2>Auditoría</h2><p role="status">Consultando registros…</p>';
+    try{
+      const result=await api('/logs?'+params.toString());if(!main.isConnected)return;
+      const {logs,total,page,pages,acciones,actores,auditStatus,zonaHoraria}=result;
+      main.innerHTML=`<div class="page-head"><div><h2>Auditoría</h2><p class="sub">Consulta de solo lectura. Fechas inclusivas: ${escapeHtml(zonaHoraria)}.</p></div><button id="audit-refresh" class="btn btn-secondary">Actualizar</button></div>
+        ${auditStatus.failed||auditStatus.pending?`<p class="notice warn" role="status">${auditStatus.pending} eventos pendientes; ${auditStatus.failed} requieren intervención del operador. Las operaciones guardadas se conservan.</p>`:''}
+        <form id="audit-filters" class="filters">
+          <label>Buscar<input name="q" maxlength="200" value="${escapeHtml(query.q||'')}" placeholder="Usuario, acción o entidad"></label>
+          <label>Acción<select name="accion"><option value="">Todas</option>${acciones.map(a=>`<option value="${escapeHtml(a)}" ${query.accion===a?'selected':''}>${escapeHtml(a)}</option>`).join('')}</select></label>
+          <label>Actor<select name="actorId"><option value="">Todos</option>${actores.map(a=>`<option value="${escapeHtml(a.id)}" ${query.actorId===a.id?'selected':''}>${escapeHtml(a.nombre)}</option>`).join('')}</select></label>
+          <label>Desde<input type="date" name="desde" value="${escapeHtml(query.desde||'')}"></label><label>Hasta<input type="date" name="hasta" value="${escapeHtml(query.hasta||'')}"></label>
+          <button class="btn btn-primary">Aplicar filtros</button><button type="button" id="audit-clear" class="btn btn-secondary">Limpiar</button>
+        </form>
+        <div class="table-card"><div style="overflow-x:auto"><table><caption class="sub">Eventos confirmados y heredados</caption><thead><tr><th>Fecha local</th><th>Actor / rol</th><th>Acción</th><th>Entidad</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody>${logs.length?logs.map(e=>`<tr><td>${escapeHtml(new Date(e.fecha).toLocaleString('es-DO',{timeZone:'America/Santo_Domingo'}))}</td><td>${escapeHtml(e.actorNombre)}<br><span class="sub">${escapeHtml(e.actorRole)}</span></td><td>${escapeHtml(e.accion)}</td><td>${escapeHtml(e.entidad)} ${escapeHtml(e.entidadId||'')}</td><td>${escapeHtml(e.resultado)}</td><td><button class="btn btn-secondary" data-audit-detail="${escapeHtml(e.eventId)}" aria-label="Ver detalle de ${escapeHtml(e.accion)}">Ver detalle</button></td></tr>`).join(''):'<tr><td colspan="6"><div class="empty-state">No hay registros que coincidan con los filtros.</div></td></tr>'}</tbody></table></div>
+        <div class="table-footer"><span>${total?`Mostrando ${(page-1)*20+1}–${(page-1)*20+logs.length} de ${total}`:'0 registros'} · Página ${page} de ${Math.max(1,pages)}</span><button id="audit-prev" class="btn btn-secondary" ${page<=1?'disabled':''}>Anterior</button><button id="audit-next" class="btn btn-secondary" ${page>=pages?'disabled':''}>Siguiente</button></div></div><div id="audit-detail"></div>`;
+      const form=qs('#audit-filters',main);
+      form.addEventListener('submit',e=>{e.preventDefault();const p=new URLSearchParams();for(const [k,v] of new FormData(form))if(v)p.set(k,v);navigate('#/app/auditoria?'+p);});
+      qs('#audit-clear',main).onclick=()=>navigate('#/app/auditoria');qs('#audit-refresh',main).onclick=()=>renderAuditoria(query);
+      for(const [id,delta] of [['audit-prev',-1],['audit-next',1]])qs('#'+id,main).onclick=()=>{params.set('page',page+delta);navigate('#/app/auditoria?'+params);};
+      qsa('[data-audit-detail]',main).forEach(button=>button.onclick=async()=>{
+        const box=qs('#audit-detail',main);box.innerHTML='<p role="status">Consultando detalle…</p>';
+        try{const {event}=await api('/logs/'+encodeURIComponent(button.dataset.auditDetail));if(!box.isConnected)return;box.innerHTML=`<section class="card" tabindex="-1" aria-label="Detalle del evento"><h3>Detalle del evento</h3><p>${escapeHtml(event.accion)} · ${escapeHtml(event.resultado)}</p><p>UTC: ${escapeHtml(event.fecha)}</p><p>Evento: ${escapeHtml(event.eventId)}<br>Correlación: ${escapeHtml(event.correlationId)}</p><p>${escapeHtml(event.detalle)}</p><h4>Anterior</h4><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(JSON.stringify(event.anterior,null,2))}</pre><h4>Nuevo</h4><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(JSON.stringify(event.nuevo,null,2))}</pre><h4>Contexto</h4><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escapeHtml(JSON.stringify(event.datos,null,2))}</pre><button class="btn btn-secondary" id="audit-detail-close">Cerrar detalle</button></section>`;qs('section',box).focus();qs('#audit-detail-close',box).onclick=()=>{box.innerHTML='';button.focus();};}catch(e){box.innerHTML=`<p class="notice err" role="alert">${escapeHtml(e.message)}. Vuelve a pulsar Ver detalle para reintentar.</p>`;}
+      });
+    }catch(e){if(!main.isConnected)return;main.innerHTML=`<h2>Auditoría</h2><p class="notice err" role="alert">No se pudieron consultar los registros. ${escapeHtml(e.message)}</p><button class="btn btn-secondary" id="audit-retry">Reintentar</button><a href="#/app/auditoria">Limpiar filtros</a>`;qs('#audit-retry',main).onclick=()=>renderAuditoria(query);}
   }
+
 })();
