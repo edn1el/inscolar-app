@@ -685,23 +685,26 @@
               
               const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
-                <div style="display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
+                <a href="#/buscar/${i.id}" style="text-decoration:none; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
                   <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
                     <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
                   </div>
-                  <div style="flex:1;">
+                  <div style="flex:1; text-align:left;">
                     <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
                     <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
                     <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
                     <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
                   </div>
-                </div>
+                </a>
               `;
-              marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip' });
+              marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip', interactive: true });
               marker.instId = i.id;
               
               marker.on('click', () => {
-                navigate('#/buscar/' + i.id);
+                const isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window);
+                if (!isMobile) {
+                  navigate('#/buscar/' + i.id);
+                }
               });
               
               currentMarkers.push(marker);
