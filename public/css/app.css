@@ -1418,6 +1418,8 @@ button.link:hover {
   position: relative;
 }
 
+.nav-item[hidden] { display: none; }
+
 .nav-item svg {
   flex: none;
   opacity: .7;

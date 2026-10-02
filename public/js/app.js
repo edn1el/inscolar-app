@@ -1376,6 +1376,10 @@
 
   async function viewApp(segs, query) {
     const section = segs[0] || 'perfil';
+    const denySection = () => {
+      root.innerHTML = appShellWrap('<div class="empty-state" role="alert">No tienes permiso para ver esta sección.</div>', 'perfil');
+      bindShellEvents();
+    };
     const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes(role());
     const esCalendarioInstitucion = section === 'instituciones' && segs[2] === 'calendario';
     const esDetalleInstitucion = section === 'instituciones' && segs[2] === 'detalle';
@@ -1387,39 +1391,39 @@
 
     // Solo Admin y Soporte ven Usuarios e Instituciones; Analíticas solo Admin
     if (section === 'usuarios' && !canSeeUsuarios()) {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      denySection();
       return;
     }
     if (section === 'analiticas' && !(isAdmin() || isAudit())) {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      denySection();
       return;
     }
     if (section === 'instituciones' && !isAdmin()) {
       const publicInstSections = esCalendarioInstitucion || esDetalleInstitucion || esCalificacionesInstitucion || esReportesInstitucion;
       const staffInstSections = esPropiaInstitucion && esPeriodosInstitucion;
       if (!publicInstSections && !staffInstSections && !esPropiaInstitucion) {
-        root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+        denySection();
         return;
       }
     }
     if (section === 'notificaciones' && !state.user) {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      denySection();
       return;
     }
     if (['calificar', 'reportar'].includes(section) && (state.user || {}).role !== 'Tutor') {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      denySection();
       return;
     }
     if (section === 'inscripciones' && !canSeeInscripciones) {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      denySection();
       return;
     }
     if (section === 'citas' && !canSeeInscripciones) {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      denySection();
       return;
     }
     if (section === 'auditoria' && !canSeeAuditoria()) {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+      denySection();
       return;
     }
 
