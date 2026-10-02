@@ -61,6 +61,97 @@ function publicEnrollment(e, db) {
   };
 }
 
+
+// ---- borradores de inscripcion (F5.2) ----
+
+// Constantes de expiracion. Para pruebas, se pueden sobreescribir mediante query param.
+const DRAFT_EXPIRE_MINS = 20;
+
+function sweepExpiredDrafts(db) {
+  if (!db.drafts) db.drafts = [];
+  const now = Date.now();
+  let changed = false;
+  db.drafts = db.drafts.filter(d => {
+    if (d.expiresAt < now) {
+      changed = true;
+      // TODO: Aquí se liberarían los cupos reales. (Mock: logica si hubiera cupos)
+      return false;
+    }
+    return true;
+  });
+  if (changed) save(db);
+}
+
+router.post('/drafts', (req, res) => {
+  const db = req.db;
+  sweepExpiredDrafts(db);
+  const u = req.currentUser;
+  if (u.role !== 'Tutor') return res.status(403).json({ error: 'Solo tutores pueden crear borradores.' });
+  
+  const testMinutes = req.query.expire_mins ? parseInt(req.query.expire_mins) : DRAFT_EXPIRE_MINS;
+  const draft = {
+    id: nextId(db.drafts || [], 'd'),
+    tutorId: u.id,
+    createdAt: Date.now(),
+    lastActivity: Date.now(),
+    expiresAt: Date.now() + (testMinutes * 60 * 1000),
+    data: req.body || {}
+  };
+  
+  if (!db.drafts) db.drafts = [];
+  db.drafts.push(draft);
+  save(db);
+  res.json({ draft });
+});
+
+router.get('/drafts/:id', (req, res) => {
+  const db = req.db;
+  sweepExpiredDrafts(db);
+  const u = req.currentUser;
+  const draft = (db.drafts || []).find(d => d.id === req.params.id);
+  if (!draft) return res.status(404).json({ error: 'Borrador expirado o inexistente.' });
+  if (draft.tutorId !== u.id) return res.status(403).json({ error: 'No autorizado.' });
+  
+  res.json({ draft, timeRemaining: draft.expiresAt - Date.now() });
+});
+
+router.put('/drafts/:id', (req, res) => {
+  const db = req.db;
+  sweepExpiredDrafts(db);
+  const u = req.currentUser;
+  const draft = (db.drafts || []).find(d => d.id === req.params.id);
+  if (!draft) return res.status(404).json({ error: 'Borrador expirado o inexistente.' });
+  if (draft.tutorId !== u.id) return res.status(403).json({ error: 'No autorizado.' });
+  
+  const testMinutes = req.query.expire_mins ? parseInt(req.query.expire_mins) : DRAFT_EXPIRE_MINS;
+  
+  // Registrar actividad
+  draft.lastActivity = Date.now();
+  draft.expiresAt = Date.now() + (testMinutes * 60 * 1000);
+  
+  // Guardar datos si vienen en el body
+  if (req.body && Object.keys(req.body).length > 0) {
+    draft.data = { ...draft.data, ...req.body };
+  }
+  
+  save(db);
+  res.json({ draft, timeRemaining: draft.expiresAt - Date.now() });
+});
+
+router.delete('/drafts/:id', (req, res) => {
+  const db = req.db;
+  const u = req.currentUser;
+  const draft = (db.drafts || []).find(d => d.id === req.params.id);
+  if (!draft) return res.status(404).json({ error: 'Borrador expirado o inexistente.' });
+  if (draft.tutorId !== u.id) return res.status(403).json({ error: 'No autorizado.' });
+  
+  // Borrar
+  db.drafts = db.drafts.filter(d => d.id !== req.params.id);
+  save(db);
+  res.json({ status: 'ok' });
+});
+
+
 // ---- estudiantes (hijos/as del tutor) ----
 router.get('/students', (req, res) => {
   const db = req.db;

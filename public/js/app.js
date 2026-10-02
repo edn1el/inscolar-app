@@ -3107,6 +3107,7 @@
     });
   }
 
+
   async function renderInscripcionForm() {
     const [{ students }, { institutions }] = await Promise.all([api('/students'), api('/institutions')]);
     const activas = institutions.filter((i) => (i.estado || 'Activo') === 'Activo');
@@ -3129,9 +3130,176 @@
       documentos: []
     };
 
+    let draftId = localStorage.getItem('enrollment_draft_id');
+    let expiresAt = null;
+    let timerId = null;
+    let warningModal = null;
+    let activityTimeout = null;
+    let broadcast = null;
+    try { broadcast = new BroadcastChannel('enrollment_draft'); } catch(e) {}
+
+    const clearDraft = () => {
+      draftId = null;
+      localStorage.removeItem('enrollment_draft_id');
+      clearTimeout(timerId);
+      if (warningModal) warningModal.remove();
+      window._navInterceptor = null;
+    };
+
+    const handleExpire = () => {
+      clearDraft();
+      qs('.main').innerHTML = `
+        <div class="card" style="max-width:500px; margin:40px auto; text-align:center;">
+          <div style="width:64px; height:64px; background:#c23b3b; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+            ${ICONS.clock || '⏰'}
+          </div>
+          <h2 style="margin-bottom:10px;">Borrador expirado</h2>
+          <p class="lede" style="margin-bottom:20px;">Tu solicitud de inscripción ha sido cancelada por inactividad. Los cupos reservados han sido liberados.</p>
+          <button class="btn btn-primary" onclick="window.location.hash='#/app/inscripciones/nueva'">Iniciar nueva solicitud</button>
+        </div>
+      `;
+    };
+
+    const scheduleChecks = () => {
+      clearTimeout(timerId);
+      if (!expiresAt) return;
+      const msLeft = expiresAt - Date.now();
+      const WARNING_MS = 10 * 60 * 1000;
+      
+      if (msLeft <= 0) {
+        handleExpire();
+        return;
+      }
+      
+      if (msLeft <= WARNING_MS) {
+        if (!warningModal) {
+          warningModal = document.createElement('div');
+          warningModal.className = 'modal-backdrop';
+          warningModal.innerHTML = `
+            <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+              <h3 id="modal-title" style="margin-top:0;">¿Sigues aquí?</h3>
+              <p>Tu inscripción sigue en borrador. Si no continúas, el proceso se cerrará por inactividad y se liberará cualquier cupo reservado.</p>
+              <p style="font-size:1.5rem; font-weight:bold; color:#eab308; margin-bottom:20px;" id="inactivity-countdown"></p>
+              <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button class="btn btn-secondary" id="btn-abandon-draft">Salir del proceso</button>
+                <button class="btn btn-primary" id="btn-continue-draft">Continuar inscripción</button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(warningModal);
+          
+          const focusable = warningModal.querySelectorAll('button');
+          if (focusable.length) focusable[1].focus();
+          
+          warningModal.querySelector('#btn-continue-draft').addEventListener('click', () => {
+            reportActivity(true);
+          });
+          
+          warningModal.querySelector('#btn-abandon-draft').addEventListener('click', () => {
+             customConfirm('¿Seguro que deseas salir? Perderás los datos no guardados y tu cupo reservado.', 'Sí, salir', async () => {
+                if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
+                if (broadcast) broadcast.postMessage({ type: 'abandoned' });
+                clearDraft();
+                navigate('#/app/inscripciones');
+             });
+          });
+          
+          warningModal.addEventListener('keydown', (e) => {
+             if (e.key === 'Escape') {
+                e.stopPropagation(); // "Cerrarlo con Escape no debe confirmar actividad... ni abandonar el borrador"
+                warningModal.remove();
+                warningModal = null;
+             }
+          });
+        }
+        
+        // Update countdown
+        const cd = warningModal.querySelector('#inactivity-countdown');
+        if (cd) {
+          const m = Math.floor(msLeft / 60000);
+          const s = Math.floor((msLeft % 60000) / 1000);
+          cd.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+        }
+        
+        timerId = setTimeout(scheduleChecks, 1000);
+      } else {
+        if (warningModal) {
+          warningModal.remove();
+          warningModal = null;
+        }
+        const msUntilWarning = msLeft - WARNING_MS;
+        timerId = setTimeout(scheduleChecks, msUntilWarning);
+      }
+    };
+
+    const reportActivity = (force = false) => {
+      if (!draftId) return;
+      if (activityTimeout && !force) return;
+      if (activityTimeout) clearTimeout(activityTimeout);
+      
+      const send = async () => {
+        try {
+          // Send non-file wState data
+          const payload = { ...wState, documentos: [] }; 
+          const res = await api('/drafts/' + draftId + (query.get('expire_mins') ? '?expire_mins=' + query.get('expire_mins') : ''), { method: 'PUT', body: payload });
+          expiresAt = Date.now() + res.timeRemaining;
+          if (broadcast) broadcast.postMessage({ type: 'activity', expiresAt });
+          scheduleChecks();
+        } catch(e) {
+          if (e.message && (e.message.includes('expirado') || e.message.includes('inexistente'))) {
+            handleExpire();
+          } else {
+            toast('Error de conexión al guardar borrador. Se reintentará.', 'error');
+          }
+        }
+      };
+      
+      if (force) send();
+      else activityTimeout = setTimeout(() => { activityTimeout = null; send(); }, 5000); // Throttle 5s
+    };
+
+    if (broadcast) {
+      broadcast.onmessage = (e) => {
+        if (e.data.type === 'activity') {
+          expiresAt = e.data.expiresAt;
+          scheduleChecks();
+        } else if (e.data.type === 'abandoned') {
+          handleExpire();
+        } else if (e.data.type === 'submitted') {
+          clearDraft();
+        }
+      };
+    }
+
+    // Init Draft Session
+    if (draftId) {
+      try {
+        const res = await api('/drafts/' + draftId);
+        expiresAt = Date.now() + res.timeRemaining;
+        wState = { ...wState, ...res.draft.data };
+        scheduleChecks();
+      } catch(e) {
+        draftId = null; // invalid draft, we'll create a new one
+      }
+    }
+    
+    if (!draftId) {
+       try {
+         const res = await api('/drafts' + (query.get('expire_mins') ? '?expire_mins=' + query.get('expire_mins') : ''), { method: 'POST', body: { ...wState, documentos: [] } });
+         draftId = res.draft.id;
+         expiresAt = res.draft.expiresAt;
+         localStorage.setItem('enrollment_draft_id', draftId);
+         scheduleChecks();
+       } catch (e) {
+         console.warn('Draft init failed', e);
+       }
+    }
+
     window._navInterceptor = (pendingHash) => {
-      customConfirm('Tienes una inscripción en progreso. ¿Seguro que deseas salir? Perderás los datos no guardados.', 'Sí, salir', () => {
-        window._navInterceptor = null;
+      customConfirm('Tienes una inscripción en progreso. ¿Seguro que deseas salir? Perderás los datos no guardados y el cupo reservado.', 'Sí, salir', async () => {
+        if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
+        if (broadcast) broadcast.postMessage({ type: 'abandoned' });
+        clearDraft();
         if (pendingHash) navigate(pendingHash);
       });
       return false;
@@ -3172,8 +3340,8 @@
                  </select>
                </div>
                <div id="new-student-fields" style="display:${wState.studentId === 'new' ? 'block' : 'none'}; border-top:1px solid var(--c-border); padding-top:15px; margin-top:15px;">
-                 <div class="field"><label>Nombre completo</label><input type="text" name="new_nombre" value="${escapeHtml(wState.newStudent.nombre)}" ${wState.studentId==='new'?'required':''}></div>
-                 <div class="field"><label>Fecha de nacimiento</label><input type="date" name="new_fecha" value="${wState.newStudent.fechaNacimiento}" ${wState.studentId==='new'?'required':''}></div>
+                 <div class="field"><label>Nombre completo</label><input type="text" name="new_nombre" value="${escapeHtml(wState.newStudent?.nombre || '')}" ${wState.studentId==='new'?'required':''}></div>
+                 <div class="field"><label>Fecha de nacimiento</label><input type="date" name="new_fecha" value="${wState.newStudent?.fechaNacimiento || ''}" ${wState.studentId==='new'?'required':''}></div>
                </div>
                <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
              </form>
@@ -3223,7 +3391,7 @@
          `;
        } else if (wState.step === 4) {
          let reqDocs = [];
-         if (wState.periodosValidos.length > 0 && wState.periodosValidos[0].documentosRequeridos) {
+         if (wState.periodosValidos && wState.periodosValidos.length > 0 && wState.periodosValidos[0].documentosRequeridos) {
             reqDocs = wState.periodosValidos[0].documentosRequeridos;
          } else {
             reqDocs = TIPOS_DOCUMENTO.map(t => ({ tipo: t, formatos: ['PDF','JPG','PNG'], maxSizeMB: 5 }));
@@ -3278,8 +3446,13 @@
        
        const form = qs('#step-form');
        if (form) {
+         // Report activity on input changes
+         form.addEventListener('input', () => reportActivity());
+         form.addEventListener('change', () => reportActivity());
+         
          form.addEventListener('submit', async (e) => {
            e.preventDefault();
+           reportActivity(true);
            const fd = new FormData(form);
            
            if (wState.step === 1) {
@@ -3317,10 +3490,15 @@
 
        const btnBack = qs('#btn-back-step');
        if (btnBack) {
-         btnBack.addEventListener('click', () => {
+         btnBack.addEventListener('click', async () => {
+           reportActivity(true);
            if (wState.step === 1) {
-             window._navInterceptor = null;
-             navigate('#/app/inscripciones');
+             customConfirm('¿Seguro que deseas salir? Perderás los datos no guardados y el cupo reservado.', 'Sí, salir', async () => {
+               if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
+               if (broadcast) broadcast.postMessage({ type: 'abandoned' });
+               clearDraft();
+               navigate('#/app/inscripciones');
+             });
            } else {
              wState.step--;
              renderStep();
@@ -3414,8 +3592,8 @@
              
              const eres = await api('/enrollments', { method: 'POST', body: payload });
              
-             // Upload documents simulation (in a real backend we'd POST FormData)
-             window._navInterceptor = null;
+             if (broadcast) broadcast.postMessage({ type: 'submitted' });
+             clearDraft();
              
              qs('.main').innerHTML = `
                <div class="card" style="max-width:500px; margin:40px auto; text-align:center;">
@@ -3438,6 +3616,7 @@
     
     await renderStep();
   }
+
 
   // ---------------- Documentos de una inscripcion ----------------
   const TIPOS_DOCUMENTO = ['Acta de nacimiento', 'Cédula o identificación del tutor', 'Certificado de notas', 'Foto 2x2', 'Otro'];

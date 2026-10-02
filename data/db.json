@@ -402,7 +402,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-01-10T10:00:00.000Z",
-      "lastAccess": "2026-10-01T00:10:10.384Z",
+      "lastAccess": "2026-10-02T16:01:12.532Z",
       "notifyByEmail": true
     },
     {
@@ -422,7 +422,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2026-02-14T11:00:00.000Z",
-      "lastAccess": "2026-08-24T08:40:00.000Z",
+      "lastAccess": "2026-10-02T15:09:02.051Z",
       "notifyByEmail": true
     },
     {
@@ -482,7 +482,7 @@
       "mfaMethod": "correo",
       "mustChangePassword": false,
       "createdAt": "2025-02-14T09:00:00.000Z",
-      "lastAccess": "2026-08-25T08:41:00.000Z",
+      "lastAccess": "2026-10-02T05:49:29.114Z",
       "notifyByEmail": true
     },
     {
@@ -1040,8 +1040,8 @@
       "institucionId": "i001",
       "cicloEscolar": "2026-2027",
       "inscripcion": {
-        "desde": "2026-06-01T00:00:00.000Z",
-        "hasta": "2026-10-15T00:00:00.000Z"
+        "desde": "2027-01-01T00:00:00.000Z",
+        "hasta": "2027-01-31T23:59:59.000Z"
       },
       "documentos": {
         "desde": "2026-06-01T00:00:00.000Z",
@@ -1049,16 +1049,26 @@
       },
       "citas": {
         "desde": "2026-08-01T00:00:00.000Z",
-        "hasta": "2026-11-30T00:00:00.000Z",
-        "limiteCitas": 20
+        "hasta": "2026-10-31T23:59:59.000Z",
+        "limiteCitas": 50
       },
       "documentosRequeridos": [
-        "Acta de nacimiento",
-        "Cédula o identificación del tutor",
-        "Certificado de notas"
+        {
+          "nombre": "Acta de nacimiento",
+          "descripcion": "Original",
+          "niveles": [
+            "Inicial",
+            "Primaria"
+          ],
+          "formatos": [
+            "PDF",
+            "JPG"
+          ],
+          "maxMb": 5
+        }
       ],
       "createdAt": "2026-05-20T09:00:00.000Z",
-      "updatedAt": "2026-05-20T09:00:00.000Z"
+      "updatedAt": "2026-10-02T05:25:36.212Z"
     },
     {
       "id": "per002",
@@ -1120,6 +1130,43 @@
       "documentosRequeridos": [],
       "createdAt": "2026-08-20T09:00:00.000Z",
       "updatedAt": "2026-08-20T09:00:00.000Z"
+    },
+    {
+      "id": "per005",
+      "institucionId": "i001",
+      "cicloEscolar": "2027-2028",
+      "inscripcion": {
+        "desde": "2026-10-13T00:00:00.000Z",
+        "hasta": "2026-12-10T00:00:00.000Z"
+      },
+      "documentos": {
+        "desde": "2026-10-13T00:00:00.000Z",
+        "hasta": "2026-12-15T00:00:00.000Z"
+      },
+      "citas": {
+        "desde": "2026-10-07T00:00:00.000Z",
+        "hasta": "2026-10-19T00:00:00.000Z",
+        "limiteCitas": null
+      },
+      "documentosRequeridos": [
+        {
+          "nombre": "Acta de Nacimiento",
+          "niveles": [
+            "Inicial",
+            "Secundaria",
+            "Primaria"
+          ],
+          "descripcion": "",
+          "formatos": [
+            "JPG",
+            "PNG",
+            "PDF"
+          ],
+          "maxMb": 5
+        }
+      ],
+      "createdAt": "2026-10-02T14:30:52.181Z",
+      "updatedAt": "2026-10-02T15:08:55.867Z"
     }
   ],
   "logs": [
@@ -2035,6 +2082,589 @@
       "entidad": "Inscripción",
       "entidadId": "e006",
       "detalle": "Ciclo 2026-2027"
+    },
+    {
+      "id": "log084",
+      "fecha": "2026-10-02T03:31:08.505Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log085",
+      "fecha": "2026-10-02T03:37:30.000Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log086",
+      "fecha": "2026-10-02T03:37:30.018Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per001",
+      "detalle": "Colegio San Rafael · ciclo 2026-2027"
+    },
+    {
+      "id": "log087",
+      "fecha": "2026-10-02T04:22:24.682Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log088",
+      "fecha": "2026-10-02T04:22:24.705Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per001",
+      "detalle": "Colegio San Rafael · ciclo 2026-2027"
+    },
+    {
+      "id": "log089",
+      "fecha": "2026-10-02T04:25:20.400Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log090",
+      "fecha": "2026-10-02T04:25:20.416Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per001",
+      "detalle": "Colegio San Rafael · ciclo 2026-2027"
+    },
+    {
+      "id": "log091",
+      "fecha": "2026-10-02T04:25:35.089Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log092",
+      "fecha": "2026-10-02T04:29:14.930Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log093",
+      "fecha": "2026-10-02T04:29:14.945Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per001",
+      "detalle": "Colegio San Rafael · ciclo 2026-2027"
+    },
+    {
+      "id": "log094",
+      "fecha": "2026-10-02T04:31:28.145Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log095",
+      "fecha": "2026-10-02T04:37:38.578Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log096",
+      "fecha": "2026-10-02T04:37:50.075Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log097",
+      "fecha": "2026-10-02T04:37:50.092Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per001",
+      "detalle": "Colegio San Rafael · ciclo 2026-2027"
+    },
+    {
+      "id": "log098",
+      "fecha": "2026-10-02T05:25:36.165Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log099",
+      "fecha": "2026-10-02T05:25:36.212Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per001",
+      "detalle": "Colegio San Rafael · ciclo 2026-2027"
+    },
+    {
+      "id": "log100",
+      "fecha": "2026-10-02T05:49:21.466Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log101",
+      "fecha": "2026-10-02T05:49:25.470Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log102",
+      "fecha": "2026-10-02T05:49:29.114Z",
+      "actorId": "u006",
+      "actorNombre": "Claribel Guzmán Ferreras",
+      "actorRole": "Administrador",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u006",
+      "detalle": ""
+    },
+    {
+      "id": "log103",
+      "fecha": "2026-10-02T05:49:31.974Z",
+      "actorId": "u006",
+      "actorNombre": "Claribel Guzmán Ferreras",
+      "actorRole": "Administrador",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u006",
+      "detalle": ""
+    },
+    {
+      "id": "log104",
+      "fecha": "2026-10-02T05:49:36.095Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log105",
+      "fecha": "2026-10-02T14:18:45.626Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log106",
+      "fecha": "2026-10-02T14:30:52.181Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo creado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log107",
+      "fecha": "2026-10-02T14:34:50.807Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log108",
+      "fecha": "2026-10-02T14:35:04.625Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de inscripción eliminado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log109",
+      "fecha": "2026-10-02T14:56:53.977Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log110",
+      "fecha": "2026-10-02T15:03:15.693Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log111",
+      "fecha": "2026-10-02T15:03:27.108Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log112",
+      "fecha": "2026-10-02T15:05:13.051Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log113",
+      "fecha": "2026-10-02T15:05:34.425Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log114",
+      "fecha": "2026-10-02T15:05:38.295Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log115",
+      "fecha": "2026-10-02T15:06:41.347Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción creada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Colegio San Rafael · 3ro de Primaria"
+    },
+    {
+      "id": "log116",
+      "fecha": "2026-10-02T15:07:15.965Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log117",
+      "fecha": "2026-10-02T15:07:18.559Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log118",
+      "fecha": "2026-10-02T15:07:47.852Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log119",
+      "fecha": "2026-10-02T15:07:59.658Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log120",
+      "fecha": "2026-10-02T15:08:02.503Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log121",
+      "fecha": "2026-10-02T15:08:07.850Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción cancelada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Ciclo 2028-2029"
+    },
+    {
+      "id": "log122",
+      "fecha": "2026-10-02T15:08:18.420Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log123",
+      "fecha": "2026-10-02T15:08:21.200Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log124",
+      "fecha": "2026-10-02T15:08:53.984Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log125",
+      "fecha": "2026-10-02T15:08:55.867Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Periodo de ciclo modificado",
+      "entidad": "Periodo",
+      "entidadId": "per005",
+      "detalle": "Colegio San Rafael · ciclo 2027-2028"
+    },
+    {
+      "id": "log126",
+      "fecha": "2026-10-02T15:08:59.377Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log127",
+      "fecha": "2026-10-02T15:09:02.051Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log128",
+      "fecha": "2026-10-02T15:09:15.646Z",
+      "actorId": "u003",
+      "actorNombre": "José Manuel Cepeda",
+      "actorRole": "Personal de institución",
+      "accion": "Cierre de sesión",
+      "entidad": "Usuario",
+      "entidadId": "u003",
+      "detalle": ""
+    },
+    {
+      "id": "log129",
+      "fecha": "2026-10-02T15:09:18.112Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log130",
+      "fecha": "2026-10-02T15:09:38.579Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción creada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Colegio San Rafael · 3ro de Primaria"
+    },
+    {
+      "id": "log131",
+      "fecha": "2026-10-02T15:09:42.669Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inscripción cancelada",
+      "entidad": "Inscripción",
+      "entidadId": "e006",
+      "detalle": "Ciclo 2028-2029"
+    },
+    {
+      "id": "log132",
+      "fecha": "2026-10-02T15:59:27.851Z",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "actorRole": null,
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": null,
+      "detalle": "Intento con: tutor1@inscolar.local"
+    },
+    {
+      "id": "log133",
+      "fecha": "2026-10-02T15:59:42.538Z",
+      "actorId": null,
+      "actorNombre": "Sistema",
+      "actorRole": null,
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": null,
+      "detalle": "Intento con: tutor@inscolar.local"
+    },
+    {
+      "id": "log134",
+      "fecha": "2026-10-02T16:00:15.891Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión fallido",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": "Intento con: ana.beltre@correo.do"
+    },
+    {
+      "id": "log135",
+      "fecha": "2026-10-02T16:00:47.872Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
+    },
+    {
+      "id": "log136",
+      "fecha": "2026-10-02T16:01:12.532Z",
+      "actorId": "u002",
+      "actorNombre": "Ana Beltré Peña",
+      "actorRole": "Tutor",
+      "accion": "Inicio de sesión exitoso",
+      "entidad": "Usuario",
+      "entidadId": "u002",
+      "detalle": ""
     }
   ],
   "emailLog": [
@@ -2341,5 +2971,6 @@
   ],
   "meta": {
     "defaultPassword": "Inscolar#2026"
-  }
+  },
+  "drafts": []
 }
