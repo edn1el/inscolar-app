@@ -2832,6 +2832,17 @@
             </select>
           </div>
 
+          <div class="field loc-field">
+            <label>Ubicación en el mapa</label>
+            <input type="hidden" name="lat" id="loc-lat" value="${editing && editing.ubicacionExacta ? editing.lat : ''}">
+            <input type="hidden" name="lng" id="loc-lng" value="${editing && editing.ubicacionExacta ? editing.lng : ''}">
+            <div class="loc-map" id="loc-map" aria-label="Mapa para marcar la ubicación de la institución"></div>
+            <div class="loc-status">
+              <span id="loc-text" class="help"></span>
+              <button type="button" class="link" id="loc-reset" hidden>Usar el centro del municipio</button>
+            </div>
+          </div>
+
           <div class="two-col" style="margin-top:20px;">
             <div class="field">
               <label>Logo de la institución (Máx 5MB)</label>
@@ -2881,9 +2892,74 @@
     };
     previewImage(qs('#logo-input'), qs('#logo-preview'), 5);
     previewImage(qs('#fondo-input'), qs('#fondo-preview'), 10);
-    
+
     // Check for unsaved changes on cancel
     let formChanged = false;
+
+    // Ubicación: tocar el mapa o arrastrar el marcador guarda el punto exacto.
+    // Sin punto exacto, la institución se ubica en el centro de su municipio.
+    (async () => {
+      const mapEl = qs('#loc-map');
+      const latIn = qs('#loc-lat');
+      const lngIn = qs('#loc-lng');
+      const text = qs('#loc-text');
+      const resetBtn = qs('#loc-reset');
+      let muniCoords = {};
+      let map;
+      let pin;
+      try {
+        await ensureLeaflet();
+        muniCoords = await api('/institutions/meta/municipios-coords').catch(() => ({}));
+        map = L.map(mapEl, { zoomControl: false, zoomSnap: 0.25, scrollWheelZoom: false }).setView([18.8, -70.2], 8);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.tileLayer(tileUrlForTheme(), { maxZoom: 19, attribution: TILE_ATTRIBUTION, className: 'ins-tiles' }).addTo(map);
+        focusOnDR(map);
+      } catch (e) {
+        mapEl.innerHTML = '<div class="map-fallback">El mapa no está disponible. La institución se ubicará en el centro de su municipio.</div>';
+        return;
+      }
+      const approxPoint = () => {
+        const prov = qs('#prov-select').value;
+        const muni = qs('select[name="municipio"]').value;
+        return (muniCoords[prov] || {})[muni] || null;
+      };
+      const isExact = () => latIn.value !== '' && lngIn.value !== '';
+      const setPin = (latlng, exact) => {
+        if (!pin) {
+          pin = L.marker(latlng, { icon: pinIcon(true), draggable: true, keyboard: true, title: 'Ubicación de la institución' }).addTo(map);
+          pin.on('dragend', () => markExact(pin.getLatLng()));
+        } else pin.setLatLng(latlng);
+        const el = pin.getElement();
+        if (el) el.classList.toggle('is-approx', !exact);
+      };
+      const refresh = (fly) => {
+        if (isExact()) {
+          const ll = [Number(latIn.value), Number(lngIn.value)];
+          setPin(ll, true);
+          text.textContent = 'Ubicación exacta marcada. Puedes arrastrar el marcador para ajustarla.';
+          resetBtn.hidden = false;
+          if (fly) map.setView(ll, Math.max(map.getZoom(), 15));
+        } else {
+          const ap = approxPoint() || (editing && typeof editing.lat === 'number' ? [editing.lat, editing.lng] : null);
+          if (ap) { setPin(ap, false); if (fly) map.setView(ap, 12); }
+          text.textContent = ap
+            ? 'Ubicación aproximada (centro del municipio). Toca el mapa en el punto exacto de la escuela para marcarla.'
+            : 'Elige la provincia y el municipio, o toca el mapa en el punto exacto de la escuela.';
+          resetBtn.hidden = true;
+        }
+      };
+      const markExact = (ll) => {
+        latIn.value = ll.lat.toFixed(6);
+        lngIn.value = ll.lng.toFixed(6);
+        formChanged = true;
+        refresh(false);
+      };
+      map.on('click', (e) => markExact(e.latlng));
+      resetBtn.addEventListener('click', () => { latIn.value = ''; lngIn.value = ''; formChanged = true; refresh(true); });
+      qs('#prov-select').addEventListener('change', () => { if (!isExact()) setTimeout(() => refresh(true), 0); });
+      qs('select[name="municipio"]').addEventListener('change', () => { if (!isExact()) refresh(true); });
+      refresh(true);
+    })();
     qs('#inst-form').addEventListener('input', () => formChanged = true);
     qs('#btn-cancel').addEventListener('click', () => {
       if (!formChanged) return navigate('#/app/instituciones');

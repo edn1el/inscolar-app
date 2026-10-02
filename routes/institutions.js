@@ -3,7 +3,17 @@ const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdmin } = require('../lib/middleware');
 const { isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 const { logEvent } = require('../lib/audit');
-const { haversineKm } = require('../lib/geo');
+const { haversineKm, dentroDeRD } = require('../lib/geo');
+
+// Punto marcado a mano en el formulario. Devuelve { lat, lng }, null (sin punto) o un error.
+function parseUbicacion(body) {
+  if (body.lat === undefined && body.lng === undefined) return undefined; // el formulario no lo envió
+  if (body.lat === '' || body.lng === '' || body.lat === null) return null;
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+  if (!dentroDeRD(lat, lng)) return { error: 'La ubicación marcada debe estar dentro de República Dominicana.' };
+  return { lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6 };
+}
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -117,6 +127,12 @@ router.get('/', (req, res) => {
   });
 });
 
+// Centros de municipio, para que el formulario muestre la ubicación aproximada.
+router.get('/meta/municipios-coords', (req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.json(require('../lib/municipios-coords'));
+});
+
 // HU026: vista de detalle de una institución (público).
 router.get('/:id', (req, res) => {
   const { load } = require('../lib/db');
@@ -191,6 +207,9 @@ router.post('/', requireAuth, requireAdmin, handleUploadInstitucion, (req, res) 
     errors.push('Ya existe una institución con ese correo.');
   }
 
+  const ubicacion = parseUbicacion(req.body || {});
+  if (ubicacion && ubicacion.error) errors.push(ubicacion.error);
+
   const { logo, fondo } = processUploadedFiles(req, db, errors, null, null);
 
   if (errors.length) return res.status(400).json({ errors });
@@ -209,6 +228,7 @@ router.post('/', requireAuth, requireAdmin, handleUploadInstitucion, (req, res) 
     estado: estado === 'Inactivo' ? 'Inactivo' : 'Activo',
     logo,
     fondo,
+    ...(ubicacion && !ubicacion.error ? { lat: ubicacion.lat, lng: ubicacion.lng, ubicacionExacta: true } : {}),
     createdAt: new Date().toISOString(),
   };
   db.institutions.push(institution);
@@ -247,6 +267,9 @@ router.put('/:id', requireAuth, requireAdmin, handleUploadInstitucion, (req, res
     errors.push('Ya existe otra institución con ese correo.');
   }
 
+  const ubicacion = parseUbicacion(req.body || {});
+  if (ubicacion && ubicacion.error) errors.push(ubicacion.error);
+
   const { logo, fondo } = processUploadedFiles(req, db, errors, institution.logo, institution.fondo);
 
   if (errors.length) return res.status(400).json({ errors });
@@ -261,7 +284,9 @@ router.put('/:id', requireAuth, requireAdmin, handleUploadInstitucion, (req, res
   if (telefono !== undefined) institution.telefono = telefono ? formatPhoneDO(telefono) : '';
   if (municipio !== undefined) institution.municipio = municipio.trim();
   if (estado !== undefined) institution.estado = estado === 'Inactivo' ? 'Inactivo' : 'Activo';
-  
+  if (ubicacion) { institution.lat = ubicacion.lat; institution.lng = ubicacion.lng; institution.ubicacionExacta = true; }
+  else if (ubicacion === null) { delete institution.ubicacionExacta; } // vuelve a la ubicación por municipio
+
   if (logo && institution.logo && logo.storageFile !== institution.logo.storageFile) {
     fs.unlink(path.join(FOTOS_DIR, institution.logo.storageFile), () => {});
   }
