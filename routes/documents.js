@@ -13,7 +13,7 @@ router.use(requireAuth);
 
 const STAFF_ROLES = ['Administrador', 'Soporte'];
 const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
-const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_SIZE = 10 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -52,6 +52,90 @@ function publicDocument(d) {
   };
 }
 
+
+// ---- listar documentos de un borrador ----
+router.get('/drafts/:id/documents', (req, res) => {
+  const db = req.db;
+  const u = req.currentUser;
+  const draft = (db.drafts || []).find(d => d.id === req.params.id);
+  if (!draft) return res.status(404).json({ error: 'Borrador no encontrado.' });
+  if (draft.tutorId !== u.id) return res.status(403).json({ error: 'No autorizado.' });
+
+  const list = (db.documents || [])
+    .filter((d) => d.draftId === draft.id)
+    .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+  res.json({ documents: list.map(publicDocument) });
+});
+
+// ---- subir un documento a un borrador (F5.3) ----
+router.post('/drafts/:id/documents', (req, res, next) => {
+  upload.single('archivo')(req, res, (err) => {
+    if (err instanceof multer.MulterError || err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'El archivo supera el tamaño permitido.' : 'No se pudo subir el archivo.';
+      return res.status(400).json({ errors: [msg] });
+    }
+    next();
+  });
+}, (req, res) => {
+  const db = req.db;
+  const u = req.currentUser;
+  const draft = (db.drafts || []).find(d => d.id === req.params.id);
+  if (!draft) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return res.status(404).json({ error: 'Borrador no encontrado o expirado.' });
+  }
+  if (draft.tutorId !== u.id) {
+    if (req.file) fs.unlink(req.file.path, () => {});
+    return res.status(403).json({ error: 'No tienes permiso.' });
+  }
+  if (!req.file) return res.status(400).json({ errors: ['Selecciona un archivo válido.'] });
+
+  const { tipoDocumento } = req.body || {};
+  const document = {
+    id: nextId(db.documents, 'd'),
+    draftId: draft.id,
+    tutorId: u.id,
+    tipoDocumento: (tipoDocumento || 'Documento').trim(),
+    nombreArchivo: req.file.originalname,
+    storageFile: req.file.filename,
+    mimeType: req.file.mimetype,
+    size: req.file.size,
+    estado: 'Pendiente',
+    motivoRechazo: '',
+    uploadedAt: new Date().toISOString(),
+    decidedAt: null,
+    decidedBy: null,
+  };
+  if(!db.documents) db.documents = [];
+  db.documents.push(document);
+  
+  draft.lastActivity = Date.now();
+  draft.expiresAt = Date.now() + (20 * 60 * 1000);
+
+  save(db);
+  res.json({ document: publicDocument(document), timeRemaining: draft.expiresAt - Date.now() });
+});
+
+// ---- eliminar un documento ----
+router.delete('/documents/:id', (req, res) => {
+  const db = req.db;
+  const u = req.currentUser;
+  const idx = db.documents.findIndex(d => d.id === req.params.id);
+  if (idx === -1) return res.status(404).json({error: 'Documento no encontrado'});
+  const doc = db.documents[idx];
+  
+  if (doc.enrollmentId) {
+     return res.status(400).json({error: 'No se puede eliminar de una inscripción. (Sustituir)'});
+  }
+  if (doc.tutorId !== u.id) return res.status(403).json({error: 'No autorizado'});
+  
+  fs.unlink(require('path').join(UPLOADS_DIR, doc.storageFile), () => {});
+  db.documents.splice(idx, 1);
+  save(db);
+  res.json({status: 'ok'});
+});
+
+
 // ---- listar documentos de una inscripcion ----
 router.get('/enrollments/:id/documents', (req, res) => {
   const db = req.db;
@@ -70,7 +154,7 @@ router.get('/enrollments/:id/documents', (req, res) => {
 router.post('/enrollments/:id/documents', (req, res, next) => {
   upload.single('archivo')(req, res, (err) => {
     if (err instanceof multer.MulterError || err) {
-      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'El archivo no puede pesar más de 5 MB.' : 'No se pudo subir el archivo.';
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'El archivo supera el tamaño permitido.' : 'No se pudo subir el archivo.';
       return res.status(400).json({ errors: [msg] });
     }
     next();
@@ -156,6 +240,7 @@ router.post('/documents/:id/decidir', (req, res) => {
   document.motivoRechazo = estado === 'Rechazado' ? motivo.trim() : '';
   document.decidedAt = new Date().toISOString();
   document.decidedBy = u.id;
+  if (estado === 'Rechazado') enrollment.estado = 'Documentos pendientes';
   logEvent(db, { actor: u, accion: estado === 'Aceptado' ? 'Documento aceptado' : 'Documento rechazado', entidad: 'Documento', entidadId: document.id, detalle: estado === 'Rechazado' ? document.motivoRechazo : document.tipoDocumento });
 
   const tutor = db.users.find((t) => t.id === document.tutorId);

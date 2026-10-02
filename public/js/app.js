@@ -3397,23 +3397,65 @@
             reqDocs = TIPOS_DOCUMENTO.map(t => ({ tipo: t, formatos: ['PDF','JPG','PNG'], maxSizeMB: 5 }));
          }
          
+         let uploadedDocs = [];
+         if (draftId) {
+            try {
+              const res = await api('/drafts/' + draftId + '/documents');
+              uploadedDocs = res.documents || [];
+            } catch(e) {}
+         }
+         
          html = `
            ${backBtn}
            <div class="page-head"><h2>Paso 4: Documentos</h2></div>
            ${stepperHtml}
            <div class="card" style="max-width:600px;">
              <p class="help" style="margin-bottom:15px;">Adjunta los documentos requeridos por la institución para este grado.</p>
-             <form id="step-form">
-               ${reqDocs.map((req, idx) => `
-                 <div class="field" style="border:1px solid var(--c-border); padding:12px; border-radius:8px; margin-bottom:12px;">
-                   <label style="margin-bottom:4px;">${escapeHtml(req.tipo || req)}</label>
-                   <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Tamaño máximo: ${req.maxSizeMB||5} MB</div>
-                   <input type="file" name="doc_${idx}" accept=".pdf,.jpg,.jpeg,.png" required>
-                 </div>
-               `).join('')}
-               ${reqDocs.length === 0 ? '<div class="empty-state">No se requieren documentos adicionales.</div>' : ''}
-               <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
-             </form>
+             <div id="docs-list">
+               ${reqDocs.map((req, idx) => {
+                 const docType = (req.tipo || req).trim();
+                 const uploaded = uploadedDocs.find(d => d.tipoDocumento === docType);
+                 const allowedExt = (req.formatos || ['PDF','JPG','PNG']).map(f => '.'+f.toLowerCase()).join(',');
+                 
+                 let inner = '';
+                 if (uploaded) {
+                   inner = `
+                     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:10px; border-radius:6px; border:1px solid #16a34a;">
+                       <div style="display:flex; align-items:center; gap:10px;">
+                         <div style="color:#16a34a;">${ICONS.check}</div>
+                         <div>
+                           <div style="font-weight:bold; font-size:13px;">${escapeHtml(uploaded.nombreArchivo)}</div>
+                           <div style="font-size:11px; color:var(--text-muted);">${(uploaded.size/1024/1024).toFixed(2)} MB · Cargado</div>
+                         </div>
+                       </div>
+                       <button class="btn btn-secondary btn-small remove-doc-btn" data-id="${uploaded.id}">Quitar</button>
+                     </div>
+                   `;
+                 } else {
+                   inner = `
+                     <div class="doc-upload-area" id="area-${idx}" style="border:2px dashed var(--c-border); padding:20px; text-align:center; border-radius:8px; cursor:pointer; background:var(--bg-body); transition:background 0.2s;">
+                       <div style="color:var(--text-muted); margin-bottom:10px;">${ICONS.document}</div>
+                       <div style="font-size:13px; font-weight:bold; margin-bottom:4px;">Haz clic o arrastra un archivo</div>
+                       <div style="font-size:11px; color:var(--text-muted);">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Máx: ${req.maxSizeMB||5} MB</div>
+                       <input type="file" id="file-${idx}" accept="${allowedExt}" style="display:none;" data-type="${escapeHtml(docType)}" data-max="${req.maxSizeMB||5}">
+                     </div>
+                     <div id="upload-status-${idx}" style="margin-top:10px; font-size:12px;"></div>
+                   `;
+                 }
+                 
+                 return `
+                   <div class="field" style="border:1px solid var(--c-border); padding:15px; border-radius:8px; margin-bottom:15px;" data-req="${idx}">
+                     <label style="margin-bottom:10px; display:block;">${escapeHtml(docType)} ${req.descripcion ? `<span class="help" style="display:inline; margin-left:5px;">- ${escapeHtml(req.descripcion)}</span>` : ''}</label>
+                     ${inner}
+                   </div>
+                 `;
+               }).join('')}
+             </div>
+             ${reqDocs.length === 0 ? '<div class="empty-state">No se requieren documentos adicionales.</div>' : ''}
+             <div style="margin-top:20px;">
+               <button class="btn btn-primary" id="btn-next-4">Continuar</button>
+               <span class="help" id="docs-error" style="color:#ef4444; margin-left:15px; font-size:12px;"></span>
+             </div>
            </div>
          `;
        } else if (wState.step === 5) {
@@ -3568,7 +3610,113 @@
          renderInstCard();
        }
 
-       if (wState.step === 5) {
+
+       if (wState.step === 4) {
+         let isUploading = false;
+         
+         const uploadFile = async (file, type, maxMB, statusEl) => {
+           if (isUploading) return;
+           isUploading = true;
+           
+           if (file.size > maxMB * 1024 * 1024) {
+             statusEl.innerHTML = `<span style="color:#ef4444;">El archivo supera el tamaño máximo permitido (${maxMB} MB).</span>`;
+             isUploading = false;
+             return;
+           }
+           
+           const fd = new FormData();
+           fd.append('archivo', file);
+           fd.append('tipoDocumento', type);
+           
+           statusEl.innerHTML = '<span style="color:#3b82f6;">Cargando documento... (Por favor espera)</span>';
+           
+           try {
+             await api('/drafts/' + draftId + '/documents', { method: 'POST', body: fd, isMultipart: true });
+             reportActivity(true);
+             renderStep();
+           } catch(e) {
+             statusEl.innerHTML = `<span style="color:#ef4444;">${e.errors ? e.errors[0] : 'Error al cargar el documento.'} <button class="btn btn-ghost btn-small" style="padding:0; margin-left:5px; text-decoration:underline;">Reintentar</button></span>`;
+             const retryBtn = statusEl.querySelector('button');
+             if (retryBtn) retryBtn.addEventListener('click', () => uploadFile(file, type, maxMB, statusEl));
+           } finally {
+             isUploading = false;
+           }
+         };
+
+         qsAll('.doc-upload-area').forEach(area => {
+           const input = area.querySelector('input[type="file"]');
+           const statusEl = area.nextElementSibling;
+           const type = input.getAttribute('data-type');
+           const maxMB = parseFloat(input.getAttribute('data-max'));
+           
+           area.addEventListener('click', () => { if (!isUploading) input.click(); });
+           
+           area.addEventListener('dragover', e => { e.preventDefault(); area.style.background = 'var(--bg-card)'; });
+           area.addEventListener('dragleave', e => { e.preventDefault(); area.style.background = 'var(--bg-body)'; });
+           area.addEventListener('drop', e => {
+             e.preventDefault();
+             area.style.background = 'var(--bg-body)';
+             if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+               uploadFile(e.dataTransfer.files[0], type, maxMB, statusEl);
+             }
+           });
+           
+           input.addEventListener('change', e => {
+             if (e.target.files && e.target.files.length > 0) {
+               uploadFile(e.target.files[0], type, maxMB, statusEl);
+             }
+           });
+         });
+         
+         qsAll('.remove-doc-btn').forEach(btn => {
+           btn.addEventListener('click', () => {
+             customConfirm('¿Seguro que deseas quitar este documento?', 'Sí, quitar', async () => {
+                const id = btn.getAttribute('data-id');
+                btn.disabled = true;
+                btn.textContent = 'Quitando...';
+                try {
+                  await api('/documents/' + id, { method: 'DELETE' });
+                  reportActivity(true);
+                  renderStep();
+                } catch(e) {
+                  toast('Error al quitar el documento', 'error');
+                  btn.disabled = false;
+                  btn.textContent = 'Quitar';
+                }
+             });
+           });
+         });
+
+         const btnNext = qs('#btn-next-4');
+         if (btnNext) {
+           btnNext.addEventListener('click', async (e) => {
+             e.preventDefault();
+             const reqs = Array.from(qsAll('.doc-upload-area'));
+             if (reqs.length > 0) {
+               qs('#docs-error').textContent = 'Faltan documentos requeridos por cargar.';
+               return;
+             }
+             if (isUploading) {
+               qs('#docs-error').textContent = 'Hay una carga en progreso, por favor espera.';
+               return;
+             }
+             
+             let count = 0;
+             if (draftId) {
+               try {
+                 const res = await api('/drafts/' + draftId + '/documents');
+                 count = (res.documents || []).length;
+               } catch(err) {}
+             }
+             wState.uploadedDocsCount = count;
+             
+             reportActivity(true);
+             wState.step = 5; 
+             renderStep();
+           });
+         }
+       }
+         if (wState.step === 5) {
          qs('#btn-submit-final').addEventListener('click', async (e) => {
            const btn = e.target;
            if (btn.disabled) return;
@@ -3586,6 +3734,7 @@
              const payload = {
                studentId: finalStudentId,
                institucionId: wState.institucionId,
+               draftId: draftId,
                gradoSolicitado: wState.gradoSolicitado,
                cicloEscolar: wState.cicloEscolar
              };
@@ -3629,87 +3778,245 @@
   }
 
   async function renderDocumentosInscripcion(enrollmentId) {
-    const { enrollments } = await api('/enrollments');
-    const enrollment = enrollments.find((e) => e.id === enrollmentId);
+    let enrollment;
+    try {
+      const res = await api('/enrollments');
+      enrollment = res.enrollments.find((e) => e.id === enrollmentId);
+    } catch (e) {
+      toast('Error al cargar la inscripción', 'error');
+      return;
+    }
     if (!enrollment) {
-      qs('.main').innerHTML = '<div class="empty-state">No se encontró esa solicitud de inscripción.</div>';
+      qs('.main').innerHTML = '<div class="alert error">Inscripción no encontrada o sin acceso.</div>';
       return;
     }
     const u = state.user;
     const isOwnerTutor = u.role === 'Tutor' && enrollment.tutorId === u.id;
     const canDecide = isAdmin() || (u.role === 'Personal de institución' && u.institucionId === enrollment.institucionId);
 
-    const [{ documents }, periodsRes] = await Promise.all([
-      api('/enrollments/' + enrollmentId + '/documents'),
-      api('/institutions/' + enrollment.institucionId + '/periods?cicloEscolar=' + encodeURIComponent(enrollment.cicloEscolar)),
-    ]);
-    const configurados = periodsRes.periods[0] && periodsRes.periods[0].documentosRequeridos;
-    const tiposParaSubir = configurados && configurados.length ? configurados : TIPOS_DOCUMENTO;
-
-    qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
-      <div class="page-head"><div><h2>Documentos — ${escapeHtml(enrollment.estudianteNombre)}</h2><div class="sub">${escapeHtml(enrollment.institucionNombre)} · ${escapeHtml(enrollment.gradoSolicitado)} · ${escapeHtml(enrollment.cicloEscolar)}</div></div></div>
-      ${isOwnerTutor ? `
-        <div class="chart-card" style="max-width:560px; margin-bottom:20px;">
-          <div id="doc-err"></div>
-          <form id="doc-form">
-            <div class="field"><label>Tipo de documento</label>
-              <select name="tipoDocumento">${tiposParaSubir.map((t) => `<option>${escapeHtml(t)}</option>`).join('')}</select>
-            </div>
-            <div class="field"><label>Archivo (PDF, JPG o PNG, máx. 5 MB)</label><input type="file" name="archivo" accept=".pdf,.jpg,.jpeg,.png" required></div>
-            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Subir documento</button>
-          </form>
-        </div>
-      ` : ''}
-      <div class="notif-list">
-        ${documents.length ? documents.map((d) => `
-          <div class="notif-item">
-            <div>
-              <div class="t1">${escapeHtml(d.tipoDocumento || d.nombreArchivo)} · <a href="/api/documents/${d.id}/file" target="_blank" rel="noopener">${escapeHtml(d.nombreArchivo)}</a> <span class="help">(${fmtBytes(d.size)})</span></div>
-              ${d.estado === 'Rechazado' && d.motivoRechazo ? `<div class="t2">${escapeHtml(d.motivoRechazo)}</div>` : ''}
-              <div class="t3">${fmtDate(d.uploadedAt)} · ${escapeHtml(d.estado)}</div>
-            </div>
-            ${canDecide && d.estado === 'Pendiente' ? `<span class="actions-cell"><button class="ok" data-doc-accept="${d.id}">Aceptar</button><button class="danger" data-doc-reject="${d.id}">Rechazar</button></span>` : ''}
-          </div>
-        `).join('') : '<div class="empty-state">No se han subido documentos todavía.</div>'}
-      </div>
-    `;
-    bindShellEvents();
-
-    const docForm = qs('#doc-form');
-    if (docForm) {
-      docForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        qs('#doc-err').innerHTML = '';
-        const fd = new FormData(docForm);
-        try {
-          const res = await fetch('/api/enrollments/' + enrollmentId + '/documents', { method: 'POST', body: fd });
-          const data = await res.json();
-          if (!res.ok) throw { errors: data.errors || [data.error || 'No se pudo subir el documento.'] };
-          toast('Documento subido.', 'ok');
-          renderDocumentosInscripcion(enrollmentId);
-        } catch (err) {
-          qs('#doc-err').innerHTML = fieldErrorsBlock(err.errors || [err.message || 'No se pudo subir el documento.']);
-        }
-      });
+    const { documents } = await api('/enrollments/' + enrollmentId + '/documents');
+    
+    let configurados = enrollment.requisitosSnapshot;
+    if (!configurados || !configurados.length) {
+      configurados = TIPOS_DOCUMENTO.map(t => ({ tipo: t, formatos: ['PDF','JPG','PNG'], maxSizeMB: 5 }));
     }
 
-    qsa('[data-doc-accept]').forEach((b) => b.addEventListener('click', async () => {
-      try {
-        await api('/documents/' + b.dataset.docAccept + '/decidir', { method: 'POST', body: { estado: 'Aceptado' } });
-        toast('Documento aceptado.', 'ok');
-        renderDocumentosInscripcion(enrollmentId);
-      } catch (err) { toast(err.message, 'err'); }
-    }));
-    qsa('[data-doc-reject]').forEach((b) => b.addEventListener('click', async () => {
-      const motivo = prompt('Motivo del rechazo:');
-      if (!motivo || !motivo.trim()) return;
-      try {
-        await api('/documents/' + b.dataset.docReject + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
-        toast('Documento rechazado.', 'ok');
-        renderDocumentosInscripcion(enrollmentId);
-      } catch (err) { toast(err.message, 'err'); }
-    }));
+    const docsByType = {};
+    documents.forEach(d => {
+      const t = d.tipoDocumento;
+      if (!docsByType[t]) docsByType[t] = [];
+      docsByType[t].push(d);
+    });
+
+    const isCorrectionsMode = enrollment.estado === 'Documentos pendientes' && isOwnerTutor;
+
+    let html = `
+      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
+      <div class="page-head">
+        <div>
+          <h2>Documentos — ${escapeHtml(enrollment.estudianteNombre)}</h2>
+          <div class="sub">${escapeHtml(enrollment.institucionNombre)} · ${escapeHtml(enrollment.gradoSolicitado)} · ${escapeHtml(enrollment.cicloEscolar)}</div>
+          <div style="margin-top:5px;">${enrollment.estado === 'Documentos pendientes' ? '<span class="pill" style="background:#ef4444;color:#fff;">Correcciones requeridas</span>' : ''}</div>
+        </div>
+      </div>
+      
+      <div style="max-width:800px;">
+    `;
+
+    let pendingCorrections = false;
+
+    configurados.forEach((req, idx) => {
+      const docType = (req.tipo || req).trim();
+      const docsOfThisType = docsByType[docType] || [];
+      const latestDoc = docsOfThisType.length > 0 ? docsOfThisType[0] : null;
+      
+      const isRejected = latestDoc && latestDoc.estado === 'Rechazado';
+      if (isRejected) pendingCorrections = true;
+      const isAccepted = latestDoc && latestDoc.estado === 'Aceptado';
+      const isPending = latestDoc && latestDoc.estado === 'Pendiente';
+      
+      let badge = '';
+      if (isAccepted) badge = '<span style="color:#16a34a; font-weight:bold; font-size:12px;">✓ Aprobado</span>';
+      else if (isRejected) badge = '<span style="color:#ef4444; font-weight:bold; font-size:12px;">✗ Rechazado</span>';
+      else if (isPending) badge = '<span style="color:#eab308; font-weight:bold; font-size:12px;">En revisión</span>';
+      else badge = '<span style="color:var(--text-muted); font-size:12px;">Falta documento</span>';
+
+      html += `
+        <div class="card" style="margin-bottom:15px; padding:20px; border-left:4px solid ${isRejected ? '#ef4444' : isAccepted ? '#16a34a' : isPending ? '#eab308' : 'var(--c-border)'}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+            <div>
+              <h3 style="margin:0 0 5px 0;">${escapeHtml(docType)}</h3>
+              ${req.descripcion ? `<div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">${escapeHtml(req.descripcion)}</div>` : ''}
+              <div>${badge}</div>
+            </div>
+            ${latestDoc ? `<a href="/api/documents/${latestDoc.id}/file" target="_blank" rel="noopener" class="btn btn-secondary btn-small" style="text-decoration:none;">Ver archivo (${(latestDoc.size/1024/1024).toFixed(2)}MB)</a>` : ''}
+          </div>
+      `;
+
+      if (isRejected && latestDoc.motivoRechazo) {
+        html += `<div style="background:#fef2f2; border:1px solid #f87171; color:#991b1b; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px;"><strong>Motivo del rechazo:</strong> ${escapeHtml(latestDoc.motivoRechazo)}</div>`;
+      }
+      
+      if (latestDoc && canDecide && isPending && enrollment.estado !== 'Aprobada' && enrollment.estado !== 'Rechazada' && enrollment.estado !== 'Abandonada') {
+        html += `
+          <div style="margin-top:15px; border-top:1px solid var(--c-border); padding-top:15px; display:flex; gap:10px;">
+            <button class="btn btn-primary btn-small doc-accept-btn" data-id="${latestDoc.id}">Aprobar</button>
+            <button class="btn btn-danger btn-small doc-reject-btn" data-id="${latestDoc.id}">Rechazar</button>
+          </div>
+        `;
+      }
+      
+      const canUpload = isOwnerTutor && enrollment.estado === 'Documentos pendientes' && (!latestDoc || isRejected);
+      
+      if (canUpload) {
+        const allowedExt = (req.formatos || ['PDF','JPG','PNG']).map(f => '.'+f.toLowerCase()).join(',');
+        html += `
+          <div style="margin-top:15px;">
+            <div style="font-size:12px; font-weight:bold; margin-bottom:5px;">Subir corrección:</div>
+            <div class="doc-upload-area" id="area-${idx}" style="border:2px dashed var(--c-border); padding:20px; text-align:center; border-radius:8px; cursor:pointer; background:var(--bg-body); transition:background 0.2s;">
+              <div style="color:var(--text-muted); margin-bottom:10px;">${ICONS.document}</div>
+              <div style="font-size:13px; font-weight:bold; margin-bottom:4px;">Haz clic o arrastra el nuevo archivo</div>
+              <div style="font-size:11px; color:var(--text-muted);">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Máx: ${req.maxSizeMB||5} MB</div>
+              <input type="file" id="file-${idx}" accept="${allowedExt}" style="display:none;" data-type="${escapeHtml(docType)}" data-max="${req.maxSizeMB||5}">
+            </div>
+            <div id="upload-status-${idx}" style="margin-top:10px; font-size:12px;"></div>
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+    });
+    
+    if (isCorrectionsMode) {
+       html += `
+         <div class="card" style="margin-top:20px; text-align:right;">
+           <button class="btn btn-primary" id="btn-submit-corrections" ${pendingCorrections ? 'disabled title="Aún hay documentos rechazados sin corregir"' : ''}>Enviar Correcciones</button>
+         </div>
+       `;
+    }
+
+    html += `</div>`;
+    
+    qs('.main').innerHTML = html;
+    bindShellEvents();
+
+    qsAll('.doc-accept-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        customConfirm('¿Seguro que deseas aprobar este documento?', 'Aprobar', async () => {
+          try {
+            await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Aceptado' } });
+            toast('Documento aprobado.', 'ok');
+            renderDocumentosInscripcion(enrollmentId);
+          } catch (err) { toast(err.message, 'error'); }
+        });
+      });
+    });
+
+    qsAll('.doc-reject-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        showConfirmModal({
+          title: 'Rechazar Documento',
+          bodyHtml: `
+            <p>Indica el motivo por el que se rechaza este documento. El tutor deberá subir uno nuevo.</p>
+            <div class="field"><label>Motivo del rechazo</label>
+              <textarea id="rechazo-motivo" rows="3" required></textarea>
+            </div>
+          `,
+          confirmText: 'Rechazar',
+          danger: true,
+          onConfirm: async () => {
+            const motivo = document.getElementById('rechazo-motivo').value;
+            if (!motivo || !motivo.trim()) {
+              toast('Debes indicar un motivo', 'error');
+              return false;
+            }
+            try {
+              await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
+              toast('Documento rechazado.', 'ok');
+              renderDocumentosInscripcion(enrollmentId);
+              return true;
+            } catch (err) {
+              toast(err.message, 'error');
+              return false;
+            }
+          }
+        });
+      });
+    });
+    
+    const btnSubmit = qs('#btn-submit-corrections');
+    if (btnSubmit) {
+       btnSubmit.addEventListener('click', () => {
+          customConfirm('¿Seguro que deseas enviar estas correcciones? La solicitud volverá a estado de revisión.', 'Enviar correcciones', async () => {
+             btnSubmit.disabled = true;
+             btnSubmit.textContent = 'Enviando...';
+             try {
+                await api('/enrollments/' + enrollmentId + '/correcciones', { method: 'POST' });
+                toast('Correcciones enviadas.', 'ok');
+                renderDocumentosInscripcion(enrollmentId);
+             } catch(e) {
+                toast(e.message, 'error');
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Enviar Correcciones';
+             }
+          });
+       });
+    }
+
+    let isUploading = false;
+    qsAll('.doc-upload-area').forEach(area => {
+      const input = area.querySelector('input[type="file"]');
+      const statusEl = area.nextElementSibling;
+      const type = input.getAttribute('data-type');
+      const maxMB = parseFloat(input.getAttribute('data-max'));
+      
+      const uploadFile = async (file) => {
+        if (isUploading) return;
+        isUploading = true;
+        
+        if (file.size > maxMB * 1024 * 1024) {
+          statusEl.innerHTML = `<span style="color:#ef4444;">El archivo supera el tamaño máximo permitido (${maxMB} MB).</span>`;
+          isUploading = false;
+          return;
+        }
+        
+        const fd = new FormData();
+        fd.append('archivo', file);
+        fd.append('tipoDocumento', type);
+        
+        statusEl.innerHTML = '<span style="color:#3b82f6;">Cargando documento... (Por favor espera)</span>';
+        
+        try {
+          await api('/enrollments/' + enrollmentId + '/documents', { method: 'POST', body: fd, isMultipart: true });
+          toast('Documento subido correctamente.', 'ok');
+          renderDocumentosInscripcion(enrollmentId);
+        } catch(e) {
+          statusEl.innerHTML = `<span style="color:#ef4444;">${e.errors ? e.errors[0] : 'Error al cargar el documento.'} <button class="btn btn-ghost btn-small" style="padding:0; margin-left:5px; text-decoration:underline;">Reintentar</button></span>`;
+          const retryBtn = statusEl.querySelector('button');
+          if (retryBtn) retryBtn.addEventListener('click', () => uploadFile(file));
+        } finally {
+          isUploading = false;
+        }
+      };
+
+      area.addEventListener('click', () => { if (!isUploading) input.click(); });
+      
+      area.addEventListener('dragover', e => { e.preventDefault(); area.style.background = 'var(--bg-card)'; });
+      area.addEventListener('dragleave', e => { e.preventDefault(); area.style.background = 'var(--bg-body)'; });
+      area.addEventListener('drop', e => {
+        e.preventDefault();
+        area.style.background = 'var(--bg-body)';
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          uploadFile(e.dataTransfer.files[0]);
+        }
+      });
+      
+      input.addEventListener('change', e => {
+        if (e.target.files && e.target.files.length > 0) {
+          uploadFile(e.target.files[0]);
+        }
+      });
+    });
   }
 
   // ---------------- Periodos de ciclo escolar ----------------

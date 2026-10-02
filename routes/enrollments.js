@@ -212,7 +212,7 @@ router.post('/enrollments', (req, res) => {
   const u = req.currentUser;
   if (u.role !== 'Tutor') return res.status(403).json({ error: 'Solo un tutor puede crear una solicitud de inscripción.' });
 
-  const { studentId, institucionId, gradoSolicitado, cicloEscolar } = req.body || {};
+  const { studentId, institucionId, gradoSolicitado, cicloEscolar, draftId } = req.body || {};
   const errors = [];
   const student = db.students.find((s) => s.id === studentId && s.tutorId === u.id);
   if (!student) errors.push('Selecciona un estudiante válido.');
@@ -235,6 +235,7 @@ router.post('/enrollments', (req, res) => {
   }
   if (errors.length) return res.status(400).json({ errors });
 
+  const period = findPeriod(db, institucionId, cicloEscolar);
   const enrollment = {
     id: nextId(db.enrollments, 'e'),
     studentId: student.id,
@@ -244,11 +245,22 @@ router.post('/enrollments', (req, res) => {
     cicloEscolar,
     estado: 'Pendiente',
     motivoRechazo: '',
+    requisitosSnapshot: period ? (period.documentosRequeridos || []) : [],
     createdAt: new Date().toISOString(),
     decidedAt: null,
     decidedBy: null,
   };
   db.enrollments.push(enrollment);
+  
+  if (draftId && db.documents) {
+    db.documents.forEach(d => {
+      if (d.draftId === draftId) {
+        d.enrollmentId = enrollment.id;
+        d.institucionId = enrollment.institucionId;
+        delete d.draftId;
+      }
+    });
+  }
   logEvent(db, { actor: u, accion: 'Inscripción creada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: `${institucion.nombre} · ${gradoSolicitado}` });
   save(db);
   res.json({ enrollment: publicEnrollment(enrollment, db) });
@@ -288,6 +300,21 @@ router.post('/enrollments/:id/decidir', (req, res) => {
     });
   }
 
+  save(db);
+  res.json({ enrollment: publicEnrollment(enrollment, db) });
+});
+
+
+router.post('/enrollments/:id/correcciones', (req, res) => {
+  const db = req.db;
+  const u = req.currentUser;
+  const enrollment = db.enrollments.find((e) => e.id === req.params.id);
+  if (!enrollment) return res.status(404).json({ error: 'Solicitud no encontrada.' });
+  if (enrollment.tutorId !== u.id) return res.status(403).json({ error: 'No tienes permiso.' });
+  if (enrollment.estado !== 'Documentos pendientes') return res.status(400).json({ error: 'La solicitud no está en estado de corrección.' });
+  
+  enrollment.estado = 'Pendiente';
+  logEvent(db, { actor: u, accion: 'Correcciones enviadas', entidad: 'Inscripción', entidadId: enrollment.id, detalle: 'Documentos actualizados' });
   save(db);
   res.json({ enrollment: publicEnrollment(enrollment, db) });
 });
