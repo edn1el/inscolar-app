@@ -136,6 +136,23 @@ router.delete('/institutions/:id/periods/:periodId/:tipo', (req, res) => {
   const { tipo } = req.params;
   if (!SUBPERIODOS.includes(tipo)) return res.status(400).json({ error: 'Tipo de periodo inválido.' });
 
+  // Validaciones antes de eliminar
+  if (tipo === 'inscripcion') {
+    const hasEnrollments = db.enrollments.some(e => e.institucionId === institucion.id && e.cicloEscolar === period.cicloEscolar);
+    if (hasEnrollments) return res.status(400).json({ error: 'No se puede eliminar el período porque ya tiene solicitudes de inscripción asociadas.' });
+  } else if (tipo === 'documentos') {
+    // Buscar si hay documentos subidos para inscripciones de este ciclo
+    const cycleEnrollmentIds = db.enrollments.filter(e => e.institucionId === institucion.id && e.cicloEscolar === period.cicloEscolar).map(e => e.id);
+    const hasDocuments = db.documents.some(d => cycleEnrollmentIds.includes(d.enrollmentId));
+    if (hasDocuments) return res.status(400).json({ error: 'No se puede eliminar el período porque ya existen documentos enviados.' });
+  } else if (tipo === 'citas') {
+    const pCitas = period.citas;
+    if (pCitas) {
+      const hasAppointments = db.appointments.some(a => a.institucionId === institucion.id && a.fechaHoraSolicitada >= pCitas.desde && a.fechaHoraSolicitada <= pCitas.hasta);
+      if (hasAppointments) return res.status(400).json({ error: 'No se puede eliminar el período porque ya existen citas agendadas.' });
+    }
+  }
+
   period[tipo] = null;
   period.updatedAt = new Date().toISOString();
   logEvent(db, { actor: u, accion: `${NOMBRE_SUBPERIODO[tipo]} eliminado`, entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${period.cicloEscolar}` });
