@@ -207,7 +207,10 @@
   };
 
   // ---------------- router ----------------
-  function navigate(hash) { window.location.hash = hash; }
+  function navigate(hash) { 
+    if (window._navInterceptor && window._navInterceptor() === false) return;
+    window.location.hash = hash; 
+  }
 
   function parseHash() {
     const h = window.location.hash.replace(/^#/, '') || '/login';
@@ -3371,45 +3374,240 @@
         ${renderHito('citas', 'Periodo para agendar citas', period.citas, period.citas?.limiteCitas, period.citas?.ocupados)}
       </div>
 
-      <div class="chart-card" style="margin-top:20px; max-width:640px;">
-        <h3>Documentos requeridos para inscripción</h3>
-        <form id="docs-req-form">
-          <div class="help" style="margin-bottom:12px;">Si no seleccionas ninguno, se usa la lista por defecto al subir documentos.</div>
-          ${tiposDocumentoDisponibles.map((t) => `
-            <label style="display:flex; align-items:center; gap:8px; margin:8px 0; font-size:14px; cursor:${canManage ? 'pointer' : 'default'};">
-              <input type="checkbox" name="doc-req" value="${escapeHtml(t)}" ${(period.documentosRequeridos || []).includes(t) ? 'checked' : ''} ${!canManage ? 'disabled' : ''}>
-              ${escapeHtml(t)}
-            </label>
-          `).join('')}
-          ${canManage ? `
-          <div id="docs-err" style="margin-top:10px;"></div>
-          <button type="submit" class="btn btn-primary" style="margin-top:12px; width:auto; padding:8px 16px;">Guardar documentos</button>
-          ` : ''}
-        </form>
-      </div>
-
+      <div id="docs-editor-container"></div>
       <div id="period-modal-container"></div>
     `;
 
     bindShellEvents();
 
-    if (canManage) {
-      qs('#docs-req-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        qs('#docs-err').innerHTML = '';
-        const fd = new FormData(e.target);
-        const btn = qs('#docs-req-form button');
-        btn.disabled = true;
-        try {
-          await api('/institutions/' + institucionId + '/periods/' + periodId, { method: 'PUT', body: { documentosRequeridos: fd.getAll('doc-req') } });
-          toast('Documentos requeridos actualizados.', 'ok');
-          renderPeriodoForm(institucionId, periodId);
-        } catch (err) {
-          qs('#docs-err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
-        } finally {
-          btn.disabled = false;
+    let docsState = (period.documentosRequeridos || []).map(d => {
+      if (typeof d === 'string') {
+        return { id: Math.random().toString(36).substr(2, 9), nombre: d, niveles: nivelesDisponibles ? nivelesDisponibles.slice() : [], descripcion: '', formatos: formatosDisponibles ? formatosDisponibles.slice() : [], maxMb: 5 };
+      }
+      return { ...d, id: Math.random().toString(36).substr(2, 9) };
+    });
+    let docsOriginal = JSON.stringify(docsState);
+
+    window._navInterceptor = () => {
+      if (JSON.stringify(docsState) !== docsOriginal) {
+        return confirm('Tienes cambios sin guardar en los documentos. ¿Seguro que deseas salir?');
+      }
+      return true;
+    };
+
+    function updateDocsActionState() {
+      const isDirty = JSON.stringify(docsState) !== docsOriginal;
+      const resetBtn = qs('#btn-reset-docs');
+      const cancelBtn = qs('#btn-cancel-docs');
+      if (resetBtn) resetBtn.disabled = !isDirty;
+      if (cancelBtn) cancelBtn.disabled = !isDirty;
+    }
+
+    function renderDocsEditor() {
+      const container = qs('#docs-editor-container');
+      if (!container) return;
+      const isDirty = JSON.stringify(docsState) !== docsOriginal;
+
+      container.innerHTML = `
+        <div class="chart-card" style="margin-top:20px; max-width:800px;">
+          <h3>Documentos requeridos para inscripción</h3>
+          <div class="help" style="margin-bottom:12px;">Configura los documentos que los tutores deberán subir.</div>
+          <div id="docs-global-err"></div>
+          
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            ${docsState.map((doc, idx) => `
+              <div class="card" style="padding:16px; border:1px solid var(--c-border); box-shadow:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <strong style="font-size:15px;">Documento ${idx + 1}</strong>
+                  ${canManage ? `<button type="button" class="btn btn-ghost" style="color:var(--danger-color); padding:4px 8px; font-size:13px; width:auto;" data-doc-idx="${idx}">Quitar documento</button>` : ''}
+                </div>
+                
+                <div class="two-col">
+                  <div class="field">
+                    <label>Nombre del documento</label>
+                    <input type="text" class="doc-input" data-field="nombre" data-idx="${idx}" value="${escapeHtml(doc.nombre)}" placeholder="Ej: Acta de nacimiento" ${!canManage ? 'disabled' : ''}>
+                  </div>
+                  <div class="field">
+                    <label>Tamaño máximo (1-10 MB)</label>
+                    <input type="number" class="doc-input" data-field="maxMb" data-idx="${idx}" min="1" max="10" value="${doc.maxMb}" ${!canManage ? 'disabled' : ''}>
+                  </div>
+                </div>
+                
+                <div class="field" style="margin-top:8px;">
+                  <label>Descripción / Instrucciones</label>
+                  <input type="text" class="doc-input" data-field="descripcion" data-idx="${idx}" value="${escapeHtml(doc.descripcion)}" placeholder="Opcional. Ej: Subir de ambos lados" ${!canManage ? 'disabled' : ''}>
+                </div>
+
+                <div class="two-col" style="margin-top:8px;">
+                  <div class="field">
+                    <label>Niveles educativos aplicables</label>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
+                      ${(nivelesDisponibles || []).map(n => `
+                        <label style="display:flex; align-items:center; gap:4px; font-size:13px;">
+                          <input type="checkbox" class="doc-checkbox" data-field="niveles" data-val="${escapeHtml(n)}" data-idx="${idx}" ${(doc.niveles || []).includes(n) ? 'checked' : ''} ${!canManage ? 'disabled' : ''}>
+                          ${escapeHtml(n)}
+                        </label>
+                      `).join('')}
+                    </div>
+                  </div>
+                  
+                  <div class="field">
+                    <label>Formatos permitidos</label>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
+                      ${(formatosDisponibles || []).map(f => `
+                        <label style="display:flex; align-items:center; gap:4px; font-size:13px;">
+                          <input type="checkbox" class="doc-checkbox" data-field="formatos" data-val="${escapeHtml(f)}" data-idx="${idx}" ${(doc.formatos || []).includes(f) ? 'checked' : ''} ${!canManage ? 'disabled' : ''}>
+                          ${escapeHtml(f)}
+                        </label>
+                      `).join('')}
+                    </div>
+                  </div>
+                </div>
+                <div id="doc-err-${idx}" style="margin-top:8px;"></div>
+              </div>
+            `).join('')}
+            
+            ${docsState.length === 0 ? '<div class="empty-state" style="padding:20px;">No hay documentos configurados. Usa el botón de agregar.</div>' : ''}
+          </div>
+
+          ${canManage ? `
+            <button type="button" class="btn btn-ghost" style="margin-top:16px; width:auto; display:flex; align-items:center; gap:6px;" id="btn-add-doc">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              Agregar documento
+            </button>
+            <hr style="margin:24px 0; border:none; border-top:1px solid var(--c-border);">
+            <div style="display:flex; gap:10px; justify-content:flex-end;">
+              <button type="button" class="btn btn-ghost" id="btn-reset-docs" style="width:auto;" ${!isDirty ? 'disabled' : ''}>Resetear</button>
+              <button type="button" class="btn btn-ghost" id="btn-cancel-docs" style="width:auto;" ${!isDirty ? 'disabled' : ''}>Cancelar</button>
+              <button type="button" class="btn btn-primary" id="btn-save-docs" style="width:auto;">Guardar cambios</button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      if (canManage) {
+        qsa('.doc-input', container).forEach(inp => {
+          inp.addEventListener('input', (e) => {
+            const idx = parseInt(e.target.dataset.idx, 10);
+            const field = e.target.dataset.field;
+            let val = e.target.value;
+            if (field === 'maxMb') val = parseInt(val, 10) || 0;
+            docsState[idx][field] = val;
+            updateDocsActionState();
+          });
+        });
+        
+        qsa('.doc-checkbox', container).forEach(chk => {
+          chk.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.dataset.idx, 10);
+            const field = e.target.dataset.field;
+            const val = e.target.dataset.val;
+            docsState[idx][field] = docsState[idx][field] || [];
+            if (e.target.checked) {
+              if (!docsState[idx][field].includes(val)) docsState[idx][field].push(val);
+            } else {
+              docsState[idx][field] = docsState[idx][field].filter(v => v !== val);
+            }
+            updateDocsActionState();
+          });
+        });
+
+        const addDocBtn = qs('#btn-add-doc', container);
+        if (addDocBtn) {
+          addDocBtn.addEventListener('click', () => {
+            docsState.push({ id: Math.random().toString(36).substr(2, 9), nombre: '', niveles: (nivelesDisponibles||[]).slice(), descripcion: '', formatos: (formatosDisponibles||[]).slice(), maxMb: 5 });
+            renderDocsEditor();
+          });
         }
-      });
+
+        qsa('[data-doc-idx]', container).forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const idx = parseInt(e.target.dataset.docIdx, 10);
+            const docName = docsState[idx].nombre || ('Documento ' + (idx + 1));
+            if (confirm('¿Seguro que deseas quitar el requisito "' + docName + '"?')) {
+              docsState.splice(idx, 1);
+              renderDocsEditor();
+            }
+          });
+        });
+
+        const resetBtn = qs('#btn-reset-docs', container);
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            docsState = JSON.parse(docsOriginal);
+            renderDocsEditor();
+          });
+        }
+
+        const cancelBtn = qs('#btn-cancel-docs', container);
+        if (cancelBtn) {
+          cancelBtn.addEventListener('click', () => {
+            if (confirm('¿Seguro que deseas cancelar? Se perderán los cambios no guardados.')) {
+              docsState = JSON.parse(docsOriginal);
+              renderDocsEditor();
+            }
+          });
+        }
+
+        const saveBtn = qs('#btn-save-docs', container);
+        if (saveBtn) {
+          saveBtn.addEventListener('click', async () => {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Guardando...';
+            const globalErr = qs('#docs-global-err', container);
+            if (globalErr) globalErr.innerHTML = '';
+            qsa('[id^="doc-err-"]', container).forEach(el => el.innerHTML = '');
+
+            if (docsState.length === 0) {
+              if (globalErr) globalErr.innerHTML = fieldErrorsBlock(['La lista de documentos no puede estar vacía si se envía.']);
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'Guardar cambios';
+              return;
+            }
+
+            try {
+              // Limpiar 'id' temporal antes de guardar
+              const payload = docsState.map(d => {
+                const copy = {...d}; delete copy.id; return copy;
+              });
+              await api('/institutions/' + institucionId + '/periods/' + periodId, { method: 'PUT', body: { documentosRequeridos: payload } });
+              docsOriginal = JSON.stringify(docsState);
+              toast('Documentos actualizados correctamente.', 'ok');
+              renderDocsEditor();
+            } catch (err) {
+              if (err.errors) {
+                 const gErr = [];
+                 err.errors.forEach(e => {
+                   const m = e.match(/Documento(?: en posición)? "?([^"]+)"?: (.+)/);
+                   if (m) {
+                     const docId = m[1];
+                     let foundIdx = -1;
+                     if (docId.match(/^\d+$/)) foundIdx = parseInt(docId, 10) - 1;
+                     else foundIdx = docsState.findIndex(d => d.nombre === docId);
+                     
+                     if (foundIdx >= 0 && qs('#doc-err-' + foundIdx, container)) {
+                       qs('#doc-err-' + foundIdx, container).innerHTML += '<div style="color:var(--danger-color); font-size:13px; margin-top:4px;">' + escapeHtml(m[2]) + '</div>';
+                     } else {
+                       gErr.push(e);
+                     }
+                   } else {
+                     gErr.push(e);
+                   }
+                 });
+                 if (gErr.length > 0 && globalErr) globalErr.innerHTML = fieldErrorsBlock(gErr);
+              } else {
+                 if (globalErr) globalErr.innerHTML = fieldErrorsBlock([err.message]);
+              }
+            } finally {
+              saveBtn.disabled = false;
+              saveBtn.textContent = 'Guardar cambios';
+            }
+          });
+        }
+      }
+    }
+    
+    renderDocsEditor();
 
       qsa('[data-edit-hito]').forEach(b => b.addEventListener('click', () => {
         const tipo = b.dataset.editHito;

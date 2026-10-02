@@ -63,8 +63,16 @@ router.get('/institutions/:id/periods', (req, res) => {
     }
   }
   
+  const ALLOWED_DOC_FORMATS = ['PDF', 'JPG', 'JPEG', 'PNG'];
+  const ALLOWED_LEVELS = ['Inicial', 'Primaria', 'Secundaria'];
+
   list.sort((a, b) => b.cicloEscolar.localeCompare(a.cicloEscolar));
-  res.json({ periods: list, tiposDocumentoDisponibles: DOC_TYPES });
+  res.json({ 
+    periods: list, 
+    tiposDocumentoDisponibles: DOC_TYPES,
+    formatosDisponibles: ALLOWED_DOC_FORMATS,
+    nivelesDisponibles: ALLOWED_LEVELS
+  });
 });
 
 // ---- crear una configuracion vacia para un ciclo ----
@@ -120,11 +128,43 @@ router.put('/institutions/:id/periods/:periodId', (req, res) => {
   const citasR = parseRange(body.citas, true);
   errors.push(...citasR.errors.map((e) => `Periodo de citas: ${e}`));
 
+  const ALLOWED_DOC_FORMATS = ['PDF', 'JPG', 'JPEG', 'PNG'];
+  const ALLOWED_LEVELS = ['Inicial', 'Primaria', 'Secundaria'];
+
   let documentosRequeridos;
   if (body.documentosRequeridos !== undefined) {
     documentosRequeridos = Array.isArray(body.documentosRequeridos) ? body.documentosRequeridos : [];
-    const invalid = documentosRequeridos.filter((d) => !DOC_TYPES.includes(d));
-    if (invalid.length) errors.push(`Tipo(s) de documento no reconocido(s): ${invalid.join(', ')}.`);
+    if (documentosRequeridos.length === 0) {
+      errors.push('La lista de documentos requeridos no puede estar vacía si se envía.');
+    } else {
+      const names = new Set();
+      documentosRequeridos.forEach((doc, i) => {
+        if (!doc.nombre || typeof doc.nombre !== 'string' || !doc.nombre.trim()) {
+          errors.push(`Documento en posición ${i+1}: Debe tener un nombre.`);
+        } else {
+          if (names.has(doc.nombre.trim().toLowerCase())) {
+            errors.push(`Documento en posición ${i+1}: El nombre "${doc.nombre}" está duplicado.`);
+          }
+          names.add(doc.nombre.trim().toLowerCase());
+        }
+
+        if (!doc.niveles || !Array.isArray(doc.niveles) || doc.niveles.length === 0) {
+          errors.push(`Documento "${doc.nombre || i+1}": Selecciona al menos un nivel educativo.`);
+        } else if (doc.niveles.some(n => !ALLOWED_LEVELS.includes(n))) {
+          errors.push(`Documento "${doc.nombre || i+1}": Nivel educativo inválido.`);
+        }
+
+        if (!doc.formatos || !Array.isArray(doc.formatos) || doc.formatos.length === 0) {
+          errors.push(`Documento "${doc.nombre || i+1}": Selecciona al menos un formato permitido.`);
+        } else if (doc.formatos.some(f => !ALLOWED_DOC_FORMATS.includes(f))) {
+          errors.push(`Documento "${doc.nombre || i+1}": Los formatos válidos son PDF, JPG, JPEG y PNG.`);
+        }
+
+        if (doc.maxMb === undefined || !Number.isInteger(Number(doc.maxMb)) || Number(doc.maxMb) < 1 || Number(doc.maxMb) > 10) {
+          errors.push(`Documento "${doc.nombre || i+1}": El tamaño máximo debe ser un entero entre 1 y 10 MB.`);
+        }
+      });
+    }
   }
 
   if (citasR.range && citasR.range.limiteCitas !== undefined && citasR.range.limiteCitas !== null) {
