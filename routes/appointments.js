@@ -71,8 +71,10 @@ router.post('/appointments', (req, res) => {
       const limite = active.citas.limiteCitas;
       if (limite) {
         const count = db.appointments.filter((a) =>
-          a.institucionId === institucion.id && a.estado !== 'Cancelada' &&
-          new Date(a.createdAt) >= new Date(active.citas.desde) && new Date(a.createdAt) <= new Date(new Date(active.citas.hasta).setHours(23, 59, 59, 999))
+          a.institucionId === institucion.id && 
+          (a.estado === 'Pendiente' || a.estado === 'Aceptada' || a.estado === 'Confirmada') &&
+          new Date(a.createdAt) >= new Date(active.citas.desde) && 
+          new Date(a.createdAt) <= new Date(new Date(active.citas.hasta).setHours(23, 59, 59, 999))
         ).length;
         if (count >= limite) errors.push(`Se alcanzó el límite de citas (${limite}) para el periodo actual de esta institución.`);
       }

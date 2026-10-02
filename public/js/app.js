@@ -3317,10 +3317,24 @@
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
 
-    function renderHito(tipo, title, range, limit) {
+    function renderHito(tipo, title, range, limit, occupied) {
       const st = getStatus(range);
       const dates = range ? `<div style="margin-top:8px; font-size:14px; color:var(--text-color);">Desde: <strong>${fmtDt(range.desde)}</strong><br>Hasta: <strong>${fmtDt(range.hasta)}</strong></div>` : '';
-      const extras = limit ? `<div style="margin-top:4px; font-size:13px; color:var(--help-color);">Límite de citas: ${limit}</div>` : '';
+      let extras = '';
+      if (tipo === 'citas' && limit) {
+        const occ = occupied || 0;
+        const disponibles = Math.max(0, limit - occ);
+        let dispCol = 'var(--text-color)';
+        if (disponibles === 0) dispCol = 'var(--danger-color)';
+        else if (disponibles <= limit * 0.2) dispCol = 'var(--warning-color)';
+        else dispCol = 'var(--success-color)';
+        
+        extras = `<div style="margin-top:6px; font-size:13px; color:var(--help-color);">
+          Límite total: <strong>${limit}</strong> &bull; 
+          Ocupados: <strong>${occ}</strong> &bull; 
+          Disponibles: <strong style="color:${dispCol}">${disponibles}</strong>
+        </div>`;
+      }
       const actions = canManage ? `
         <div style="margin-top:12px; display:flex; gap:8px;">
           <button class="btn btn-ghost" style="padding:6px 12px; font-size:13px;" data-edit-hito="${tipo}">${range ? 'Editar' : 'Agregar'}</button>
@@ -3354,7 +3368,7 @@
       <div style="max-width:640px; padding-left:8px; margin-top:20px;">
         ${renderHito('inscripcion', 'Periodo de inscripción', period.inscripcion)}
         ${renderHito('documentos', 'Periodo de envío de documentos', period.documentos)}
-        ${renderHito('citas', 'Periodo para agendar citas', period.citas, period.citas?.limiteCitas)}
+        ${renderHito('citas', 'Periodo para agendar citas', period.citas, period.citas?.limiteCitas, period.citas?.ocupados)}
       </div>
 
       <div class="chart-card" style="margin-top:20px; max-width:640px;">
