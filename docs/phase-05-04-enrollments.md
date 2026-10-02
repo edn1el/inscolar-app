@@ -71,7 +71,7 @@ Se reprodujo en una copia de `0306921` la aceptación legacy sin revisión ni do
 ## Resultados ejecutados
 
 - F5.4: 18 escenarios aprobados (19 entradas contando la suite), incluidos navegador, peticiones concurrentes, doble clic y fallo de guardado inyectado.
-- F5.1–F5.3: 18 escenarios aprobados; autenticación: 24 escenarios aprobados, incluido reinicio real.
+- F5.1–F5.3: 20 escenarios aprobados; autenticación: 25 escenarios aprobados, incluido reinicio real.
 - Matriz F2: 22 comprobaciones aprobadas; smoke: 18/18.
 - Capturas revisadas de detalle en escritorio claro y móvil oscuro. No equivale a una auditoría WCAG completa.
 - Los hashes de `data/db.json` y `test_puppeteer.js` siguen siendo idénticos a los anteriores a la implementación.
@@ -85,3 +85,5 @@ El listado compara los datos recibidos con los mostrados antes de anunciar actua
 Verificación adicional: las cinco etapas permiten cancelar sin abandonar, muestran una sola confirmación y liberan sus manejadores tras salir. Se prueban también cambio directo de ruta, fallo y reintento del abandono, recuperación de foco sin cambios y aviso tras una modificación real. Las tres suites de navegador pasaron con bases aisladas. Se revisaron capturas de estudiantes del servidor real 3107 en escritorio y móvil oscuro.
 
 Para pruebas manuales se abrió únicamente en la base temporal del servidor 3107 el Colegio San Rafael, ciclo 2026–2027, inscripción y documentos del 1 de octubre al 31 de diciembre de 2026, con límite de 20 cupos de 1ro de Primaria. Esa configuración de demostración no está incluida en el repositorio ni modifica el archivo pendiente data/db.json.
+
+La integración final de fase 5 añade validación y snapshot de cédula/contacto del tutor, bloquea envíos por API que omitan documentos exigidos o usen un periodo cerrado y permite solicitar cita desde el expediente. F5.5 y el recorrido integrado están documentados en phase-05-05-appointments.md.

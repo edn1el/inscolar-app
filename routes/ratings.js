@@ -53,7 +53,7 @@ function handleUploadEvidence(req, res, next) {
 function tutorTuvoRelacion(db, tutorId, institucionId) {
   const enrollOk = db.enrollments.some((e) => e.tutorId === tutorId && e.institucionId === institucionId && ['Aprobada','Aceptada'].includes(e.estado));
   if (enrollOk) return true;
-  return db.appointments.some((a) => a.tutorId === tutorId && a.institucionId === institucionId && a.estado === 'Confirmada');
+  return db.appointments.some((a) => a.tutorId === tutorId && a.institucionId === institucionId && ['Confirmada','Aceptada'].includes(a.estado));
 }
 
 function publicRating(r) {

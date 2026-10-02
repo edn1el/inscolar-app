@@ -108,7 +108,7 @@ ENROLLMENTS=$(get "/api/enrollments" "$COOKIE_ADMIN")
 if echo "$ENROLLMENTS" | grep -q '"total"'; then ok "GET /api/enrollments responde";
 else fail "GET /api/enrollments falla"; fi
 
-APPOINTMENTS=$(get "/api/appointments" "$COOKIE_ADMIN")
+APPOINTMENTS=$(get "/api/appointments" "$COOKIE_TUTOR")
 if echo "$APPOINTMENTS" | grep -q '"total"'; then ok "GET /api/appointments responde";
 else fail "GET /api/appointments falla"; fi
 

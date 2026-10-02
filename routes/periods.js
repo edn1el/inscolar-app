@@ -105,6 +105,7 @@ router.post('/institutions/:id/periods', (req, res) => {
   db.periods.push(period);
   logEvent(db, { actor: u, accion: 'Periodo de ciclo creado', entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${cicloEscolar}` });
   save(db);
+  require('../lib/appointment-updates').publish({institucionId:institucion.id});
   res.json({ period });
 });
 
@@ -191,6 +192,7 @@ router.put('/institutions/:id/periods/:periodId', (req, res) => {
 
   logEvent(db, { actor: u, accion: 'Periodo de ciclo modificado', entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${period.cicloEscolar}` });
   save(db);
+  require('../lib/appointment-updates').publish({institucionId:institucion.id});
   res.json({ period });
 });
 
@@ -227,6 +229,7 @@ router.delete('/institutions/:id/periods/:periodId/:tipo', (req, res) => {
   period.updatedAt = new Date().toISOString();
   logEvent(db, { actor: u, accion: `${NOMBRE_SUBPERIODO[tipo]} eliminado`, entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${period.cicloEscolar}` });
   save(db);
+  require('../lib/appointment-updates').publish({institucionId:institucion.id});
   res.json({ period });
 });
 
@@ -241,10 +244,13 @@ router.delete('/institutions/:id/periods/:periodId', (req, res) => {
   if (!period) return res.status(404).json({ error: 'Configuración de periodo no encontrada.' });
 
   const associated = db.enrollments.some(e => e.institucionId === institucion.id && e.cicloEscolar === period.cicloEscolar) || db.appointments.some(a => a.institucionId === institucion.id && period.citas && require('../lib/periods').withinRange(period.citas, new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada))) || (db.drafts || []).some(d => !d.estado && d.expiresAt > Date.now() && d.data.institucionId === institucion.id && d.data.cicloEscolar === period.cicloEscolar);
-  if (associated) return res.status(400).json({ error: 'No se puede eliminar un ciclo con solicitudes, citas o borradores activos asociados.' });
+  const associatedSlots = db.appointments.some(a => (db.appointmentSlots || []).some(slot => slot.id === a.slotId && slot.periodId === period.id));
+  if (associated || associatedSlots) return res.status(400).json({ error: 'No se puede eliminar un ciclo con solicitudes, citas o borradores activos asociados.' });
   db.periods = db.periods.filter((p) => p.id !== period.id);
+  db.appointmentSlots = (db.appointmentSlots || []).filter(slot => slot.periodId !== period.id);
   logEvent(db, { actor: u, accion: 'Configuración de periodo eliminada', entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${period.cicloEscolar}` });
   save(db);
+  require('../lib/appointment-updates').publish({institucionId:institucion.id});
   res.json({ status: 'ok' });
 });
 

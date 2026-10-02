@@ -13,8 +13,8 @@ La suite del login se ejecuta con `npm run test:login`. La matriz F2 y smoke deb
 ## Límites del prototipo
 
 - La expiración del borrador es definitiva al llegar `expiresAt`; su estado y auditoría se materializan al consultar/actualizar borradores. No hay trabajador permanente de expiración.
-- No existe una colección de reservas de cupos de inscripción. No se afirma que haya una liberación de reservas reales; se elimina ese mensaje engañoso del cierre del wizard. El límite de citas existente sigue siendo por periodo, no por franja.
+- F5.4 incorpora contratos separados de cupos y reservas de inscripción; no crea reservas ficticias. F5.5 incorpora franjas explícitas de citas y respeta además el límite total del periodo. Consultar docs/phase-05-04-enrollments.md y docs/phase-05-05-appointments.md.
 - Los archivos se validan por firma inicial, extensión, MIME declarado, requisito y tamaño. Esto no sustituye análisis antivirus ni validación completa del contenido.
-- El editor de fechas muestra y convierte la zona local del navegador. La política de una zona institucional fija requiere definición explícita.
-- No se implementan F5.4 ni F5.5. Se conserva la compatibilidad de las acciones anteriores con Enviada/En revisión.
+- Las citas de F5.5 usan America/Santo_Domingo (UTC−4) en servicio, calendario y resumen. El editor general de periodos anterior conserva su conversión local.
+- Las suites test:f54 y test:f55 verifican esas fases con backend JSON aislado. La suite de review sigue verificando regresiones de F5.1–F5.3, incluidos contactos obligatorios, documentos y bloqueo de periodos cerrados.
 - Pendiente una auditoría completa de contraste y lectores de pantalla; el control de foco se aplica al componente compartido de confirmación.

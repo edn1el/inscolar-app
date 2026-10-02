@@ -58,6 +58,8 @@
     } finally { clearTimeout(timeout); }
     if (!res.ok) {
       if (res.status === 401 && state.user && !path.startsWith('/auth/')) {
+        if(window._wizardCleanup)window._wizardCleanup();
+        window._navInterceptor=null;
         state.user = null;
         state.authChecked = false;
         navigate('#/login');
@@ -68,6 +70,7 @@
       throw err;
     }
     if (opts.method && opts.method !== 'GET' && (/^\/enrollments\//.test(path) || (data.document && data.document.enrollmentId))) enrollmentChanged();
+    if (opts.method && opts.method !== 'GET' && (/^\/appointments(?:\/|$)/.test(path) || /appointment-slots$/.test(path))) appointmentChanged();
     return data;
   }
 
@@ -741,7 +744,7 @@
         }
 
         qs('#search-results').innerHTML = data.institutions.map(i => `
-          <div class="inst-card" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
+          <div class="inst-card" data-id="${escapeHtml(i.id)}" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
             <div onclick="window.location.hash='#/buscar/${i.id}'">
               <h4 style="margin:0 0 5px 0; color:var(--primary-color);">${escapeHtml(i.nombre)}</h4>
               <div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">
@@ -767,7 +770,7 @@
                 iconAnchor: [16, 31],
                 tooltipAnchor: [0, -31]
               });
-              const marker = L.marker([i.lat, i.lng], { icon: markerIcon }).addTo(currentMap);
+              const marker = L.marker([i.lat, i.lng], { icon: markerIcon, title: i.nombre, alt: i.nombre }).addTo(currentMap);
               
               const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
@@ -790,12 +793,14 @@
               `;
               marker.instId = i.id;
               
-              const isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window);
-              if (isMobile) {
-                marker.bindPopup(detailsHtml, { className: 'modern-popup', closeButton: false, minWidth: 250, offset: [0, -15] });
-              } else {
-                marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip', interactive: true });
-              }
+              // An actionable card must stay open while crossing from the pin to its links.
+              // Leaflet tooltips close on marker mouseout even with interactive: true.
+              marker.bindPopup(detailsHtml, { className: 'modern-popup', closeButton: true, minWidth: 250, offset: [0, -15] });
+              marker.on('mouseover', () => marker.openPopup());
+              marker.on('popupopen', () => {
+                const close = marker.getPopup().getElement()?.querySelector('.leaflet-popup-close-button');
+                if (close) close.setAttribute('aria-label', 'Cerrar ficha');
+              });
               
               currentMarkers.push(marker);
               bounds.push([i.lat, i.lng]);
@@ -1395,7 +1400,9 @@
       else if (section === 'inscripciones' && segs[2] === 'detalle') await renderInscripcionDetalle(segs[1]);
       else if (section === 'inscripciones' && segs[2] === 'documentos') await renderDocumentosInscripcion(segs[1]);
       else if (section === 'inscripciones') await renderInscripciones(query);
-      else if (section === 'citas' && segs[1] === 'nueva') await renderCitaForm();
+      else if (section === 'citas' && segs[1] === 'nueva') await renderCitaForm(null,query);
+      else if (section === 'citas' && segs[2] === 'detalle') await renderCitaDetalle(segs[1]);
+      else if (section === 'citas' && segs[2] === 'reprogramar') await renderCitaForm(segs[1],query);
       else if (section === 'citas' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteCita(segs[2]);
       else if (section === 'citas') await renderCitas(query);
       else if (section === 'notificaciones') await renderNotificaciones();
@@ -1455,9 +1462,6 @@
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
             </button>
-            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
-            </button>
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Analíticas
             </button>
@@ -1470,9 +1474,6 @@
             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
-            </button>
-            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
             </button>
             ` : isStaff() ? `
             <div class="sec-label">Módulos</div>
@@ -1575,6 +1576,8 @@
     logoutBtn.dataset.bound = '1';
     logoutBtn.addEventListener('click', async () => {
       await api('/auth/logout', { method: 'POST' });
+      if(window._wizardCleanup)window._wizardCleanup();
+      window._navInterceptor=null;
       state.user = null;
       navigate('#/login');
     });
@@ -1958,7 +1961,7 @@
       secciones.push({
         titulo: 'Gestionar citas',
         html: `
-          <p>En <a href="#/app/citas">Citas</a> puedes confirmar una cita Pendiente, rechazarla (indicando un motivo) o cancelar una cita ya Confirmada. También puedes consultar el <a href="${(state.user || {}).institucionId ? `#/app/instituciones/${state.user.institucionId}/calendario` : '#/app/citas'}">calendario de tu institución</a> para ver todas las citas agendadas por día.</p>
+          <p>En <a href="#/app/citas">Citas</a> puedes aceptar una cita Pendiente, rechazarla (indicando un motivo) o cancelar una cita Pendiente o Aceptada. También puedes consultar el <a href="${(state.user || {}).institucionId ? `#/app/instituciones/${state.user.institucionId}/calendario` : '#/app/citas'}">calendario de tu institución</a> para ver todas las citas agendadas por día.</p>
         `,
       });
       secciones.push({
@@ -2543,67 +2546,27 @@
   ];
 
   // HU061: calendario mensual de citas de una institución.
-  async function renderCalendarioInstitucion(institucionId, query) {
-    const params = query.mes ? '?mes=' + encodeURIComponent(query.mes) : '';
-    const { institucion, mes, detalle, dias } = await api('/institutions/' + institucionId + '/calendar' + params);
-    const [year, month] = mes.split('-').map(Number); // month: 1-12
-    const backHref = isAdmin() ? '#/app/instituciones' : '#/app/citas';
-
-    // Calcular la cuadricula del mes (semanas de lunes a domingo).
-    const firstOfMonth = new Date(Date.UTC(year, month - 1, 1));
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-    const firstWeekday = (firstOfMonth.getUTCDay() + 6) % 7; // 0=lunes .. 6=domingo
-    const cells = [];
-    for (let i = 0; i < firstWeekday; i++) cells.push(null);
-    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-    while (cells.length % 7 !== 0) cells.push(null);
-
-    const estadoColorCal = (estado) => estado === 'Confirmada' ? '#2e9e5b' : estado === 'Cancelada' ? '#c23b3b' : estado === 'Rechazada' ? '#8a2f2f' : '#c98a1b';
-
-    function keyFor(d) {
-      return `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    }
-
-    function prevMes() {
-      const m = month === 1 ? 12 : month - 1;
-      const y = month === 1 ? year - 1 : year;
-      return `${y}-${String(m).padStart(2, '0')}`;
-    }
-    function nextMes() {
-      const m = month === 12 ? 1 : month + 1;
-      const y = month === 12 ? year + 1 : year;
-      return `${y}-${String(m).padStart(2, '0')}`;
-    }
-
-    qs('.main').innerHTML = `
-      <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
-      <div class="page-head">
-        <div><h2>Calendario — ${escapeHtml(institucion.nombre)}</h2><div class="sub">${detalle ? 'Citas agendadas en esta institución.' : 'Cantidad de citas agendadas por día.'}</div></div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn btn-ghost" style="width:auto; padding:9px 16px;" id="cal-prev">${ICONS.back} ${MESES_NOMBRE[(month - 2 + 12) % 12]}</button>
-          <button class="btn btn-ghost" style="width:auto; padding:9px 16px;" id="cal-next">${MESES_NOMBRE[month % 12]} →</button>
-        </div>
-      </div>
-      <div class="chart-card">
-        <h3 style="text-transform:capitalize;">${MESES_NOMBRE[month - 1]} ${year}</h3>
-        <div class="calendar-grid">
-          ${DIAS_SEMANA_CORTO.map((d) => `<div class="calendar-weekday">${d}</div>`).join('')}
-          ${cells.map((d) => {
-            if (!d) return '<div class="calendar-cell other-month"></div>';
-            const items = dias[keyFor(d)] || [];
-            const shown = items.slice(0, 3);
-            return `<div class="calendar-cell">
-              <div class="calendar-daynum">${d}</div>
-              ${shown.map((it) => `<div class="calendar-item"><span class="calendar-dot" style="background:${estadoColorCal(it.estado)}"></span>${new Date(it.hora).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}${detalle ? ' · ' + escapeHtml(it.tutorNombre) : ''}</div>`).join('')}
-              ${items.length > 3 ? `<div class="help">+${items.length - 3} más</div>` : ''}
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
-    bindShellEvents();
-    qs('#cal-prev').addEventListener('click', () => navigate(`#/app/instituciones/${institucionId}/calendario?mes=${prevMes()}`));
-    qs('#cal-next').addEventListener('click', () => navigate(`#/app/instituciones/${institucionId}/calendario?mes=${nextMes()}`));
+  async function renderCalendarioInstitucion(institucionId,query={}) {
+    const version=++appointmentRenderVersion,container=qs('.main');container.innerHTML='<p class="loading" role="status">Cargando calendario…</p>';
+    try {
+      const data=await api('/institutions/'+institucionId+'/calendar'+(query.mes?'?mes='+encodeURIComponent(query.mes):''));
+      const periods=data.canConfigure?(await api('/institutions/'+institucionId+'/periods')).periods.filter(p=>p.citas):[];
+      if(!container.isConnected||version!==appointmentRenderVersion)return;
+      const {institucion,mes,dias,slots,canConfigure}=data;const [year,month]=mes.split('-').map(Number);
+      const first=(new Date(Date.UTC(year,month-1,1)).getUTCDay()+6)%7,last=new Date(Date.UTC(year,month,0)).getUTCDate();const cells=Array(first).fill(null);for(let d=1;d<=last;d++)cells.push(d);
+      const monthAt=delta=>{const d=new Date(Date.UTC(year,month-1+delta,1));return d.toISOString().slice(0,7);};
+      const dateFor=d=>`${mes}-${String(d).padStart(2,'0')}`;
+      container.innerHTML=`<button class="back-link" data-nav="${isAdmin()?'#/app/instituciones':'#/app/citas'}">${ICONS.back} Volver</button><div class="page-head"><div><h2>Calendario — ${escapeHtml(institucion.nombre)}</h2><p class="sub">America/Santo_Domingo (UTC−4). ${data.detalle?'Citas de tu institución.':'Solo se muestran los datos de tus citas.'}</p></div><div class="appointment-actions"><button class="btn btn-secondary" data-nav="#/app/instituciones/${institucionId}/calendario?mes=${monthAt(-1)}">Mes anterior</button><button class="btn btn-secondary" data-nav="#/app/instituciones/${institucionId}/calendario?mes=${monthAt(1)}">Mes siguiente</button></div></div>
+        <div id="appointment-update" role="status"></div><section class="chart-card"><h3>${MESES_NOMBRE[month-1]} ${year}</h3><div class="calendar-grid appointment-calendar">
+        ${DIAS_SEMANA_CORTO.map(d=>`<div class="calendar-weekday">${d}</div>`).join('')}
+        ${cells.map(d=>{if(!d)return '<div class="calendar-cell other-month"></div>';const key=dateFor(d),offered=slots.filter(s=>s.fecha===key);return `<div class="calendar-cell"><div class="calendar-daynum">${d}</div>${offered.length?`<button class="calendar-available" data-nav="#/app/citas/nueva?inst=${institucionId}&mes=${mes}&fecha=${key}">${offered.length} horarios libres</button>`:''}${(dias[key]||[]).slice(0,3).map(a=>`<button class="calendar-appointment" data-nav="#/app/citas/${a.id}/detalle">${escapeHtml(new Intl.DateTimeFormat('es-DO',{timeZone:data.zonaHoraria,hour:'2-digit',minute:'2-digit'}).format(new Date(a.hora)))} · ${escapeHtml(a.estado)}${data.detalle?' · '+escapeHtml(a.tutorNombre):''}</button>`).join('')}${(dias[key]||[]).length>3?`<p>+${dias[key].length-3} citas</p>`:''}</div>`;}).join('')}</div></section>
+        <section class="chart-card"><h3>Horarios disponibles — lista accesible</h3>${slots.length?`<ul class="appointment-available-list">${slots.map(s=>`<li><button class="btn btn-secondary" data-nav="#/app/citas/nueva?inst=${institucionId}&mes=${mes}&fecha=${s.fecha}">${escapeHtml(fmtAppointment(s.inicio))} · ${s.disponibles} lugar${s.disponibles===1?'':'es'}</button></li>`).join('')}</ul>`:'<p class="empty-state">No hay horarios disponibles este mes. Puedes cambiar el mes o consultar la configuración con la institución.</p>'}</section>
+        <section class="chart-card"><h3>${data.detalle?'Citas de la institución':'Mis citas en esta institución'}</h3><ul class="appointment-available-list">${Object.values(dias).flat().map(a=>`<li><button class="btn btn-secondary" data-nav="#/app/citas/${a.id}/detalle">${escapeHtml(fmtAppointment(a.hora))} · ${escapeHtml(a.estado)} · ${escapeHtml(a.estudianteNombre||'General')}</button></li>`).join('')||'<li>No hay citas para mostrar este mes.</li>'}</ul></section>
+        ${canConfigure?`<details class="chart-card"><summary>Configurar franjas de atención</summary><p>Capacidad por horario, independiente del límite total del periodo y de los cupos de inscripción. Las franjas existentes no se sobrescriben ni se reprograman.</p>${periods.length?`<form id="appointment-slot-form"><div class="appointment-config-grid"><label>Periodo<select name="periodId">${periods.map(p=>`<option value="${p.id}">${escapeHtml(p.cicloEscolar)} · ${escapeHtml(fmtAppointment(p.citas.desde))} — ${escapeHtml(fmtAppointment(p.citas.hasta))}</option>`).join('')}</select></label><label>Fecha<input name="fecha" type="date" required></label><label>Desde<input name="desde" type="time" required></label><label>Hasta<input name="hasta" type="time" required></label><label>Duración (minutos)<input name="duracionMinutos" type="number" min="5" max="240" value="30" required></label><label>Lugares por horario<input name="capacidad" type="number" min="1" max="1000" value="1" required></label></div><div id="appointment-config-error" role="alert"></div><button class="btn btn-primary">Crear horarios</button></form>`:`<p>Configura primero el periodo de citas.</p><button class="btn btn-secondary" data-nav="#/app/instituciones/${institucionId}/periodos">Configurar periodos</button>`}</details>`:''}`;
+      bindShellEvents();
+      const form=qs('#appointment-slot-form');if(form)form.onsubmit=async e=>{e.preventDefault();const button=qs('button',form);button.disabled=true;const body=Object.fromEntries(new FormData(form));body.duracionMinutos=Number(body.duracionMinutos);body.capacidad=Number(body.capacidad);try{await api('/institutions/'+institucionId+'/appointment-slots',{method:'POST',body});await renderCalendarioInstitucion(institucionId,query);}catch(error){qs('#appointment-config-error').textContent=error.message;button.disabled=false;}};
+      let checking=false;watchEnrollments(async()=>{if(checking||!container.isConnected||version!==appointmentRenderVersion)return;checking=true;try{const fresh=await api('/institutions/'+institucionId+'/calendar?mes='+mes);if(!container.isConnected||version!==appointmentRenderVersion)return;if(JSON.stringify(fresh)!==JSON.stringify(data)){qs('#appointment-update',container).innerHTML='<p class="notice">Cambió la disponibilidad o alguna cita. <button class="btn btn-secondary" id="calendar-refresh">Actualizar calendario</button></p>';qs('#calendar-refresh').onclick=()=>renderCalendarioInstitucion(institucionId,query);}}catch(_){/* El reintento conserva la configuración escrita. */}finally{checking=false;}},'appointments');
+    }catch(error){if(container.isConnected&&version===appointmentRenderVersion)enrollmentError(container,error,()=>renderCalendarioInstitucion(institucionId,query));}
   }
 
   async function institucionNombre(id) {
@@ -3023,8 +2986,16 @@
     if (enrollmentUpdates) enrollmentUpdates.postMessage({type:'changed'});
     window.dispatchEvent(new Event('enrollment-updated'));
   }
-  function watchEnrollments(handler) {
-    const stream = new EventSource('/api/enrollments/events');
+  let appointmentUpdates;
+  try { appointmentUpdates = new BroadcastChannel('inscolar_appointments'); } catch (_) {}
+  function appointmentChanged() {
+    if(appointmentUpdates)appointmentUpdates.postMessage({type:'changed'});
+    window.dispatchEvent(new Event('appointment-updated'));
+  }
+  function watchEnrollments(handler,scope='enrollments') {
+    const channel=scope==='appointments'?appointmentUpdates:enrollmentUpdates;
+    const eventName=scope==='appointments'?'appointment-updated':'enrollment-updated';
+    const stream = new EventSource('/api/'+scope+'/events');
     stream.addEventListener('changed',handler);
     stream.addEventListener('open',handler);
     stream.addEventListener('error',handler);
@@ -3032,13 +3003,13 @@
     const visible = () => { if (document.visibilityState === 'visible') handler(); };
     window.addEventListener('focus',handler);
     document.addEventListener('visibilitychange',visible);
-    window.addEventListener('enrollment-updated',handler);
-    if (enrollmentUpdates) enrollmentUpdates.addEventListener('message',handler);
+    window.addEventListener(eventName,handler);
+    if (channel) channel.addEventListener('message',handler);
     window._enrollmentCleanup = () => {
       stream.close();
       window.removeEventListener('focus',handler); document.removeEventListener('visibilitychange',visible);
-      window.removeEventListener('enrollment-updated',handler);
-      if(enrollmentUpdates) enrollmentUpdates.removeEventListener('message',handler);
+      window.removeEventListener(eventName,handler);
+      if(channel) channel.removeEventListener('message',handler);
     };
   }
   function enrollmentError(container, error, retry) {
@@ -3114,7 +3085,7 @@
       const availability=c.configurado?`${c.disponibles} disponibles · ${c.ocupados} ocupados · ${c.reservados} reservados · límite ${c.limite}`:'Sin configuración de cupos. La aceptación permanecerá bloqueada hasta configurarlos.';
       const approved=data.documentos.every(r=>r.document && ['Aceptado','Aprobado'].includes(r.document.estado));
       container.innerHTML=`<button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a solicitudes</button>
-        <div class="page-head"><div><h2>Solicitud ${escapeHtml(e.id)}</h2><div class="sub">${escapeHtml(e.estudianteNombre)} · ${escapeHtml(e.institucionNombre)}</div></div><button class="btn btn-secondary" id="detail-refresh">Actualizar</button></div>
+        <div class="page-head"><div><h2>Solicitud ${escapeHtml(e.id)}</h2><div class="sub">${escapeHtml(e.estudianteNombre)} · ${escapeHtml(e.institucionNombre)}</div></div><span class="appointment-actions"><button class="btn btn-secondary" id="detail-refresh">Actualizar</button><button class="btn btn-primary" data-nav="#/app/citas/nueva?inst=${e.institucionId}&solicitud=${e.id}">Solicitar cita</button></span></div>
         <div id="enrollment-update" role="status"></div>
         <div class="chart-card"><h3>Estado y siguiente paso</h3>${enrollmentStateHtml(e)}<p>${escapeHtml(ENROLLMENT_EXPLANATIONS[e.estado] || e.estado)}</p>${e.motivoRechazo?`<p><strong>Motivo del rechazo:</strong> ${escapeHtml(e.motivoRechazo)}</p>`:''}${e.motivoCancelacion?`<p><strong>Motivo de cancelación:</strong> ${escapeHtml(e.motivoCancelacion)}</p>`:''}
           <div class="enrollment-actions">
@@ -3126,7 +3097,7 @@
           <button class="btn btn-secondary" data-nav="#/app/inscripciones/comprobante/${encodeURIComponent(e.id)}">Comprobante</button></div>
           ${e.acciones.aceptar && !approved?'<p class="help">Para aceptar, todos los documentos obligatorios deben estar aprobados.</p>':''}
         </div>
-        <div class="two-col" style="margin-top:16px"><div class="chart-card"><h3>Resumen</h3><dl class="enrollment-summary"><dt>Estudiante</dt><dd>${escapeHtml(data.estudiante?.nombre || e.estudianteNombre)}</dd><dt>Nacimiento</dt><dd>${escapeHtml(data.estudiante?.fechaNacimiento || 'Sin dato registrado')}</dd><dt>Tutor</dt><dd>${escapeHtml(data.tutor?.nombre || e.tutorNombre)}</dd><dt>Correo</dt><dd>${escapeHtml(data.tutor?.email || 'Sin dato registrado')}</dd><dt>Teléfono</dt><dd>${escapeHtml(data.tutor?.telefono || 'Sin dato registrado')}</dd><dt>Institución</dt><dd>${escapeHtml(e.institucionNombre)}</dd><dt>Periodo</dt><dd>${escapeHtml(e.cicloEscolar)}</dd><dt>Grado</dt><dd>${escapeHtml(e.gradoSolicitado)}</dd><dt>Envío</dt><dd>${fmtDate(e.createdAt)}</dd></dl></div>
+        <div class="two-col" style="margin-top:16px"><div class="chart-card"><h3>Resumen</h3><dl class="enrollment-summary"><dt>Estudiante</dt><dd>${escapeHtml(data.estudiante?.nombre || e.estudianteNombre)}</dd><dt>Nacimiento</dt><dd>${escapeHtml(data.estudiante?.fechaNacimiento || 'Sin dato registrado')}</dd><dt>Tutor</dt><dd>${escapeHtml(data.tutor?.nombre || e.tutorNombre)}${data.tutor?.cedula?`<br>Cédula: ${escapeHtml(data.tutor.cedula)}`:''}</dd><dt>Correo</dt><dd>${escapeHtml(data.tutor?.email || 'Sin dato registrado')}</dd><dt>Teléfono</dt><dd>${escapeHtml(data.tutor?.telefono || 'Sin dato registrado')}</dd><dt>Institución</dt><dd>${escapeHtml(e.institucionNombre)}</dd><dt>Periodo</dt><dd>${escapeHtml(e.cicloEscolar)}</dd><dt>Grado</dt><dd>${escapeHtml(e.gradoSolicitado)}</dd><dt>Envío</dt><dd>${fmtDate(e.createdAt)}</dd></dl></div>
         <div class="chart-card"><h3>Documentos obligatorios</h3><ul class="enrollment-documents">${data.documentos.map(r=>`<li><strong>${escapeHtml(r.tipo)}</strong><br>${r.document?`${escapeHtml(r.document.estado)} · ${escapeHtml(r.document.nombreArchivo)}${r.document.motivoRechazo?`<p>Motivo: ${escapeHtml(r.document.motivoRechazo)}</p>`:''}`:'⚠ Falta documento'}</li>`).join('')}</ul><h3>Disponibilidad para este grado</h3><p id="enrollment-capacity">${escapeHtml(availability)}</p>${e.periodoId && (isAdmin() || (isStaff() && state.user.institucionId===e.institucionId))?'<button class="btn btn-secondary" id="configure-enrollment-capacity">Configurar cupos de este grado</button>':''}</div></div>
         <div class="chart-card" style="margin-top:16px"><h3>Historial</h3>${data.historial.length?`<ol class="enrollment-history">${data.historial.map(h=>`<li><strong>${escapeHtml(h.accion)}</strong><div>${fmtDate(h.fecha)} · ${escapeHtml(h.actorNombre || 'Actor no registrado')}</div>${h.anterior && h.nuevo?`<div>${escapeHtml(h.anterior)} → ${escapeHtml(h.nuevo)}</div>`:''}${h.motivo?`<p>${escapeHtml(h.motivo)}</p>`:''}</li>`).join('')}</ol>`:'<p>No hay eventos registrados para esta solicitud anterior.</p>'}</div>`;
       bindShellEvents();
@@ -3224,7 +3195,8 @@
       studentId: students.length ? students[0].id : 'new',
       newStudent: { nombre: '', fechaNacimiento: '' },
       tutorName: u.nombre || '',
-      tutorPhone: u.telefonomovil || u.telefono || '',
+      tutorPhone: u.telefonoMovil || u.telefonoFijo || u.telefonomovil || u.telefono || '',
+      tutorCedula: u.cedula || '',
       institucionId: preInstId || '',
       gradoSolicitado: GRADOS[0],
       cicloEscolar: ciclos[0],
@@ -3496,7 +3468,8 @@
            <div class="card" style="max-width:560px;">
              <div class="help" style="margin-bottom:15px;">Estos datos se usarán para contactarte sobre esta solicitud (no modifican tu perfil permanentemente aquí).</div>
              <form id="step-form">
-               <div class="field"><label>Nombre del tutor</label><input type="text" name="tutorName" value="${escapeHtml(wState.tutorName)}" required></div>
+               <div class="field"><label>Nombre completo del tutor (nombre y apellidos)</label><input type="text" name="tutorName" value="${escapeHtml(wState.tutorName)}" required></div>
+               <div class="field"><label for="wizard-tutor-id">Cédula del tutor</label><input id="wizard-tutor-id" name="tutorCedula" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" value="${escapeHtml(wState.tutorCedula)}" required><p class="help">11 dígitos. Se guarda en este expediente sin modificar tu perfil.</p></div>
                <div class="field"><label>Teléfono de contacto</label><input type="tel" name="tutorPhone" value="${escapeHtml(wState.tutorPhone)}" required></div>
                <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
              </form>
@@ -3610,7 +3583,7 @@
              <table class="table" style="margin-top:15px;">
                <tbody>
                  <tr><td style="font-weight:bold; width:150px;">Estudiante</td><td>${wState.studentId === 'new' ? escapeHtml(wState.newStudent.nombre) : escapeHtml(students.find(s=>s.id===wState.studentId)?.nombre)}</td></tr>
-                 <tr><td style="font-weight:bold;">Tutor</td><td>${escapeHtml(wState.tutorName)} (${escapeHtml(wState.tutorPhone)})</td></tr>
+                 <tr><td style="font-weight:bold;">Tutor</td><td>${escapeHtml(wState.tutorName)} (${escapeHtml(wState.tutorPhone)})<br>Cédula: ${escapeHtml(wState.tutorCedula)}</td></tr>
                  <tr><td style="font-weight:bold;">Institución</td><td>${escapeHtml(selectedInstObj.nombre)}</td></tr>
                  <tr><td style="font-weight:bold;">Grado / Ciclo</td><td>${escapeHtml(wState.gradoSolicitado)} · ${wState.cicloEscolar}</td></tr>
                  <tr><td style="font-weight:bold;">Documentos</td><td>${wState.uploadedDocsCount || 0} archivo(s) cargados</td></tr>
@@ -3632,7 +3605,7 @@
          // Report activity on input changes
          const capture = () => {
            const f = new FormData(form);
-           for (const k of ['studentId','tutorName','tutorPhone','institucionId','gradoSolicitado','cicloEscolar']) if (f.has(k)) wState[k] = f.get(k);
+           for (const k of ['studentId','tutorName','tutorPhone','tutorCedula','institucionId','gradoSolicitado','cicloEscolar']) if (f.has(k)) wState[k] = f.get(k);
            if (f.has('new_nombre')) wState.newStudent.nombre = f.get('new_nombre');
            if (f.has('new_fecha')) wState.newStudent.fechaNacimiento = f.get('new_fecha');
          };
@@ -3653,6 +3626,7 @@
            } else if (wState.step === 2) {
              wState.tutorName = fd.get('tutorName');
              wState.tutorPhone = fd.get('tutorPhone');
+             wState.tutorCedula = fd.get('tutorCedula');
              await advanceStep(3);
            } else if (wState.step === 3) {
              wState.institucionId = fd.get('institucionId');
@@ -3869,6 +3843,7 @@
                newStudent: wState.newStudent,
                tutorName: wState.tutorName,
                tutorPhone: wState.tutorPhone,
+               tutorCedula: wState.tutorCedula,
                institucionId: wState.institucionId,
                draftId: draftId,
                gradoSolicitado: wState.gradoSolicitado,
@@ -4700,188 +4675,136 @@
   }
 
   // ---------------- Citas ----------------
-  async function renderCitas(query) {
-    const u = state.user;
-    const tutor = u.role === 'Tutor';
-    const staff = u.role === 'Personal de institución';
-    const admin = isAdmin();
-
-    const params = new URLSearchParams();
-    if (query.estado) params.set('estado', query.estado);
-    if (query.institucionId && admin) params.set('institucionId', query.institucionId);
-    const { total, appointments } = await api('/appointments?' + params.toString());
-
-    let institucionesOptions = [];
-    if (admin) {
-      const ires = await api('/institutions');
-      institucionesOptions = ires.institutions;
-    }
-
-    const estados = ['Todos', 'Pendiente', 'Confirmada', 'Rechazada', 'Cancelada'];
-    const showInstColCitas = admin || tutor;
-    const colCount = 5 + (tutor ? 0 : 1) + (showInstColCitas ? 1 : 0);
-
-    qs('.main').innerHTML = `
-      <div class="page-head">
-        <div><h2>Citas</h2><div class="sub">${tutor ? 'Agenda una cita con una institución.' : staff ? 'Citas solicitadas a tu institución.' : 'Todas las citas del sistema.'}</div></div>
-        ${tutor ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/citas/nueva">Nueva cita</button>` : ''}
-      </div>
-      <div class="filters">
-        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        ${admin ? `<select id="f-institucion"><option ${!query.institucionId ? 'selected' : ''}>Todas</option>${institucionesOptions.map((i) => `<option value="${i.id}" ${query.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}</select>` : ''}
-      </div>
-      <div class="table-card">
-        <table>
-          <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${showInstColCitas ? '<th>Institución</th>' : ''}<th>Motivo</th><th>Fecha y hora</th><th>Estado</th><th>Acciones</th></tr></thead>
-          <tbody>
-            ${appointments.length ? appointments.map((a) => {
-              const estadoColor = a.estado === 'Confirmada' ? '#2e9e5b' : a.estado === 'Cancelada' ? '#c23b3b' : a.estado === 'Rechazada' ? '#8a2f2f' : '#c98a1b';
-              const when = a.fechaHoraConfirmada || a.fechaHoraSolicitada;
-              const adjusted = a.fechaHoraConfirmada && a.fechaHoraConfirmada !== a.fechaHoraSolicitada;
-              return `<tr>
-                <td>${escapeHtml(a.estudianteNombre || 'General')}</td>
-                ${tutor ? '' : `<td>${escapeHtml(a.tutorNombre)}</td>`}
-                ${showInstColCitas ? `<td>${escapeHtml(a.institucionNombre)}</td>` : ''}
-                <td>${escapeHtml(a.motivo)}</td>
-                <td>${fmtDate(when)}${adjusted ? `<div class="help">Solicitada: ${fmtDate(a.fechaHoraSolicitada)}</div>` : ''}</td>
-                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${a.estado}</span>${a.estado === 'Cancelada' && a.motivoCancelacion ? `<div class="help">${escapeHtml(a.motivoCancelacion)}</div>` : ''}${a.estado === 'Rechazada' && a.motivoRechazo ? `<div class="help">${escapeHtml(a.motivoRechazo)}</div>` : ''}</td>
-                <td><span class="actions-cell">
-                  ${!tutor && a.estado === 'Pendiente' ? `<button class="ok" data-confirm="${a.id}">Confirmar</button><button class="danger" data-reject="${a.id}">Rechazar</button>` : ''}
-                  ${tutor && a.estado === 'Confirmada' ? `<button class="neutral" data-nav="#/app/calificar/${a.institucionId}">Calificar</button><button class="neutral" data-nav="#/app/reportar/${a.institucionId}">Reportar</button>` : ''}
-                  ${(tutor && (a.estado === 'Pendiente' || a.estado === 'Confirmada')) || (!tutor && a.estado === 'Confirmada') ? `<button class="danger" data-cancel="${a.id}">Cancelar</button>` : ''}
-                  <button class="neutral" data-comprobante="${a.id}">Comprobante</button>
-                </span></td>
-              </tr>`;
-            }).join('') : `<tr><td colspan="${colCount}" class="empty-state">No hay citas${query.estado && query.estado !== 'Todos' ? ' con ese estado' : ''}.</td></tr>`}
-          </tbody>
-        </table>
-        <div class="table-footer"><span>Mostrando ${appointments.length} de ${total} citas</span></div>
-      </div>
-    `;
-    bindShellEvents();
-
-    function applyFilters() {
-      const p = new URLSearchParams();
-      if (qs('#f-estado').value !== 'Todos') p.set('estado', qs('#f-estado').value);
-      if (admin && qs('#f-institucion') && qs('#f-institucion').value !== 'Todas') p.set('institucionId', qs('#f-institucion').value);
-      navigate('#/app/citas?' + p.toString());
-    }
-    qs('#f-estado').addEventListener('change', applyFilters);
-    if (admin && qs('#f-institucion')) qs('#f-institucion').addEventListener('change', applyFilters);
-
-    qsa('[data-comprobante]').forEach((b) => b.addEventListener('click', () => navigate('#/app/citas/comprobante/' + b.dataset.comprobante)));
-    qsa('[data-confirm]').forEach((b) => b.addEventListener('click', async () => {
-      try {
-        await api('/appointments/' + b.dataset.confirm + '/confirmar', { method: 'POST' });
-        toast('Cita confirmada.', 'ok');
-        renderCitas(query);
-      } catch (err) { toast(err.message, 'err'); }
-    }));
-    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
-      const a = appointments.find(x => x.id === b.dataset.cancel);
-      if (!tutor) {
-        showConfirmModal({
-          title: 'Cancelar cita',
-          bodyHtml: `<p>¿Cancelar la cita con <strong>${escapeHtml(a.tutorNombre)}</strong>?</p><p>Indica el motivo de la cancelación:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo..." />`,
-          confirmText: 'Cancelar cita',
-          danger: true,
-          onConfirm: async (modal) => {
-            const motivo = qs('#mod-motivo', modal).value;
-            if (!motivo || !motivo.trim()) throw new Error('Debes indicar un motivo.');
-            await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo } });
-            toast('Cita cancelada.', 'ok');
-            renderCitas(query);
-            return false;
-          }
-        });
-      } else {
-        showConfirmModal({
-          title: 'Cancelar cita',
-          bodyHtml: `<p>¿Cancelar tu cita en <strong>${escapeHtml(a.institucionNombre)}</strong>?</p><p>Esta acción cancelará la cita de forma definitiva.</p>`,
-          confirmText: 'Cancelar cita',
-          danger: true,
-          onConfirm: async () => {
-            await api('/appointments/' + b.dataset.cancel + '/cancelar', { method: 'POST', body: { motivo: '' } });
-            toast('Cita cancelada.', 'ok');
-            renderCitas(query);
-            return false;
-          }
-        });
-      }
-    }));
-    qsa('[data-reject]').forEach((b) => b.addEventListener('click', () => {
-      const a = appointments.find(x => x.id === b.dataset.reject);
-      showConfirmModal({
-        title: 'Rechazar cita',
-        bodyHtml: `<p>¿Rechazar la cita de <strong>${escapeHtml(a.tutorNombre)}</strong>?</p><p>Indica el motivo del rechazo:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo del rechazo..." />`,
-        confirmText: 'Rechazar cita',
-        danger: true,
-        onConfirm: async (modal) => {
-          const motivo = qs('#mod-motivo', modal).value;
-          if (!motivo || !motivo.trim()) throw new Error('Debes indicar un motivo.');
-          await api('/appointments/' + b.dataset.reject + '/rechazar', { method: 'POST', body: { motivo } });
-          toast('Cita rechazada.', 'ok');
-          renderCitas(query);
-          return false;
-        }
-      });
-    }));
+  function fmtAppointment(iso) {
+    return new Intl.DateTimeFormat('es-DO',{timeZone:'America/Santo_Domingo',dateStyle:'medium',timeStyle:'short'}).format(new Date(iso))+' · America/Santo_Domingo (UTC−4)';
   }
-
-  async function renderCitaForm() {
-    const [{ students }, { institutions }] = await Promise.all([api('/students'), api('/institutions')]);
-    const activas = institutions.filter((i) => (i.estado || 'Activo') === 'Activo');
-    const minVal = nowLocalPlus(1);
-    qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/citas">${ICONS.back} Volver a citas</button>
-      <div class="page-head"><h2>Nueva cita</h2></div>
-      <div class="chart-card" style="max-width:560px;">
-        <div id="err"></div>
-        <form id="cita-form">
-          <div class="field"><label>Institución</label>
-            <select name="institucionId">${activas.map((i) => `<option value="${i.id}">${escapeHtml(i.nombre)} — ${escapeHtml(i.provincia)}</option>`).join('')}</select>
-            <a href="#" id="cita-ver-calendario" class="help" style="display:inline-block; margin-top:6px;">Ver calendario de citas de esta institución</a>
-          </div>
-          <div class="field"><label>Estudiante (opcional)</label>
-            <select name="studentId">
-              <option value="">General (sin estudiante específico)</option>
-              ${students.map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('')}
-            </select>
-          </div>
-          <div class="field"><label>Motivo</label>
-            <select name="motivo">${MOTIVOS_CITA.map((m) => `<option>${escapeHtml(m)}</option>`).join('')}</select>
-          </div>
-          <div class="field"><label>Fecha y hora</label><input type="datetime-local" name="fechaHoraSolicitada" min="${minVal}" required></div>
-          <div class="field"><label>Notas</label><input type="text" name="notas" placeholder="Opcional"></div>
-          <div style="display:flex; gap:10px;">
-            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Solicitar cita</button>
-            <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/citas">Cancelar</button>
-          </div>
+  function appointmentState(a) {
+    const icons={Pendiente:'◷',Aceptada:'✓',Rechazada:'✕',Cancelada:'⊘'};
+    return `<span class="pill appointment-state">${icons[a.estado]||'•'} ${escapeHtml(a.estado)}</span>`;
+  }
+  function appointmentSummary(a) {
+    return `<p><strong>${escapeHtml(a.institucionNombre)}</strong> · ${escapeHtml(a.id||'Nueva cita')}</p><p>${escapeHtml(a.estudianteNombre||'General')} ${a.enrollmentId?'· Solicitud '+escapeHtml(a.enrollmentId):''}</p><p>${escapeHtml(fmtAppointment(a.fechaHoraConfirmada||a.fechaHoraSolicitada))}</p>`;
+  }
+  let appointmentRenderVersion=0;
+  async function renderCitas(query={}) {
+    const version=++appointmentRenderVersion,container=qs('.main');
+    const params=new URLSearchParams({...query,page:query.page||1,limit:10});
+    container.innerHTML='<p class="loading" role="status">Cargando citas…</p>';
+    try {
+      const data=await api('/appointments?'+params);
+      if(!container.isConnected||version!==appointmentRenderVersion)return;
+      const {appointments,total,page,limit}=data,pages=Math.max(1,Math.ceil(total/limit));
+      container.innerHTML=`<div class="page-head"><div><h2>Citas</h2><p class="sub">Pendiente significa que falta la aceptación del personal. Zona horaria: America/Santo_Domingo (UTC−4).</p></div><button class="btn btn-primary" data-nav="#/app/citas/nueva">Nueva cita</button></div>
+        <div id="appointment-update" role="status"></div>
+        <form class="filters" id="appointment-filters">
+          <label>Estado<select name="estado">${['Todos','Pendiente','Aceptada','Rechazada','Cancelada'].map(v=>`<option ${query.estado===v?'selected':''}>${v}</option>`).join('')}</select></label>
+          <label>Fecha<input type="date" name="fecha" value="${escapeHtml(query.fecha||'')}"></label>
+          <label>Mostrar<select name="grupo">${[['','Todas'],['proximas','Próximas'],['anteriores','Anteriores o cerradas']].map(([v,label])=>`<option value="${v}" ${query.grupo===v?'selected':''}>${label}</option>`).join('')}</select></label>
+          <button class="btn btn-primary">Filtrar</button><button type="button" class="btn btn-secondary" data-nav="#/app/citas">Limpiar filtros</button>
         </form>
-      </div>
-    `;
-    bindShellEvents();
-    const calLink = qs('#cita-ver-calendario');
-    const institSelect = qs('select[name="institucionId"]');
-    function updateCalLink() {
-      if (calLink && institSelect && institSelect.value) calLink.setAttribute('href', '#/app/instituciones/' + institSelect.value + '/calendario');
-    }
-    updateCalLink();
-    institSelect && institSelect.addEventListener('change', updateCalLink);
-    qs('#cita-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const body = Object.fromEntries(fd.entries());
-      body.fechaHoraSolicitada = drIso(body.fechaHoraSolicitada);
-      qs('#err').innerHTML = '';
-      try {
-        await api('/appointments', { method: 'POST', body });
-        toast('Cita solicitada.', 'ok');
-        navigate('#/app/citas');
-      } catch (err) {
-        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
-      }
-    });
+        ${state.user.role==='Personal de institución'?`<p><button class="btn btn-secondary" data-nav="#/app/instituciones/${state.user.institucionId}/calendario">Calendario y horarios de mi institución</button></p>`:''}
+        <div class="table-card"><table><thead><tr><th>Referencia</th><th>Estudiante / solicitud</th><th>Institución / tutor</th><th>Fecha y hora</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+        ${appointments.length?appointments.map(a=>`<tr><td data-label="Referencia">${escapeHtml(a.id)}</td><td data-label="Estudiante / solicitud">${escapeHtml(a.estudianteNombre||'General')}<br>${escapeHtml(a.enrollmentId||'Sin solicitud asociada')}</td><td data-label="Institución / tutor">${escapeHtml(a.institucionNombre)}${state.user.role==='Tutor'?'':'<br>'+escapeHtml(a.tutorNombre)}</td><td data-label="Fecha y hora">${escapeHtml(fmtAppointment(a.fechaHoraConfirmada||a.fechaHoraSolicitada))}<p class="help">${['Pendiente','Aceptada'].includes(a.estado)&&new Date(a.fechaHoraSolicitada)>new Date()?'Próxima':'Anterior o cerrada'}</p></td><td data-label="Estado">${appointmentState(a)}${a.motivoRechazo||a.motivoCancelacion?`<p class="help">${escapeHtml(a.motivoRechazo||a.motivoCancelacion)}</p>`:''}</td><td data-label="Acciones"><button class="neutral" data-nav="#/app/citas/${a.id}/detalle">Ver detalle</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay citas con estos filtros. Puedes limpiarlos o solicitar una nueva cita.</td></tr>'}
+        </tbody></table><div class="table-footer"><span>Mostrando ${appointments.length} de ${total} citas</span><div class="pagination"><button class="btn btn-ghost" id="appointment-prev" ${page<=1?'disabled':''}>Anterior</button><span>Página ${page} de ${pages}</span><button class="btn btn-ghost" id="appointment-next" ${page>=pages?'disabled':''}>Siguiente</button></div></div></div>`;
+      bindShellEvents();
+      const filter=(newPage=1)=>{const p=new URLSearchParams(new FormData(qs('#appointment-filters')));p.set('page',newPage);navigate('#/app/citas?'+p);};
+      qs('#appointment-filters').onsubmit=e=>{e.preventDefault();filter();};qs('#appointment-prev').onclick=()=>filter(page-1);qs('#appointment-next').onclick=()=>filter(page+1);
+      let checking=false,pending=false;
+      const check=async()=>{if(checking){pending=true;return;}if(!container.isConnected||version!==appointmentRenderVersion)return;checking=true;try{const fresh=await api('/appointments?'+params);if(!container.isConnected||version!==appointmentRenderVersion)return;const notice=qs('#appointment-update',container);notice.innerHTML=JSON.stringify(fresh)===JSON.stringify(data)?'':'<p class="notice">Hay cambios en las citas. <button class="btn btn-secondary" id="appointment-refresh">Actualizar listado</button></p>';const b=qs('#appointment-refresh',notice);if(b)b.onclick=()=>renderCitas(query);}catch(_){/* Reintenta al recuperar la conexión o el foco. */}finally{checking=false;if(pending){pending=false;check();}}};
+      watchEnrollments(check,'appointments');
+    }catch(e){if(container.isConnected&&version===appointmentRenderVersion)enrollmentError(container,e,()=>renderCitas(query));}
+  }
+  async function renderCitaDetalle(id) {
+    const version=++appointmentRenderVersion,container=qs('.main');container.innerHTML='<p class="loading" role="status">Cargando cita…</p>';
+    try {
+      const {appointment:a}=await api('/appointments/'+encodeURIComponent(id));
+      if(!container.isConnected||version!==appointmentRenderVersion)return;
+      container.innerHTML=`<button class="back-link" data-nav="#/app/citas">${ICONS.back} Volver a citas</button><div class="page-head"><h2>Cita ${escapeHtml(a.id)}</h2><button class="btn btn-secondary" id="appointment-detail-refresh">Actualizar</button></div>
+        <div id="appointment-update" role="status"></div><section class="chart-card">${appointmentSummary(a)}${appointmentState(a)}${a.estado==='Pendiente'?'<p>Falta la aceptación del personal de la institución.</p>':''}<p>Tutor: ${escapeHtml(a.tutorNombre)}</p><p>Motivo: ${escapeHtml(a.motivo)}</p>${a.notas?`<p>Notas: ${escapeHtml(a.notas)}</p>`:''}${a.motivoRechazo||a.motivoCancelacion?`<p class="notice">Motivo de ${a.estado==='Rechazada'?'rechazo':'cancelación'}: ${escapeHtml(a.motivoRechazo||a.motivoCancelacion)}</p>`:''}
+        <div class="appointment-actions">${Object.entries(a.acciones).filter(([k,v])=>v).map(([k])=>`<button class="btn ${k==='rechazar'||k==='cancelar'?'btn-secondary':'btn-primary'}" data-appointment-action="${k}">${{aceptar:'Aceptar cita',rechazar:'Rechazar cita',cancelar:'Cancelar cita',reprogramar:'Reprogramar'}[k]}</button>`).join('')}
+        ${state.user.role==='Tutor'&&a.estado==='Aceptada'?`<button class="btn btn-ghost" data-nav="#/app/calificar/${a.institucionId}">Calificar</button><button class="btn btn-ghost" data-nav="#/app/reportar/${a.institucionId}">Reportar</button>`:''}<button class="btn btn-ghost" data-nav="#/app/citas/comprobante/${a.id}">Comprobante</button>${a.enrollmentId?`<button class="btn btn-ghost" data-nav="#/app/inscripciones/${a.enrollmentId}/detalle">Ver solicitud</button>`:''}${['Rechazada','Cancelada'].includes(a.estado)?`<button class="btn btn-primary" data-nav="#/app/citas/nueva?inst=${a.institucionId}${a.enrollmentId?'&solicitud='+a.enrollmentId:''}">Buscar otro horario</button>`:''}</div></section>
+        <section class="chart-card"><h3>Historial</h3><ol class="appointment-history">${(a.historial||[]).map(h=>`<li><strong>${escapeHtml(h.accion)}</strong> · ${escapeHtml(fmtAppointment(h.fecha))}<p>${escapeHtml(h.anterior||'Nueva')} → ${escapeHtml(h.nuevo)}${h.fechaAnterior&&h.fechaAnterior!==h.fechaNueva?'<br>Antes: '+escapeHtml(fmtAppointment(h.fechaAnterior))+'<br>Ahora: '+escapeHtml(fmtAppointment(h.fechaNueva)):''}${h.motivo?'<br>'+escapeHtml(h.motivo):''}</p></li>`).join('')||'<li>No hay cambios registrados para esta cita anterior.</li>'}</ol></section>`;
+      bindShellEvents();qs('#appointment-detail-refresh').onclick=()=>renderCitaDetalle(id);
+      let obsolete=false,checking=false;
+      const warn=message=>{obsolete=true;qsa('[data-appointment-action]',container).forEach(b=>b.disabled=true);qs('#appointment-update',container).textContent=message;const modal=qs('[data-appointment-modal]');if(modal){modal.dataset.obsolete='true';qs('#mod-confirm',modal).disabled=true;}};
+      watchEnrollments(async()=>{if(checking||!container.isConnected||version!==appointmentRenderVersion)return;checking=true;try{const fresh=await api('/appointments/'+id);if(container.isConnected&&version===appointmentRenderVersion&&fresh.appointment.version!==a.version)warn('La cita cambió en otra sesión. Usa Actualizar antes de decidir.');}catch(_){if(container.isConnected&&version===appointmentRenderVersion)warn('No se pudo verificar la cita. Usa Actualizar antes de decidir.');}finally{checking=false;}},'appointments');
+      qsa('[data-appointment-action]',container).forEach(b=>b.onclick=()=>{
+        if(obsolete)return;const action=b.dataset.appointmentAction;
+        if(action==='reprogramar'){navigate('#/app/citas/'+id+'/reprogramar');return;}
+        const required=action==='rechazar'||(action==='cancelar'&&state.user.role==='Personal de institución');
+        showConfirmModal({title:b.textContent,bodyHtml:appointmentSummary(a)+(action==='cancelar'||action==='rechazar'?`<label for="appointment-motive">Motivo ${required?'(obligatorio)':'(opcional)'}</label><textarea id="appointment-motive" maxlength="2000" rows="3"></textarea>`:'<p>Se conserva el lugar reservado; no se ocupa un cupo adicional.</p>')+'<div class="appointment-modal-error" role="alert"></div>',confirmText:b.textContent,danger:action!=='aceptar',onConfirm:async modal=>{
+          modal.dataset.appointmentModal=id;if(obsolete){modal.dataset.obsolete='true';return true;}
+          const motivo=qs('#appointment-motive',modal)?.value||'';
+          try{await api('/appointments/'+id+'/'+action,{method:'POST',body:{version:a.version,motivo}});await renderCitaDetalle(id);return false;}catch(e){qs('.appointment-modal-error',modal).textContent=e.message;if(e.status===409)warn('La cita cambió o esta acción ya no está disponible. Usa Actualizar.');return true;}
+        }});
+        const modal=qs('#mod-confirm')?.closest('.sidebar-backdrop');if(modal)modal.dataset.appointmentModal=id;
+      });
+    }catch(e){if(container.isConnected&&version===appointmentRenderVersion)enrollmentError(container,e,()=>renderCitaDetalle(id));}
+  }
+  async function renderCitaForm(id=null,query={}) {
+    const version=++appointmentRenderVersion,container=qs('.main');container.innerHTML='<p class="loading" role="status">Cargando opciones de cita…</p>';
+    try {
+      const tutor=state.user.role==='Tutor';
+      if(!tutor&&state.user.role!=='Personal de institución')throw Error('No tienes permiso para solicitar citas.');
+      const [{institutions},{students},{enrollments},old]=await Promise.all([api('/institutions'),tutor?api('/students'):Promise.resolve({students:[]}),api('/enrollments'),id?api('/appointments/'+id):Promise.resolve(null)]);
+      if(!container.isConnected||version!==appointmentRenderVersion)return;
+      const a=old?.appointment;if(a&&!a.acciones.reprogramar)throw Error('Esta cita no se puede reprogramar.');
+      const active=institutions.filter(i=>(i.estado||'Activo')==='Activo'&&(tutor||i.id===state.user.institucionId));
+      const inst=a?.institucionId||query.inst||active[0]?.id||'';
+      const initialMonth=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santo_Domingo',year:'numeric',month:'2-digit'}).format(new Date(a?.fechaHoraSolicitada||Date.now()));
+      container.innerHTML=`<button class="back-link" data-nav="${id?'#/app/citas/'+id+'/detalle':'#/app/citas'}">${ICONS.back} Volver</button><div class="page-head"><h2>${id?'Reprogramar cita':'Nueva cita'}</h2></div>
+        <section class="chart-card appointment-form-card">${a?'<h3>Horario actual</h3>'+appointmentSummary(a):''}<p>Selecciona un horario ofrecido por la institución. La solicitud queda Pendiente hasta que el personal la acepte. America/Santo_Domingo (UTC−4).</p>
+        <div id="err" role="alert"></div><form id="cita-form">
+          <div class="field"><label for="cita-institution">Institución</label><select name="institucionId" id="cita-institution" ${id?'disabled':''}>${active.map(i=>`<option value="${i.id}" ${i.id===inst?'selected':''}>${escapeHtml(i.nombre)}</option>`).join('')}</select></div>
+          ${id?'':`<div class="field"><label for="cita-enrollment">Solicitud ${tutor?'(opcional)':'(obligatoria)'}</label><select name="enrollmentId" id="cita-enrollment" ${tutor?'':'required'}></select></div><div class="field"><label for="cita-student">Estudiante (opcional para cita general)</label><select name="studentId" id="cita-student"><option value="">General</option>${students.map(s=>`<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('')}</select></div><div class="field"><label for="cita-reason">Motivo</label><select name="motivo" id="cita-reason">${MOTIVOS_CITA.map(m=>`<option>${escapeHtml(m)}</option>`).join('')}</select></div><div class="field"><label for="cita-notes">Notas (opcional)</label><textarea name="notas" id="cita-notes" maxlength="2000" rows="3"></textarea></div>`}
+          <div class="field"><label for="cita-month">Mes</label><input type="month" id="cita-month" value="${escapeHtml(query.mes||initialMonth)}" required></div>
+          <button class="btn btn-secondary" type="button" id="cita-check">Actualizar horarios</button>
+          <p><button class="btn btn-ghost" type="button" id="cita-calendar">Ver calendario institucional</button></p>
+          <div id="cita-availability" role="status"></div>
+          <div class="field"><label for="cita-day">Fecha disponible</label><select id="cita-day"></select></div>
+          <fieldset id="cita-slots"><legend>Horarios disponibles</legend></fieldset>
+          <button class="btn btn-primary" id="cita-submit" type="submit" disabled>${id?'Revisar reprogramación':'Revisar solicitud'}</button>
+        </form></section>`;
+      bindShellEvents();
+      const form=qs('#cita-form'),institution=qs('#cita-institution'),month=qs('#cita-month'),day=qs('#cita-day');
+      let slots=[],selectedId='',requestId=crypto.randomUUID(),fingerprint='',loadVersion=0;
+      const daySlots=()=>{
+        qs('#cita-slots').innerHTML='<legend>Horarios disponibles</legend>'+slots.filter(s=>s.fecha===day.value).map(s=>`<label class="appointment-slot"><input type="radio" name="slotId" value="${s.id}" ${selectedId===s.id?'checked':''}><span>${escapeHtml(fmtAppointment(s.inicio))} · ${s.disponibles} lugar${s.disponibles===1?'':'es'}</span></label>`).join('');
+        qs('#cita-submit').disabled=!slots.some(s=>s.id===selectedId&&s.fecha===day.value);
+        qsa('[name=slotId]',form).forEach(b=>b.onchange=()=>{selectedId=b.value;qs('#cita-submit').disabled=false;});
+      };
+      const loadAvailability=async()=>{
+        const load=++loadVersion;qs('#cita-availability').textContent='Consultando horarios…';qs('#cita-submit').disabled=true;
+        const selectedDate=day.value||query.fecha;
+        try{
+          const data=await api('/appointments/availability?'+new URLSearchParams({institucionId:institution.value,mes:month.value,...(id?{excludeId:id}:{})}));
+          if(!container.isConnected||version!==appointmentRenderVersion||load!==loadVersion)return;
+          slots=data.slots.filter(s=>!a||s.inicio!==(a.fechaHoraConfirmada||a.fechaHoraSolicitada));
+          if(!slots.some(s=>s.id===selectedId))selectedId='';
+          const dates=[...new Set(slots.map(s=>s.fecha))];day.innerHTML=dates.map(d=>`<option value="${d}">${d}</option>`).join('');if(dates.includes(selectedDate))day.value=selectedDate;
+          day.disabled=!dates.length;qs('#cita-availability').textContent=slots.length?'Elige fecha y horario. La disponibilidad se comprobará al confirmar.':'No hay horarios disponibles este mes. Cambia el mes o la institución. El personal puede configurar sus franjas en el calendario.';daySlots();
+        }catch(e){if(!container.isConnected||version!==appointmentRenderVersion||load!==loadVersion)return;qs('#cita-availability').innerHTML='<p class="notice">'+escapeHtml(e.message)+' Usa Actualizar horarios para reintentar.</p>';}
+      };
+      const updateLink=()=>{
+        if(!id){const sel=qs('#cita-enrollment');const current=sel.value||query.solicitud;const choices=enrollments.filter(e=>e.institucionId===institution.value);sel.innerHTML=`<option value="">${tutor?'General (sin solicitud asociada)':'Selecciona una solicitud'}</option>`+choices.map(e=>`<option value="${e.id}" ${current===e.id?'selected':''}>${escapeHtml(e.estudianteNombre)} · ${escapeHtml(e.id)} · ${escapeHtml(e.estado)}</option>`).join('');sel.onchange=()=>{const e=choices.find(e=>e.id===sel.value);const student=qs('#cita-student');student.disabled=!!e;if(e){if(!qs(`option[value="${e.studentId}"]`,student))student.insertAdjacentHTML('beforeend',`<option value="${escapeHtml(e.studentId)}">${escapeHtml(e.estudianteNombre)}</option>`);student.value=e.studentId;}};sel.onchange();}
+        loadAvailability();
+      };
+      institution.onchange=()=>{selectedId='';updateLink();};month.onchange=()=>{selectedId='';loadAvailability();};day.onchange=()=>{selectedId='';daySlots();};qs('#cita-check').onclick=loadAvailability;
+      qs('#cita-calendar').onclick=()=>navigate('#/app/instituciones/'+institution.value+'/calendario?mes='+month.value);
+      form.onsubmit=e=>{
+        e.preventDefault();const slot=slots.find(s=>s.id===selectedId);if(!slot){qs('#err').textContent='Selecciona un horario disponible.';return;}
+        const body=id?{slotId:slot.id,version:a.version}:{...Object.fromEntries(new FormData(form)),institucionId:institution.value,studentId:qs('#cita-student').value,slotId:slot.id};
+        const serialized=JSON.stringify(body);if(fingerprint&&fingerprint!==serialized)requestId=crypto.randomUUID();fingerprint=serialized;if(!id)body.requestId=requestId;
+        const enrollment=enrollments.find(e=>e.id===body.enrollmentId);
+        const summary={id:a?.id,institucionNombre:active.find(i=>i.id===institution.value)?.nombre,enrollmentId:a?.enrollmentId||body.enrollmentId,estudianteNombre:a?.estudianteNombre||enrollment?.estudianteNombre||students.find(s=>s.id===body.studentId)?.nombre,fechaHoraSolicitada:slot.inicio};
+        showConfirmModal({title:id?'Confirmar reprogramación':'Confirmar solicitud de cita',bodyHtml:(id?'<h4>Antes</h4>'+appointmentSummary(a)+'<h4>Nuevo horario</h4>':'')+appointmentSummary(summary)+'<p>Estado después de guardar: Pendiente.</p><div class="appointment-modal-error" role="alert"></div>',confirmText:id?'Reprogramar cita':'Solicitar cita',onConfirm:async modal=>{
+          try{const result=await api(id?'/appointments/'+id+'/reprogramar':'/appointments',{method:'POST',body});navigate('#/app/citas/'+result.appointment.id+'/detalle');return false;}catch(error){qs('.appointment-modal-error',modal).innerHTML=escapeHtml(error.message)+' <button type="button" class="btn btn-secondary" id="appointment-alternatives">Elegir otro horario</button>';qs('#appointment-alternatives',modal).onclick=()=>{qs('#mod-cancel',modal).click();loadAvailability();};if(error.status===409){qs('#mod-confirm',modal).disabled=true;modal.dataset.obsolete='true';}return true;}
+        }});
+      };
+      await updateLink();
+      // Se comprueba de nuevo al regresar a la pestaña; no se reemplazan notas ni motivos.
+      watchEnrollments(loadAvailability,'appointments');
+    }catch(e){if(container.isConnected&&version===appointmentRenderVersion)enrollmentError(container,e,()=>renderCitaForm(id,query));}
   }
 
   // ---------------- Comprobantes imprimibles ----------------
@@ -4947,15 +4870,15 @@
     if (!a) { qs('.main').innerHTML = '<div class="empty-state">Cita no encontrada.</div>'; bindShellEvents(); return; }
     const { institutions } = await api('/institutions');
     const inst = institutions.find((i) => i.id === a.institucionId);
-    const estadoColor = a.estado === 'Confirmada' ? '#1f7a4c' : a.estado === 'Cancelada' ? '#c23b3b' : '#8a6414';
+    const estadoColor = ['Aceptada','Confirmada'].includes(a.estado) ? '#1f7a4c' : a.estado === 'Cancelada' ? '#c23b3b' : '#8a6414';
     const when = a.fechaHoraConfirmada || a.fechaHoraSolicitada;
     printableShell({
       tipo: 'Comprobante de cita',
       folio: a.id,
       estado: a.estado,
       estadoColor,
-      motivoLabel: 'Motivo de cancelación',
-      motivo: a.estado === 'Cancelada' ? a.motivoCancelacion : '',
+      motivoLabel: a.estado==='Rechazada'?'Motivo de rechazo':'Motivo de cancelación',
+      motivo: a.motivoRechazo || a.motivoCancelacion || '',
       backHref: '#/app/citas',
       fields: [
         { label: 'Tutor', value: a.tutorNombre },
@@ -4964,7 +4887,7 @@
         { label: 'Provincia', value: inst ? inst.provincia : '—' },
         { label: 'Dirección', value: inst && inst.direccion ? inst.direccion : 'No registrada' },
         { label: 'Motivo de la cita', value: a.motivo },
-        { label: 'Fecha y hora', value: fmtDate(when) },
+        { label: 'Fecha y hora', value: fmtAppointment(when) },
       ],
     });
   }
@@ -4982,7 +4905,7 @@
               <div class="t2">${n.anterior || n.nuevo ? `Campo ${escapeHtml(n.campo)}: ${escapeHtml(n.anterior || '—')} → ${escapeHtml(n.nuevo || '—')}. ` : ''}Realizado por ${escapeHtml(n.actorNombre)}.</div>
               <div class="t3">${fmtDate(n.createdAt)}</div>
             </div>
-            ${n.entityId ? `<button class="btn btn-secondary btn-small" data-nav="#/app/inscripciones/${encodeURIComponent(n.entityId)}/detalle">Ver solicitud</button>` : ''}
+            ${n.entityId ? `<button class="btn btn-secondary btn-small" data-nav="${escapeHtml(n.url || '#/app/inscripciones/'+encodeURIComponent(n.entityId)+'/detalle')}">${n.url?.startsWith('#/app/citas/')?'Ver cita':'Ver solicitud'}</button>` : ''}
             ${!n.read ? `<button class="btn btn-ghost btn-small" data-read="${n.id}">Marcar leída</button>` : ''}
           </div>
         `).join('') : '<div class="empty-state">No hay notificaciones.</div>'}
@@ -5158,7 +5081,7 @@
         <div class="chart-card">
           <h3>Citas por estado</h3>
           ${barRows([
-            { label: 'Confirmadas', count: s.citas.confirmadas },
+            { label: 'Aceptadas', count: s.citas.confirmadas },
             { label: 'Canceladas', count: s.citas.canceladas },
             { label: 'Pendientes', count: s.citas.pendientes },
           ], (i) => i.label, (i) => i.count, 'Sin citas agendadas todavía.')}
