@@ -1288,7 +1288,7 @@
       return;
     }
     // El personal de institución gestiona los periodos de SU institución (HU034-HU045, hallazgo FUN-06).
-    const esPeriodosDeSuInstitucion = section === 'instituciones' && isStaff() && segs[1] === (state.user || {}).institucionId && segs[2] === 'periodos';
+    const esPeriodosDeSuInstitucion = section === 'instituciones' && isStaff() && segs[1] === (state.user || {}).institucionId && ['periodos', 'editar'].includes(segs[2]);
     if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion && !esPeriodosDeSuInstitucion) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
@@ -1470,7 +1470,7 @@
             <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
             </button>
-            ${isStaff() && u.institucionId ? `<button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones/${escapeHtml(u.institucionId)}/detalle">${ICONS.building} Mi institución</button>` : ''}
+            ${isStaff() && u.institucionId ? `<button class="nav-item ${activeSection === 'instituciones' && !location.hash.includes('/periodos') ? 'active' : ''}" data-nav="#/app/instituciones/${escapeHtml(u.institucionId)}/detalle">${ICONS.building} Mi institución</button><button class="nav-item ${activeSection === 'instituciones' && location.hash.includes('/periodos') ? 'active' : ''}" data-nav="#/app/instituciones/${escapeHtml(u.institucionId)}/periodos"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h3M8 18h6"/></svg> Periodos y fechas</button>` : ''}
             ` : (u.role === 'Auditoría') ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
@@ -2488,7 +2488,7 @@
     const { institution } = await api('/institutions/' + institucionId);
     const ts = INST_TIPO_STYLE[institution.tipo] || { bg: '#eee', fg: '#333' };
     const active = (institution.estado || 'Activo') === 'Activo';
-    const backHref = isAdmin() ? '#/app/instituciones' : (state.user.role === 'Tutor' ? '#/app/citas' : '#/app/citas');
+    const backHref = isAdmin() ? '#/app/instituciones' : (isStaff() ? '#/app/inscripciones' : '#/app/citas');
     const fondoUrl = institution.fondo ? '/api/institutions/' + institution.id + '/fondo?v=' + encodeURIComponent(institution.fondo.uploadedAt) : null;
     const logoUrl = institution.logo ? '/api/institutions/' + institution.id + '/logo?v=' + encodeURIComponent(institution.logo.uploadedAt) : null;
 
@@ -2530,7 +2530,7 @@
             <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/calificaciones">Ver calificaciones</button>
             <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/reportes">Ver reportes</button>
             <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/calendario">Ver calendario</button>
-            ${isAdmin() || (isStaff() && state.user.institucionId === institution.id) ? `<button class="btn btn-primary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/periodos">Periodos del ciclo</button>` : ''}
+            ${isAdmin() || (isStaff() && state.user.institucionId === institution.id) ? `<button class="btn btn-primary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/periodos">Periodos y fechas</button><button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/editar">Modificar datos</button>` : ''}
           </div>
         </div>
       </div>
@@ -2769,9 +2769,11 @@
   async function renderInstitucionForm(id) {
     let editing = null;
     if (id) {
-      const { institutions } = await api('/institutions');
-      editing = institutions.find((i) => i.id === id);
+      ({ institution: editing } = await api('/institutions/' + id));
     }
+    // El personal de institución edita solo los datos de contacto e imagen de la suya.
+    const soloContacto = !isAdmin() && isStaff();
+    const volverA = soloContacto && editing ? '#/app/instituciones/' + editing.id + '/detalle' : '#/app/instituciones';
     const digits = (s) => (s || '').replace(/[^0-9]/g, '');
     
     // Load municipalities correctly
@@ -2784,9 +2786,10 @@
     };
 
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
-      <div class="page-head"><h2>${editing ? 'Modificar institución' : 'Nueva institución'}</h2></div>
+      <button class="back-link" data-nav="${volverA}">${ICONS.back} ${soloContacto ? 'Volver a mi institución' : 'Volver a instituciones'}</button>
+      <div class="page-head"><div><h2>${editing ? (soloContacto ? 'Modificar mi institución' : 'Modificar institución') : 'Nueva institución'}</h2>${soloContacto ? '<div class="sub">Actualiza el contacto, la dirección, la ubicación y las imágenes de tu institución.</div>' : ''}</div></div>
       <div class="chart-card" style="max-width:760px;">
+        ${soloContacto ? '<div class="notice info locked-note">El nombre, el RNC, la provincia, el municipio, el distrito, el tipo y el estado solo los puede cambiar un administrador. Si alguno está mal, pídele a Soporte que lo corrija.</div>' : ''}
         <div id="err"></div>
         <form id="inst-form" enctype="multipart/form-data">
           <div class="two-col">
@@ -2875,6 +2878,12 @@
     if (editing && editing.provincia) {
       renderMunicipios(editing.provincia);
     }
+    if (soloContacto) {
+      ['nombre', 'rnc', 'provincia', 'municipio', 'distrito', 'tipo', 'estado'].forEach((n) => {
+        const el = qs(`#inst-form [name="${n}"]`);
+        if (el) { el.disabled = true; el.title = 'Solo un administrador puede cambiar este dato.'; }
+      });
+    }
 
     const previewImage = (inputEl, previewEl, maxMB) => {
       inputEl.addEventListener('change', () => {
@@ -2962,8 +2971,8 @@
     })();
     qs('#inst-form').addEventListener('input', () => formChanged = true);
     qs('#btn-cancel').addEventListener('click', () => {
-      if (!formChanged) return navigate('#/app/instituciones');
-      confirmAction('¿Descartar los cambios?', 'Tienes cambios sin guardar en esta institución. Si sales ahora, se perderán.', 'Descartar cambios', () => navigate('#/app/instituciones'));
+      if (!formChanged) return navigate(volverA);
+      confirmAction('¿Descartar los cambios?', 'Tienes cambios sin guardar en esta institución. Si sales ahora, se perderán.', 'Descartar cambios', () => navigate(volverA));
     });
 
     qs('#inst-form').addEventListener('submit', async (e) => {
@@ -2985,7 +2994,7 @@
           toast('Institución creada.', 'ok');
         }
         formChanged = false;
-        navigate('#/app/instituciones');
+        navigate(volverA);
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
         btn.textContent = originalText;

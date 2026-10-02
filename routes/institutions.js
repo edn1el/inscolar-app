@@ -237,7 +237,22 @@ router.post('/', requireAuth, requireAdmin, handleUploadInstitucion, (req, res) 
   res.json({ institution });
 });
 
-router.put('/:id', requireAuth, requireAdmin, handleUploadInstitucion, (req, res) => {
+// Admin y Soporte modifican cualquier institución; el personal de institución solo la suya
+// y únicamente sus datos de contacto e imagen. La identidad oficial (nombre, RNC, ubicación
+// administrativa, tipo y estado) sigue siendo del administrador (HU033).
+const CAMPOS_SOLO_ADMIN = ['nombre', 'rnc', 'provincia', 'municipio', 'distrito', 'tipo', 'estado'];
+function puedeEditarInstitucion(req, res, next) {
+  const u = req.currentUser;
+  if (['Administrador', 'Soporte'].includes(u.role)) return next();
+  if (u.role === 'Personal de institución' && u.institucionId === req.params.id) {
+    req.soloDatosDeContacto = true;
+    return next();
+  }
+  return res.status(403).json({ error: 'No tienes permiso para modificar esta institución.' });
+}
+
+router.put('/:id', requireAuth, puedeEditarInstitucion, handleUploadInstitucion, (req, res) => {
+  if (req.soloDatosDeContacto && req.body) CAMPOS_SOLO_ADMIN.forEach((c) => { delete req.body[c]; });
   const db = req.db;
   const institution = db.institutions.find((i) => i.id === req.params.id);
   if (!institution) {
