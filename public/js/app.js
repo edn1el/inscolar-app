@@ -240,7 +240,15 @@
   }
 
   async function router() {
-    root.innerHTML = '<div class="loading">Cargando…</div>';
+    const activeContent = document.querySelector('.main, .search-layout, .auth-layout, [style*="max-width:800px"]');
+    if (activeContent) {
+      activeContent.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+      activeContent.style.opacity = '0';
+      activeContent.style.transform = 'scale(0.98)';
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    root.innerHTML = '<div class="loading" style="animation: fadeUp 0.3s ease forwards;">Cargando…</div>';
     await ensureAuth();
     const { segs, query } = parseHash();
 
@@ -453,6 +461,7 @@
         const logoUrl = i.logo ? '/api/institutions/' + i.id + '/logo?v=' + encodeURIComponent(i.logo.uploadedAt) : null;
         
         root.innerHTML = `
+          <div class="search-layout" style="animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0; padding-bottom: 50px;">
           <div class="top-nav" style="background:var(--c-surface); border-bottom:1px solid var(--c-border); padding:10px 20px; z-index: 10;">
             <a href="#/buscar" class="btn btn-ghost btn-small">← Volver a resultados</a>
             ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small" style="float:right">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>'}
@@ -686,15 +695,7 @@
               marker.instId = i.id;
               
               marker.on('click', () => {
-                const layout = qs('.search-layout');
-                if (layout) {
-                  layout.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-                  layout.style.opacity = '0';
-                  layout.style.transform = 'scale(0.98)';
-                  setTimeout(() => navigate('#/buscar/' + i.id), 250);
-                } else {
-                  navigate('#/buscar/' + i.id);
-                }
+                navigate('#/buscar/' + i.id);
               });
               
               currentMarkers.push(marker);
@@ -732,15 +733,7 @@
         const a = e.target.closest('a[href^="#/buscar/"]');
         if (a) {
           e.preventDefault();
-          const layout = qs('.search-layout');
-          if (layout) {
-            layout.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-            layout.style.opacity = '0';
-            layout.style.transform = 'scale(0.98)';
-            setTimeout(() => navigate(a.getAttribute('href')), 250);
-          } else {
-            navigate(a.getAttribute('href'));
-          }
+          navigate(a.getAttribute('href'));
         }
       });
     }
@@ -1211,6 +1204,9 @@
     const esCalificacionesInstitucion = section === 'instituciones' && segs[2] === 'calificaciones';
     const esReportesInstitucion = section === 'instituciones' && segs[2] === 'reportes';
     
+    const esPeriodosInstitucion = section === 'instituciones' && segs[2] === 'periodos';
+    const esPropiaInstitucion = (state.user || {}).role === 'Personal de institución' && String((state.user || {}).institucionId) === String(segs[1]);
+
     // Solo Admin y Soporte ven Usuarios e Instituciones; Analíticas solo Admin
     if (section === 'usuarios' && !canSeeUsuarios()) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
@@ -1220,9 +1216,13 @@
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
-    if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion && !esCalificacionesInstitucion && !esReportesInstitucion) {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
-      return;
+    if (section === 'instituciones' && !isAdmin()) {
+      const publicInstSections = esCalendarioInstitucion || esDetalleInstitucion || esCalificacionesInstitucion || esReportesInstitucion;
+      const staffInstSections = esPropiaInstitucion && esPeriodosInstitucion;
+      if (!publicInstSections && !staffInstSections && !esPropiaInstitucion) {
+        root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+        return;
+      }
     }
     if (section === 'notificaciones' && !(isAdmin() || (state.user || {}).role === 'Tutor')) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
@@ -1328,7 +1328,7 @@
           <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
           <div class="sidebar" id="sidebar">
             ${u.role === 'Personal de institución' && instName ? `
-            <div class="sidebar-inst-badge">
+            <div class="sidebar-inst-badge" style="cursor:pointer;" onclick="window.location.hash='#/app/instituciones/${u.institucionId}/detalle'">
               ${ICONS.building} <span>${instName}</span>
             </div>
             ` : ''}
@@ -1359,7 +1359,17 @@
             <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
             </button>
-            ` : (isTutor() || isStaff()) ? `
+            ` : isStaff() ? `
+            <div class="sec-label">Módulos</div>
+            <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
+            ${u.institucionId ? `<button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones/${u.institucionId}/detalle">${ICONS.building} Mi Institución</button>` : ''}
+            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
+            </button>
+            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
+            </button>
+            ` : isTutor() ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
