@@ -248,11 +248,24 @@
     bell: '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6z"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
     back: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/></svg>',
     printer: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>',
+    pin: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
     contrast: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" fill="currentColor" stroke="none"/></svg>',
   };
 
+  const LOADER_HTML = '<div class="app-loader" role="status" aria-live="polite"><img src="/assets/brand/inscolar-symbol-primary.svg" alt=""><span class="app-loader-bar"></span><span class="sr-only">Cargando…</span></div>';
+
   // ---------------- router ----------------
   function navigate(hash) { window.location.hash = hash; }
+
+  // Pantalla de llegada según el rol: cada quien aterriza donde está su trabajo.
+  function homeFor(user) {
+    const r = (user || {}).role;
+    if (r === 'Administrador') return '#/app/analiticas';
+    if (r === 'Soporte') return '#/app/usuarios';
+    if (r === 'Tutor' || r === 'Personal de institución') return '#/app/inscripciones';
+    if (r === 'Auditoría') return '#/app/auditoria';
+    return '#/app/perfil';
+  }
 
   function parseHash() {
     const h = window.location.hash.replace(/^#/, '') || '/login';
@@ -282,7 +295,7 @@
   }
 
   async function router() {
-    root.innerHTML = '<div class="loading">Cargando…</div>';
+    root.innerHTML = LOADER_HTML;
     await ensureAuth();
     // Pausa chiquita a proposito: que la pantalla de carga se note al cambiar
     // de modulo, en vez de que el cambio sea instantaneo.
@@ -296,7 +309,7 @@
     if (!publicRoutes.includes(segs[0])) {
       if (!state.user) return navigate('#/');
     } else if (state.user && segs[0] !== 'setup' && segs[0] !== '' && segs[0] !== 'buscar') {
-      return navigate('#/app/perfil');
+      return navigate(homeFor(state.user));
     }
 
     switch (segs[0]) {
@@ -470,206 +483,361 @@
   }
 
   // ---------------- HU020-026 búsqueda pública ----------------
-  async function viewBuscar(subsegs = []) {
-    if (subsegs[0]) {
-      // Detalle de institución público
-      try {
-        const { institution: i } = await api('/institutions/' + subsegs[0]);
-        root.innerHTML = `
-          <div class="top-nav" style="background:#fff; border-bottom:1px solid var(--border-color); padding:10px 20px;">
-            <a href="#/buscar" class="btn btn-ghost btn-small">← Volver a resultados</a>
-            <a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>
-          </div>
-          <div style="padding:20px; max-width:800px; margin:0 auto;">
-            <h2>${escapeHtml(i.nombre)}</h2>
-            <div class="badge-chip">${escapeHtml(i.tipo)}</div>
-            <p><strong>Provincia:</strong> ${escapeHtml(i.provincia)}<br>
-               <strong>Municipio:</strong> ${escapeHtml(i.municipio || '—')}<br>
-               <strong>Distrito:</strong> ${escapeHtml(i.distrito)}<br>
-               <strong>Dirección:</strong> ${escapeHtml(i.direccion || '—')}<br>
-               <strong>Teléfono:</strong> ${escapeHtml(i.telefono || '—')}</p>
-            <p><strong>Calificación promedio:</strong> ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) + ' estrellas (' + i.totalCalificaciones + ' opiniones)' : 'Sin calificaciones'}</p>
-            ${i.foto ? `<img src="/api/institutions/${i.id}/foto" style="max-width:100%; border-radius:8px; margin-top:20px;" alt="Foto">` : ''}
-          </div>
-        `;
-      } catch (e) {
-        root.innerHTML = `<div class="notice err">Error: ${escapeHtml(e.message)} <a href="#/buscar">Volver</a></div>`;
-      }
+  function instCoverUrl(i) {
+    if (i.fondo) return '/api/institutions/' + i.id + '/fondo?v=' + encodeURIComponent(i.fondo.uploadedAt || '');
+    if (i.foto) return '/api/institutions/' + i.id + '/foto?v=' + encodeURIComponent(i.foto.uploadedAt || '');
+    return null;
+  }
+  function instPlace(i) {
+    return [i.municipio, i.provincia].filter(Boolean).filter((v, k, a) => a.indexOf(v) === k).join(', ');
+  }
+  function ratingBadge(i) {
+    if (i.calificacionPromedio === null || i.calificacionPromedio === undefined || !i.totalCalificaciones) {
+      return '<span class="rating-badge muted">Sin calificaciones</span>';
+    }
+    return `<span class="rating-badge"><svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>${Number(i.calificacionPromedio).toFixed(1)}<span class="rating-count">(${i.totalCalificaciones})</span></span>`;
+  }
+  // Teselas de OpenStreetMap; el tono cálido de la marca se aplica con CSS (.ins-tiles).
+  function tileUrlForTheme() { return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'; }
+  const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+  function pinIcon(active) {
+    return L.divIcon({
+      className: 'ins-pin' + (active ? ' is-active' : ''),
+      html: '<svg viewBox="0 0 32 42" aria-hidden="true"><path d="M16 1C7.7 1 1 7.6 1 15.8 1 27 16 41 16 41s15-14 15-25.2C31 7.6 24.3 1 16 1z"/><path class="ins-pin-arch" d="M10.5 21v-5.2a5.5 5.5 0 0 1 11 0V21"/></svg>',
+      iconSize: [32, 42],
+      iconAnchor: [16, 41],
+      popupAnchor: [0, -36],
+    });
+  }
+  async function ensureLeaflet() {
+    if (typeof L !== 'undefined') return;
+    await new Promise((resolve, reject) => {
+      const css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(css);
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  const PUBLIC_BAR = (right) => `
+    <header class="pub-bar">
+      <a href="#/buscar" class="pub-brand" aria-label="Inscolar, inicio"><img src="/assets/brand/inscolar-logo-horizontal-primary.svg" alt="Inscolar"></a>
+      <div class="pub-bar-right">${right}</div>
+    </header>`;
+  function publicAccountLink() {
+    return state.user
+      ? `<a href="${homeFor(state.user)}" class="btn btn-secondary btn-sm">Ir a mi panel</a>`
+      : `<a href="#/register" class="pub-link">Crear cuenta</a><a href="#/login" class="btn btn-primary btn-sm">Iniciar sesión</a>`;
+  }
+
+  async function viewBuscarDetalle(id) {
+    let i;
+    try {
+      ({ institution: i } = await api('/institutions/' + id));
+    } catch (e) {
+      root.innerHTML = `<div class="pub-page">${PUBLIC_BAR(publicAccountLink())}
+        <div class="empty-state"><p>${escapeHtml(e.message)}</p><p><a href="#/buscar">Volver a la búsqueda</a></p></div></div>`;
       return;
     }
+    const cover = instCoverUrl(i);
+    const ts = INST_TIPO_STYLE[i.tipo] || { bg: 'var(--c-surface-3)', fg: 'var(--c-ink-2)' };
+    const tutor = state.user && state.user.role === 'Tutor';
+    const facts = [
+      ['Tipo', `<span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(i.tipo)}</span>`],
+      ['Distrito educativo', escapeHtml(i.distrito || '—')],
+      ['Provincia', escapeHtml(i.provincia || '—')],
+      ['Municipio', escapeHtml(i.municipio || '—')],
+      ['Dirección', escapeHtml(i.direccion || 'No registrada')],
+      ['Teléfono', i.telefono ? `<a href="tel:${escapeHtml(String(i.telefono).replace(/[^\d+]/g, ''))}">${escapeHtml(i.telefono)}</a>` : 'No registrado'],
+    ];
+    root.innerHTML = `
+      <div class="pub-page">
+        ${PUBLIC_BAR(publicAccountLink())}
+        <main class="pub-detail">
+          <a href="#/buscar" class="back-link">${ICONS.back} Volver a la búsqueda</a>
+          <section class="pub-cover ${cover ? 'has-photo' : ''}" ${cover ? `style="--cover:url('${cover}')"` : ''}>
+            ${cover ? '' : `<div class="arches" aria-hidden="true">${'<div class="arch"></div>'.repeat(6)}</div>`}
+            <div class="pub-cover-body">
+              <h1>${escapeHtml(i.nombre)}</h1>
+              <p>${escapeHtml(instPlace(i))}</p>
+            </div>
+          </section>
+          <div class="pub-detail-grid">
+            <section class="pub-panel">
+              <h2>Información general</h2>
+              <dl class="fact-list">${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+              ${typeof i.lat === 'number' && typeof i.lng === 'number' ? '<div class="pub-mini-map" id="detail-map" aria-label="Ubicación en el mapa"></div>' : ''}
+            </section>
+            <aside class="pub-aside">
+              <section class="pub-panel">
+                <h2>Opinión de las familias</h2>
+                <div class="rating-hero">
+                  ${i.totalCalificaciones ? `<span class="rating-hero-num">${Number(i.calificacionPromedio).toFixed(1)}</span>
+                  <span class="rating-hero-stars" aria-label="${Number(i.calificacionPromedio).toFixed(1)} de 5 estrellas">${[1, 2, 3, 4, 5].map((n) => `<svg viewBox="0 0 24 24" class="${n <= Math.round(i.calificacionPromedio) ? 'on' : ''}" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>`).join('')}</span>
+                  <span class="help">${i.totalCalificaciones} calificación${i.totalCalificaciones === 1 ? '' : 'es'} de tutores</span>`
+                  : '<p class="help">Todavía nadie ha calificado esta institución.</p>'}
+                </div>
+              </section>
+              <section class="pub-panel pub-cta">
+                <h2>¿Te interesa esta escuela?</h2>
+                ${tutor ? `<p>Solicita el cupo de tu estudiante y sigue el estado de la solicitud desde tu panel.</p>
+                  <a href="#/app/inscripciones/nueva" class="btn btn-primary btn-block">Solicitar inscripción</a>
+                  <a href="#/app/citas/nueva" class="btn btn-ghost btn-block">Agendar una cita</a>`
+                : state.user ? `<p>Has iniciado sesión como ${escapeHtml(state.user.role)}.</p><a href="${homeFor(state.user)}" class="btn btn-secondary btn-block">Ir a mi panel</a>`
+                : `<p>Crea tu cuenta de tutor para solicitar cupo, subir los documentos y agendar citas en línea.</p>
+                  <a href="#/register" class="btn btn-primary btn-block">Crear cuenta de tutor</a>
+                  <a href="#/login" class="btn btn-ghost btn-block">Ya tengo cuenta</a>`}
+              </section>
+            </aside>
+          </div>
+        </main>
+      </div>
+    `;
+    const mapEl = qs('#detail-map');
+    if (mapEl) {
+      try {
+        await ensureLeaflet();
+        const m = L.map(mapEl, { scrollWheelZoom: false, zoomControl: false, attributionControl: true }).setView([i.lat, i.lng], 14);
+        L.tileLayer(tileUrlForTheme(), { maxZoom: 19, attribution: TILE_ATTRIBUTION, className: 'ins-tiles' }).addTo(m);
+        L.marker([i.lat, i.lng], { icon: pinIcon(true), keyboard: false }).addTo(m);
+      } catch (e) { mapEl.remove(); }
+    }
+  }
+
+  async function viewBuscar(subsegs = []) {
+    if (subsegs[0]) return viewBuscarDetalle(subsegs[0]);
 
     root.innerHTML = `
       <div class="search-layout">
         <div class="search-sidebar">
-          <div class="plain-brand" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <img class="brand-logo" src="/assets/brand/inscolar-logo-horizontal-primary.svg" alt="Inscolar">
-            <a href="#/login" class="btn btn-ghost btn-small">Acceder</a>
+          ${PUBLIC_BAR(publicAccountLink())}
+          <div class="search-intro">
+            <h1>Encuentra la escuela para tus hijos</h1>
+            <p>Compara colegios y liceos de todo el país y solicita el cupo en línea, con una sola cuenta.</p>
           </div>
-          <form id="search-form">
-            <div class="field"><label>Nombre o distrito</label><input type="text" name="q" placeholder="Ej. Politécnico..."></div>
-            <div style="display:flex; gap:10px;">
-              <div class="field" style="flex:1"><label>Provincia</label><select name="provincia" id="s-prov"><option value="">Todas</option></select></div>
-              <div class="field" style="flex:1"><label>Municipio</label><select name="municipio" id="s-mun"><option value="">Todos</option></select></div>
+          <form id="search-form" class="search-form" role="search">
+            <label class="search-box">
+              <span class="sr-only">Nombre o distrito</span>
+              ${ICONS.search}
+              <input type="search" name="q" placeholder="Escuela o distrito educativo" autocomplete="off">
+            </label>
+            <div class="search-filters">
+              <label class="ff"><span class="ff-label">Provincia</span><select name="provincia" id="s-prov"><option value="">Todas</option></select></label>
+              <label class="ff"><span class="ff-label">Municipio</span><select name="municipio" id="s-mun" disabled><option value="">Todos</option></select></label>
+              <label class="ff"><span class="ff-label">Calificación</span><select name="calificacionMin"><option value="">Cualquiera</option><option value="4">4+ estrellas</option><option value="3">3+ estrellas</option></select></label>
             </div>
-            <div class="field"><label>Calificación mínima</label><select name="calificacionMin"><option value="">Cualquiera</option><option value="4">4+ estrellas</option><option value="3">3+ estrellas</option></select></div>
-            <button type="button" class="btn btn-secondary btn-small" id="btn-location" style="width:100%; margin-bottom:15px;">📍 Usar mi ubicación</button>
-            <button type="submit" class="btn btn-primary btn-block">Aplicar filtros</button>
+            <div class="search-actions">
+              <button type="button" class="chip-btn" id="btn-location" aria-pressed="false">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg>
+                <span>Cerca de mí</span>
+              </button>
+              <button type="button" class="chip-btn ghost" id="btn-clear" hidden>Limpiar filtros</button>
+              <button type="submit" class="sr-only">Buscar</button>
+            </div>
           </form>
-          <div id="search-results" style="margin-top:20px; overflow-y:auto; flex:1;"></div>
+          <div class="search-map-mobile-slot"></div>
+          <div class="results-head" aria-live="polite"><span id="results-count"></span></div>
+          <div id="search-results" class="results-list"></div>
         </div>
-        <div class="search-map" id="map-container"></div>
+        <div class="search-map" id="map-container" aria-label="Mapa de instituciones"></div>
       </div>
     `;
 
+    const form = qs('#search-form');
     const provSelect = qs('#s-prov');
     const munSelect = qs('#s-mun');
-    const provincias = Object.keys(window.DR_PROVINCES || {}).sort();
-    provincias.forEach(p => provSelect.insertAdjacentHTML('beforeend', `<option value="${p}">${p}</option>`));
-    
+    const mapContainer = qs('#map-container');
+    const resultsEl = qs('#search-results');
+    const countEl = qs('#results-count');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    Object.keys(window.DR_PROVINCES || {}).sort((a, b) => a.localeCompare(b, 'es'))
+      .forEach((p) => provSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
+
+    // En móvil el mapa vive dentro del flujo, entre los filtros y los resultados.
+    const mq = window.matchMedia('(max-width: 979px)');
+    const desktopParent = mapContainer.parentElement;
+    function placeMap() {
+      const slot = qs('.search-map-mobile-slot');
+      if (!slot) return;
+      if (mq.matches && mapContainer.parentElement !== slot) slot.appendChild(mapContainer);
+      else if (!mq.matches && mapContainer.parentElement !== desktopParent) desktopParent.appendChild(mapContainer);
+      if (currentMap) setTimeout(() => currentMap.invalidateSize(), 0);
+    }
+
+    let currentMap = null;
+    let markers = new Map();
+    let activeId = null;
+    let userCoords = null;
+    let reqSeq = 0;
+
+    placeMap();
+    mq.addEventListener ? mq.addEventListener('change', placeMap) : mq.addListener(placeMap);
+
+    try {
+      await ensureLeaflet();
+      currentMap = L.map(mapContainer, { zoomControl: false, scrollWheelZoom: true }).setView([18.8, -70.2], 8);
+      L.control.zoom({ position: 'bottomright' }).addTo(currentMap);
+      L.tileLayer(tileUrlForTheme(), { maxZoom: 19, attribution: TILE_ATTRIBUTION, className: 'ins-tiles' }).addTo(currentMap);
+    } catch (e) {
+      mapContainer.innerHTML = '<div class="map-fallback">El mapa no está disponible en este momento. Puedes seguir buscando en la lista.</div>';
+    }
+
+    function setActive(id, opts = {}) {
+      activeId = id;
+      markers.forEach((m, mid) => {
+        m.setIcon(pinIcon(mid === id));
+        m.setZIndexOffset(mid === id ? 1000 : 0);
+      });
+      qsa('.result-card').forEach((c) => c.classList.toggle('is-active', c.dataset.id === id));
+      if (opts.scrollCard) {
+        const card = qs(`.result-card[data-id="${id}"]`);
+        if (card) card.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'nearest' });
+      }
+      if (opts.pan && currentMap && markers.get(id)) {
+        currentMap.panTo(markers.get(id).getLatLng(), { animate: !reduceMotion });
+      }
+    }
+
+    function filtersActive() {
+      const fd = new FormData(form);
+      return !!(fd.get('q') || fd.get('provincia') || fd.get('municipio') || fd.get('calificacionMin') || userCoords);
+    }
+
+    async function performSearch() {
+      const seq = ++reqSeq;
+      const fd = new FormData(form);
+      const q = new URLSearchParams();
+      ['q', 'provincia', 'municipio', 'calificacionMin'].forEach((k) => { if (fd.get(k)) q.set(k, fd.get(k)); });
+      if (userCoords) { q.set('lat', userCoords.lat); q.set('lng', userCoords.lng); q.set('radioKm', 50); }
+      qs('#btn-clear').hidden = !filtersActive();
+      resultsEl.setAttribute('aria-busy', 'true');
+      if (!resultsEl.children.length) resultsEl.innerHTML = '<div class="result-skel skel"></div>'.repeat(4);
+
+      let data;
+      try {
+        data = await api('/institutions?' + q.toString());
+      } catch (err) {
+        if (seq !== reqSeq) return;
+        resultsEl.removeAttribute('aria-busy');
+        countEl.textContent = '';
+        resultsEl.innerHTML = `<div class="results-empty"><strong>No pudimos cargar las instituciones.</strong><p>${escapeHtml(err.message)}</p><button type="button" class="btn btn-secondary btn-sm" id="retry-search">Intentar de nuevo</button></div>`;
+        qs('#retry-search').addEventListener('click', performSearch);
+        return;
+      }
+      if (seq !== reqSeq) return;
+      resultsEl.removeAttribute('aria-busy');
+      const list = data.institutions || [];
+      countEl.textContent = list.length === 1 ? '1 institución' : `${list.length} instituciones`;
+
+      markers.forEach((m) => m.remove());
+      markers = new Map();
+
+      if (!list.length) {
+        resultsEl.innerHTML = `<div class="results-empty"><strong>Ninguna institución coincide.</strong><p>Prueba con otra provincia o quita algún filtro.</p><button type="button" class="btn btn-secondary btn-sm" id="empty-clear">Quitar filtros</button></div>`;
+        qs('#empty-clear').addEventListener('click', clearFilters);
+        return;
+      }
+
+      resultsEl.innerHTML = list.map((i, idx) => {
+        const cover = instCoverUrl(i);
+        return `
+          <a class="result-card" href="#/buscar/${i.id}" data-id="${i.id}" style="--i:${Math.min(idx, 8)}">
+            <span class="result-thumb ${cover ? '' : 'is-empty'}">${cover ? `<img class="result-photo" src="${cover}" alt="" loading="lazy">` : ''}<img class="result-mark" src="/assets/brand/inscolar-symbol-white.svg" alt=""></span>
+            <span class="result-body">
+              <span class="result-name">${escapeHtml(i.nombre)}</span>
+              <span class="result-place">${escapeHtml(instPlace(i))}</span>
+              <span class="result-meta">
+                <span class="tag">${escapeHtml(i.tipo || '')}</span>
+                ${ratingBadge(i)}
+                ${i.distanciaKm !== undefined && i.distanciaKm !== null ? `<span class="distance">${i.distanciaKm} km</span>` : ''}
+              </span>
+            </span>
+          </a>`;
+      }).join('');
+
+      if (currentMap) {
+        const bounds = [];
+        list.forEach((i) => {
+          if (typeof i.lat !== 'number' || typeof i.lng !== 'number') return;
+          const m = L.marker([i.lat, i.lng], { icon: pinIcon(false), title: i.nombre, riseOnHover: true }).addTo(currentMap);
+          m.bindTooltip(escapeHtml(i.nombre), { direction: 'top', offset: [0, -38], className: 'ins-tip' });
+          m.on('click', () => setActive(i.id, { scrollCard: true }));
+          markers.set(i.id, m);
+          bounds.push([i.lat, i.lng]);
+        });
+        if (userCoords) bounds.push([userCoords.lat, userCoords.lng]);
+        if (bounds.length === 1) currentMap.setView(bounds[0], 13, { animate: !reduceMotion });
+        else if (bounds.length) currentMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13, animate: !reduceMotion });
+      }
+
+      qsa('.result-photo').forEach((img) => img.addEventListener('error', () => { img.parentElement.classList.add('is-empty'); img.remove(); }));
+      qsa('.result-card').forEach((c) => {
+        c.addEventListener('mouseenter', () => setActive(c.dataset.id));
+        c.addEventListener('focus', () => setActive(c.dataset.id, { pan: true }));
+      });
+      if (activeId && markers.has(activeId)) setActive(activeId);
+    }
+
+    function clearFilters() {
+      form.reset();
+      munSelect.innerHTML = '<option value="">Todos</option>';
+      munSelect.disabled = true;
+      userCoords = null;
+      const loc = qs('#btn-location');
+      loc.classList.remove('is-on');
+      loc.setAttribute('aria-pressed', 'false');
+      qs('span', loc).textContent = 'Cerca de mí';
+      performSearch();
+    }
+
     provSelect.addEventListener('change', () => {
       munSelect.innerHTML = '<option value="">Todos</option>';
       const p = provSelect.value;
       if (p && window.DR_PROVINCES[p]) {
-        window.DR_PROVINCES[p].forEach(m => munSelect.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`));
+        window.DR_PROVINCES[p].forEach((m) => munSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`));
       }
-    });
-
-    let currentMap = null;
-    let currentMarkers = [];
-    let userCoords = null;
-    const mapContainer = qs('#map-container');
-
-    async function initMap() {
-      if (typeof L === 'undefined') {
-        qs('#search-results').innerHTML = '<div class="loading" style="padding:20px">Cargando mapa...</div>';
-        await new Promise((resolve) => {
-          const css = document.createElement('link');
-          css.rel = 'stylesheet';
-          css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-          document.head.appendChild(css);
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-          script.onload = resolve;
-          document.head.appendChild(script);
-        });
-      }
-      try {
-        currentMap = L.map(mapContainer).setView([18.7357, -70.1627], 8);
-        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(currentMap);
-        
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-        if (isDark) {
-          tileLayer.on('add', () => {
-            const tilePane = mapContainer.querySelector('.leaflet-tile-pane');
-            if (tilePane) tilePane.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
-          });
-        }
-      } catch (e) {
-        console.warn('Leaflet error', e);
-        mapContainer.innerHTML = '<div style="padding:20px; color:#666;">Mapa no disponible.</div>';
-      }
-    }
-
-    await initMap();
-
-    async function performSearch(extraQuery = '') {
-      qs('#search-results').innerHTML = '<div class="loading" style="padding:20px">Cargando...</div>';
-      const fd = new FormData(qs('#search-form'));
-      const q = new URLSearchParams();
-      if (fd.get('q')) q.set('q', fd.get('q'));
-      if (fd.get('provincia')) q.set('provincia', fd.get('provincia'));
-      if (fd.get('municipio')) q.set('municipio', fd.get('municipio'));
-      if (fd.get('calificacionMin')) q.set('calificacionMin', fd.get('calificacionMin'));
-      if (userCoords) { q.set('lat', userCoords.lat); q.set('lng', userCoords.lng); q.set('radioKm', 50); }
-      
-      try {
-        const data = await api('/institutions?' + q.toString() + extraQuery);
-        
-        currentMarkers.forEach(m => m.remove());
-        currentMarkers = [];
-        
-        if (!data.institutions || data.institutions.length === 0) {
-          qs('#search-results').innerHTML = '<div class="notice">No se encontraron instituciones.</div>';
-          return;
-        }
-
-        qs('#search-results').innerHTML = data.institutions.map(i => `
-          <div class="inst-card" data-id="${i.id}" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
-            <h4 style="margin:0 0 5px 0; color:var(--primary-color);">${escapeHtml(i.nombre)}</h4>
-            <div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">
-              ${escapeHtml(i.municipio || '')}${i.provincia && i.municipio ? ', ' : ''}${escapeHtml(i.provincia || '')}
-            </div>
-            ${i.distanciaKm !== undefined && i.distanciaKm !== null ? `<div style="font-size:12px; font-weight:600; color:var(--primary-color);">📍 A ${i.distanciaKm} km</div>` : ''}
-            <div style="margin-top:10px;">
-              <a href="#/buscar/${i.id}" class="btn btn-ghost btn-small view-inst" style="padding:4px 8px; text-decoration:none;">Ver detalles</a>
-            </div>
-          </div>
-        `).join('');
-
-        const bounds = [];
-        if (currentMap) {
-          data.institutions.forEach(i => {
-            if (typeof i.lat === 'number' && typeof i.lng === 'number') {
-              const marker = L.marker([i.lat, i.lng]).addTo(currentMap);
-              marker.bindPopup(`<strong>${escapeHtml(i.nombre)}</strong><br><a href="#/buscar/${i.id}">Ver detalles</a>`);
-              marker.instId = i.id;
-              
-              marker.on('click', () => {
-                const card = qs(`.inst-card[data-id="${i.id}"]`);
-                if (card) {
-                  qsa('.inst-card').forEach(c => c.style.borderColor = 'var(--border-color)');
-                  card.style.borderColor = 'var(--primary-color)';
-                  card.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
-                }
-              });
-              
-              currentMarkers.push(marker);
-              bounds.push([i.lat, i.lng]);
-            }
-          });
-          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          if (bounds.length > 0) {
-            currentMap.fitBounds(bounds, { animate: !prefersReduced });
-          }
-        }
-
-        qsa('.inst-card').forEach(c => {
-          c.addEventListener('mouseenter', () => {
-            const m = currentMarkers.find(mx => mx.instId === c.dataset.id);
-            if (m && currentMap) {
-               m.openPopup();
-            }
-          });
-          c.addEventListener('focus', () => {
-            const m = currentMarkers.find(mx => mx.instId === c.dataset.id);
-            if (m && currentMap) m.openPopup();
-          });
-        });
-      } catch (err) {
-        qs('#search-results').innerHTML = '<div class="notice err">Error al buscar: ' + escapeHtml(err.message) + '</div>';
-      }
-    }
-
-    qs('#search-form').addEventListener('submit', (e) => {
-      e.preventDefault();
+      munSelect.disabled = !p;
       performSearch();
     });
+    qsa('select:not(#s-prov)', form).forEach((sel) => sel.addEventListener('change', performSearch));
+    let typing;
+    qs('input[name="q"]', form).addEventListener('input', () => {
+      clearTimeout(typing);
+      typing = setTimeout(performSearch, 280);
+    });
+    form.addEventListener('submit', (e) => { e.preventDefault(); clearTimeout(typing); performSearch(); });
+    qs('#btn-clear').addEventListener('click', clearFilters);
 
     qs('#btn-location').addEventListener('click', () => {
-      if ('geolocation' in navigator) {
-        qs('#btn-location').textContent = '📍 Obteniendo...';
-        navigator.geolocation.getCurrentPosition((pos) => {
-          userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          qs('#btn-location').textContent = '📍 Ubicación activa';
-          qs('#btn-location').classList.replace('btn-secondary', 'btn-primary');
-          performSearch();
-        }, (err) => {
-          toast('Permiso denegado. Busca manualmente.', 'err');
-          qs('#btn-location').textContent = '📍 Usar mi ubicación';
-        });
-      } else {
-        toast('Geolocalización no soportada.', 'err');
+      const btn = qs('#btn-location');
+      const label = qs('span', btn);
+      if (userCoords) {
+        userCoords = null;
+        btn.classList.remove('is-on');
+        btn.setAttribute('aria-pressed', 'false');
+        label.textContent = 'Cerca de mí';
+        performSearch();
+        return;
       }
+      if (!('geolocation' in navigator)) { toast('Tu navegador no permite obtener la ubicación.', 'err'); return; }
+      label.textContent = 'Buscando tu ubicación…';
+      btn.disabled = true;
+      navigator.geolocation.getCurrentPosition((pos) => {
+        btn.disabled = false;
+        userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        btn.classList.add('is-on');
+        btn.setAttribute('aria-pressed', 'true');
+        label.textContent = 'A menos de 50 km';
+        performSearch();
+      }, (err) => {
+        btn.disabled = false;
+        label.textContent = 'Cerca de mí';
+        toast(err && err.code === 1 ? 'No diste permiso de ubicación. Puedes buscar por provincia.' : 'No pudimos obtener tu ubicación. Inténtalo de nuevo.', 'err');
+      }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
     });
 
     performSearch();
@@ -741,7 +909,7 @@
           navigate('#/force-change');
         } else {
           state.user = data.user;
-          navigate('#/app/perfil');
+          navigate(homeFor(state.user));
         }
         
         setTimeout(() => {
@@ -1153,12 +1321,12 @@
           <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
           <div class="topbar-breadcrumb"><span class="sep">/</span> <span class="current">${currentName}</span></div>
           <div class="topbar-right">
-            <button class="theme-toggle" id="theme-toggle" title="Cambiar tema">
+            <button class="theme-toggle" id="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema">
               ${ICONS.contrast}
             </button>
-            ${(admin || u.role === 'Tutor') ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
+            ${(admin || u.role === 'Tutor') ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-label="Notificaciones" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
             <span class="who"><span class="avatar" style="${topbarAvatarStyle}">${u.foto ? '' : initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></span>
-            <button class="logout" id="logout-btn">Cerrar sesión</button>
+            <button class="logout" id="logout-btn" aria-label="Cerrar sesión"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span class="logout-text">Cerrar sesión</span></button>
           </div>
         </div>
         <div class="body">
@@ -1227,7 +1395,20 @@
     `;
   }
 
+  // En móvil las tablas se vuelven tarjetas: cada celda toma su etiqueta del encabezado.
+  function labelTables(scope) {
+    qsa('table', scope).forEach((table) => {
+      const heads = qsa('thead th', table).map((th) => th.textContent.trim());
+      qsa('tbody tr', table).forEach((tr) => {
+        qsa('td', tr).forEach((td, i) => {
+          if (!td.hasAttribute('data-label') && heads[i] && !td.hasAttribute('colspan')) td.setAttribute('data-label', heads[i]);
+        });
+      });
+    });
+  }
+
   function bindShellEvents() {
+    labelTables(qs('.main'));
     qsa('[data-nav]').forEach((btn) => btn.addEventListener('click', () => {
       const sidebar = qs('#sidebar');
       const backdrop = qs('#sidebar-backdrop');
@@ -1732,9 +1913,9 @@
         ${canCreateUsuario() ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/usuarios/nuevo">Nuevo usuario</button>` : ''}
       </div>
       <div class="filters">
-        <input id="f-q" placeholder="Buscar por nombre o correo..." value="${escapeHtml(query.q || '')}">
-        <select id="f-role">${roles.map((r) => `<option ${query.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        <label class="ff ff-search"><span class="sr-only">Buscar</span>${ICONS.search}<input type="search" id="f-q" placeholder="Buscar por nombre o correo..." value="${escapeHtml(query.q || '')}"></label>
+        <label class="ff"><span class="ff-label">Rol</span><select id="f-role">${roles.map((r) => `<option ${query.role === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
+        <label class="ff"><span class="ff-label">Estado</span><select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
       </div>
       <div class="table-card">
         <table>
@@ -2006,14 +2187,14 @@
     qs('.main').innerHTML = `
       <div class="page-head"><div><h2>Instituciones</h2><div class="sub">Centros educativos registrados en el sistema.</div></div></div>
       <div class="filters">
-        <input id="f-q" placeholder="Buscar por nombre o distrito..." value="${escapeHtml(query.q || '')}">
-        <select id="f-provincia">${provinciasFiltro.map((p) => `<option ${query.provincia === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select>
-        <select id="f-municipio">${municipiosFiltro.map((m) => `<option ${(query.municipio || 'Todos') === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select>
-        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        <select id="f-calificacion">${calificaciones.map((c) => `<option value="${c}" ${(query.calificacionMin || 'Cualquiera') === c ? 'selected' : ''}>${c === 'Cualquiera' ? 'Cualquier calificación' : c + '+ estrellas'}</option>`).join('')}</select>
-        <button class="btn btn-secondary" id="f-geo-btn" type="button" style="width:auto; padding:10px 14px;">${ICONS.building} ${geoActiva ? 'Actualizar mi ubicación' : 'Cerca de mí'}</button>
+        <label class="ff ff-search"><span class="sr-only">Buscar</span>${ICONS.search}<input type="search" id="f-q" placeholder="Buscar por nombre o distrito..." value="${escapeHtml(query.q || '')}"></label>
+        <label class="ff"><span class="ff-label">Provincia</span><select id="f-provincia">${provinciasFiltro.map((p) => `<option ${query.provincia === p ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select></label>
+        <label class="ff"><span class="ff-label">Municipio</span><select id="f-municipio">${municipiosFiltro.map((m) => `<option ${(query.municipio || 'Todos') === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select></label>
+        <label class="ff"><span class="ff-label">Estado</span><select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
+        <label class="ff"><span class="ff-label">Calificación</span><select id="f-calificacion">${calificaciones.map((c) => `<option value="${c}" ${(query.calificacionMin || 'Cualquiera') === c ? 'selected' : ''}>${c === 'Cualquiera' ? 'Cualquier calificación' : c + '+ estrellas'}</option>`).join('')}</select></label>
+        <button class="btn btn-secondary" id="f-geo-btn" type="button" style="width:auto; padding:10px 14px;">${ICONS.pin} ${geoActiva ? 'Actualizar mi ubicación' : 'Cerca de mí'}</button>
         ${geoActiva ? `
-          <select id="f-radio">${RADIOS_KM.map((r) => `<option value="${r === 'Cualquier distancia' ? '' : r}" ${(query.radioKm || '') === (r === 'Cualquier distancia' ? '' : r) ? 'selected' : ''}>${r === 'Cualquier distancia' ? r : 'Hasta ' + r + ' km'}</option>`).join('')}</select>
+          <label class="ff"><span class="ff-label">Distancia</span><select id="f-radio">${RADIOS_KM.map((r) => `<option value="${r === 'Cualquier distancia' ? '' : r}" ${(query.radioKm || '') === (r === 'Cualquier distancia' ? '' : r) ? 'selected' : ''}>${r === 'Cualquier distancia' ? r : 'Hasta ' + r + ' km'}</option>`).join('')}</select></label>
           <button class="btn btn-ghost" id="f-geo-clear" type="button" style="width:auto; padding:10px 14px;">Quitar ubicación</button>
         ` : ''}
         <button class="btn btn-primary spacer" style="width:auto; padding:10px 18px;" data-nav="#/app/instituciones/nueva">Nueva institución</button>
@@ -2609,7 +2790,7 @@
           <div class="page-head" style="margin:0 0 12px;"><h3 style="margin:0;">Mis estudiantes</h3>
             <button class="btn btn-primary btn-small" style="width:auto; padding:8px 16px;" data-nav="#/app/inscripciones/estudiante-nuevo">Agregar estudiante</button>
           </div>
-          ${students.length ? `<div class="two-col">${students.map((s) => `<div><div class="help">${escapeHtml(s.nombre)}</div><div>Nacimiento: ${escapeHtml(s.fechaNacimiento)}</div></div>`).join('')}</div>` : '<div class="help">Todavía no has registrado ningún estudiante.</div>'}
+          ${students.length ? `<div class="two-col">${students.map((s) => `<div class="student-chip"><span class="avatar">${initials(s.nombre)}</span><span><div class="student-name">${escapeHtml(s.nombre)}</div><div class="help">Nacimiento: ${escapeHtml(s.fechaNacimiento)}</div></span></div>`).join('')}</div>` : '<div class="help">Todavía no has registrado ningún estudiante.</div>'}
         </div>
       `;
     }
@@ -2631,8 +2812,8 @@
       </div>
       ${studentsBlock}
       <div class="filters">
-        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        ${admin ? `<select id="f-institucion"><option ${!query.institucionId ? 'selected' : ''}>Todas</option>${institucionesOptions.map((i) => `<option value="${i.id}" ${query.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}</select>` : ''}
+        <label class="ff"><span class="ff-label">Estado</span><select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
+        ${admin ? `<label class="ff"><span class="ff-label">Institución</span><select id="f-institucion"><option ${!query.institucionId ? 'selected' : ''}>Todas</option>${institucionesOptions.map((i) => `<option value="${i.id}" ${query.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}</select></label>` : ''}
       </div>
       <div class="table-card">
         <table>
@@ -3218,8 +3399,8 @@
         ${tutor ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/citas/nueva">Nueva cita</button>` : ''}
       </div>
       <div class="filters">
-        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        ${admin ? `<select id="f-institucion"><option ${!query.institucionId ? 'selected' : ''}>Todas</option>${institucionesOptions.map((i) => `<option value="${i.id}" ${query.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}</select>` : ''}
+        <label class="ff"><span class="ff-label">Estado</span><select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
+        ${admin ? `<label class="ff"><span class="ff-label">Institución</span><select id="f-institucion"><option ${!query.institucionId ? 'selected' : ''}>Todas</option>${institucionesOptions.map((i) => `<option value="${i.id}" ${query.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}</select></label>` : ''}
       </div>
       <div class="table-card">
         <table>
@@ -3734,11 +3915,11 @@
     qs('.main').innerHTML = `
       <div class="page-head"><div><h2>Auditoría</h2><div class="sub">Bitácora de acciones registradas en el sistema.</div></div></div>
       <div class="filters">
-        <input id="f-q" placeholder="Buscar por usuario o detalle..." value="${escapeHtml(query.q || '')}">
-        <select id="f-accion">${accionesFiltro.map((a) => `<option ${(query.accion || 'Todas') === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</select>
-        <select id="f-actor">${actoresFiltro.map((a) => `<option value="${a.id}" ${(query.actorId || 'Todos') === a.id ? 'selected' : ''}>${escapeHtml(a.nombre)}</option>`).join('')}</select>
-        <input type="date" id="f-desde" value="${escapeHtml(query.desde || '')}" title="Desde">
-        <input type="date" id="f-hasta" value="${escapeHtml(query.hasta || '')}" title="Hasta">
+        <label class="ff ff-search"><span class="sr-only">Buscar</span>${ICONS.search}<input type="search" id="f-q" placeholder="Buscar por usuario o detalle..." value="${escapeHtml(query.q || '')}"></label>
+        <label class="ff"><span class="ff-label">Acción</span><select id="f-accion">${accionesFiltro.map((a) => `<option ${(query.accion || 'Todas') === a ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}</select></label>
+        <label class="ff"><span class="ff-label">Usuario</span><select id="f-actor">${actoresFiltro.map((a) => `<option value="${a.id}" ${(query.actorId || 'Todos') === a.id ? 'selected' : ''}>${escapeHtml(a.nombre)}</option>`).join('')}</select></label>
+        <label class="ff"><span class="ff-label">Desde</span><input type="date" id="f-desde" value="${escapeHtml(query.desde || '')}" title="Desde"></label>
+        <label class="ff"><span class="ff-label">Hasta</span><input type="date" id="f-hasta" value="${escapeHtml(query.hasta || '')}" title="Hasta"></label>
       </div>
       <div class="table-card">
         <table>

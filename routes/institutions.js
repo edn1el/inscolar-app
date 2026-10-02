@@ -369,4 +369,19 @@ router.get('/:id/fondo', (req, res) => {
   fs.createReadStream(filePath).pipe(res);
 });
 
+// Foto de portada heredada de los datos de demo (campo foto).
+router.get('/:id/foto', (req, res) => {
+  const { load } = require('../lib/db');
+  const db = load();
+  const institution = db.institutions.find((i) => i.id === req.params.id);
+  if (!institution || !institution.foto || !institution.foto.storageFile) {
+    return res.status(404).json({ error: 'Esta institución no tiene una foto registrada.' });
+  }
+  const filePath = path.join(FOTOS_DIR, institution.foto.storageFile);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'La imagen ya no está disponible.' });
+  res.setHeader('Content-Type', institution.foto.mimeType || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  fs.createReadStream(filePath).pipe(res);
+});
+
 module.exports = router;
