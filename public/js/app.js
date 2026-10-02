@@ -541,7 +541,7 @@
         ]);
         
         const ts = INST_TIPO_STYLE[i.tipo] || { bg: '#eee', fg: '#333' };
-        const fondoUrl = i.fondo ? '/api/institutions/' + i.id + '/fondo?v=' + encodeURIComponent(i.fondo.uploadedAt) : null;
+        const fondoUrl = i.fondo ? '/api/institutions/' + i.id + '/fondo?v=' + encodeURIComponent(i.fondo.uploadedAt) : i.photo?.url || null;
         const logoUrl = i.logo ? '/api/institutions/' + i.id + '/logo?v=' + encodeURIComponent(i.logo.uploadedAt) : null;
         
         root.innerHTML = `
@@ -552,7 +552,7 @@
           </div>
           
           <div style="padding:20px; max-width:800px; margin:0 auto; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0;">
-            <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}')` : 'background:#e1ecf7;'} border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}');` : 'background:#e1ecf7;'} border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
               <div class="inst-hero-overlay" style="border-radius: 12px; padding: 30px; display:flex; flex-direction:column; gap:20px;">
                 <div class="inst-hero-body" style="display:flex; align-items:center; gap:20px;">
                   ${logoUrl ? `<img src="${logoUrl}" style="width:80px; height:80px; border-radius:12px; object-fit:cover; border:3px solid #fff;">` : `<div style="width:80px; height:80px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; border:3px solid #eee; color:var(--text-muted);">${ICONS.building}</div>`}
@@ -563,7 +563,7 @@
                 </div>
                 ${i.estado === 'Activo' ? `
                 <div class="inst-hero-actions">
-                  <a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary" style="text-decoration:none;">Inscribir estudiante</a>
+                  <a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary enroll-cta" style="text-decoration:none;">Inscribir estudiante</a>
                 </div>
                 ` : ''}
               </div>
@@ -571,9 +571,9 @@
 
             <div class="chart-row" style="align-items:start;">
               <div class="chart-card">
-                <h3>Información general</h3>
+                <h3>Información general</h3>${i.photo?.sourcePage ? `<p class="help"><a href="${escapeHtml(i.photo.sourcePage)}" target="_blank" rel="noopener noreferrer">Fuente de la ${i.photo.historical ? 'fotografía histórica' : 'imagen'}</a></p>` : ''}${i.sourceUrl ? `<p class="help"><a href="${escapeHtml(i.sourceUrl)}" target="_blank" rel="noopener noreferrer">Fuente institucional</a> · Verificado ${escapeHtml(i.verifiedAt)}${i.geoApproximate ? ' · Ubicación del mapa aproximada' : ''}</p>` : ''}
                 <div class="two-col" style="margin-top: 15px;">
-                  <div><div class="help">Distrito educativo</div><div>${escapeHtml(i.distrito)}</div></div>
+                  <div><div class="help">Distrito educativo</div><div>${escapeHtml(i.distrito || 'No publicado')}</div></div>
                   <div><div class="help">Provincia</div><div>${escapeHtml(i.provincia)}</div></div>
                   <div><div class="help">Municipio</div><div>${escapeHtml(i.municipio || 'No registrado')}</div></div>
                   <div><div class="help">Dirección</div><div>${escapeHtml(i.direccion || 'No registrada')}</div></div>
@@ -779,22 +779,22 @@
               });
               const marker = L.marker([i.lat, i.lng], { icon: markerIcon, title: i.nombre, alt: i.nombre }).addTo(currentMap);
               
-              const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
+              const fotoUrl = i.fondo ? `/api/institutions/${i.id}/fondo?v=${encodeURIComponent(i.fondo.uploadedAt)}` : i.photo?.url || '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
-                <div style="display:flex; flex-direction:column; gap:8px;">
+                <div class="institution-popup" style="display:flex; flex-direction:column; gap:8px;">
                   <div style="cursor:pointer; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;" onclick="window.location.hash='#/buscar/${i.id}'">
                     <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
-                      <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
+                      <img src="${fotoUrl}" alt="${escapeHtml(i.photo?.alt || i.nombre)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
                     </div>
                     <div style="flex:1; text-align:left;">
-                      <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
-                      <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
-                      <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
+                      <strong style="color:var(--c-ink); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
+                      <span style="font-size:10px; padding:2px 8px; background:var(--c-garnet-subtle); color:var(--c-ink); border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
+                      <div style="font-size:12px; margin-top:6px; color:var(--c-ink-soft);">📍 ${escapeHtml(i.municipio || '')}${i.geoApproximate ? ' · aprox.' : ''}</div>
                       <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
                     </div>
                   </div>
                   ${i.estado === 'Activo' ? `
-                  <a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary btn-small" style="text-decoration:none; text-align:center; display:block; padding:8px;">Inscribir estudiante</a>
+                  <a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary btn-small enroll-cta" style="text-decoration:none; text-align:center; display:block; padding:8px;">Inscribir estudiante</a>
                   ` : ''}
                 </div>
               `;
@@ -1446,13 +1446,13 @@
           <div class="brand"><img class="badge-logo" src="/assets/brand/inscolar-symbol-primary.svg" alt="Inscolar"><span class="stack"><div class="b1">Inscolar</div><div class="b2">Portal institucional</div></span></div>
           <div class="topbar-breadcrumb"><span class="sep">/</span> <span class="current">${currentName}</span></div>
           <div class="topbar-right">
-            <button class="theme-toggle" id="theme-toggle" title="Cambiar tema">
+            <button class="theme-toggle" id="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema">
               ${ICONS.contrast}
             </button>
             <div class="notif-wrap"><button class="bell" id="bell-btn" aria-label="Notificaciones${unread === null ? ': contador no disponible' : ': '+(unread||0)+' no leídas'}" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>
             <a href="#/app/perfil" class="who" style="text-decoration:none; color:inherit;"><span class="avatar" style="${topbarAvatarStyle}">${u.foto ? '' : initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></a>
-            <div class="notif-wrap"><button class="btn btn-ghost btn-small" id="settings-menu-btn" aria-label="Configuración" aria-expanded="false" aria-controls="settings-menu"><svg class="settings-menu-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4M5 5l3 3m8 8l3 3M5 19l3-3m8-8l3-3"/></svg><span class="settings-menu-label">Configuración</span></button>
-              <div class="notif-panel" id="settings-menu" hidden aria-label="Menú de configuración">
+            <div class="notif-wrap account-menu"><button class="btn btn-ghost btn-small" id="settings-menu-btn" aria-label="Configuración" aria-expanded="false" aria-controls="settings-menu"><span class="mobile-account-avatar" style="${topbarAvatarStyle}" aria-hidden="true">${u.foto ? '' : initials(u.nombre)}</span><svg class="settings-menu-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4M5 5l3 3m8 8l3 3M5 19l3-3m8-8l3-3"/></svg><span class="settings-menu-label">Configuración</span></button>
+              <div class="notif-panel" id="settings-menu" hidden aria-label="Menú de configuración"><a class="settings-menu-link" href="#/app/perfil">Mi perfil</a>
                 <a class="settings-menu-link" href="#/app/seguridad">Cambiar contraseña y preferencias</a>
                 <button class="settings-menu-link" id="settings-email">Cambiar correo electrónico</button>
                 <a class="settings-menu-link" href="#/app/manual">Manual de instrucciones</a>
@@ -2487,12 +2487,12 @@
     const ts = INST_TIPO_STYLE[institution.tipo] || { bg: '#eee', fg: '#333' };
     const active = (institution.estado || 'Activo') === 'Activo';
     const backHref = isAdmin() ? '#/app/instituciones' : (state.user.role === 'Tutor' ? '#/app/citas' : '#/app/citas');
-    const fondoUrl = institution.fondo ? '/api/institutions/' + institution.id + '/fondo?v=' + encodeURIComponent(institution.fondo.uploadedAt) : null;
+    const fondoUrl = institution.fondo ? '/api/institutions/' + institution.id + '/fondo?v=' + encodeURIComponent(institution.fondo.uploadedAt) : institution.photo?.url || null;
     const logoUrl = institution.logo ? '/api/institutions/' + institution.id + '/logo?v=' + encodeURIComponent(institution.logo.uploadedAt) : null;
 
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="${backHref}">${ICONS.back} Volver</button>
-      <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}')` : 'background:#e1ecf7;'}">
+      <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}');` : 'background:#e1ecf7;'}">
         <div class="inst-hero-overlay">
           <div class="inst-hero-body" style="display:flex; align-items:center; gap:20px;">
             ${logoUrl ? `<img src="${logoUrl}" style="width:80px; height:80px; border-radius:12px; object-fit:cover; border:3px solid #fff;">` : `<div style="width:80px; height:80px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; border:3px solid #eee;">${ICONS.building}</div>`}
@@ -2518,7 +2518,7 @@
           <h3>Información general</h3>
           <div class="two-col">
             <div><div class="help">Tipo</div><div><span class="pill" style="background:${ts.bg};color:${ts.fg}">${escapeHtml(institution.tipo)}</span></div></div>
-            <div><div class="help">Distrito educativo</div><div>${escapeHtml(institution.distrito)}</div></div>
+            <div><div class="help">Distrito educativo</div><div>${escapeHtml(institution.distrito || 'No publicado')}</div></div>
             <div><div class="help">Provincia</div><div>${escapeHtml(institution.provincia)}</div></div>
             <div><div class="help">Municipio</div><div>${escapeHtml(institution.municipio || 'No registrado')}</div></div>
             <div><div class="help">Dirección</div><div>${escapeHtml(institution.direccion || 'No registrada')}</div></div>
@@ -5094,7 +5094,7 @@
           <label>Desde<input type="date" name="desde" value="${escapeHtml(query.desde||'')}"></label><label>Hasta<input type="date" name="hasta" value="${escapeHtml(query.hasta||'')}"></label>
           <button class="btn btn-primary">Aplicar filtros</button><button type="button" id="audit-clear" class="btn btn-secondary">Limpiar</button>
         </form>
-        <div class="table-card"><div style="overflow-x:auto"><table><caption class="sub">Eventos confirmados y heredados</caption><thead><tr><th>Fecha local</th><th>Actor / rol</th><th>Acción</th><th>Entidad</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody>${logs.length?logs.map(e=>`<tr><td>${escapeHtml(new Date(e.fecha).toLocaleString('es-DO',{timeZone:'America/Santo_Domingo'}))}</td><td>${escapeHtml(e.actorNombre)}<br><span class="sub">${escapeHtml(e.actorRole)}</span></td><td>${escapeHtml(e.accion)}</td><td>${escapeHtml(e.entidad)} ${escapeHtml(e.entidadId||'')}</td><td>${escapeHtml(e.resultado)}</td><td><button class="btn btn-secondary" data-audit-detail="${escapeHtml(e.eventId)}" aria-label="Ver detalle de ${escapeHtml(e.accion)}">Ver detalle</button></td></tr>`).join(''):'<tr><td colspan="6"><div class="empty-state">No hay registros que coincidan con los filtros.</div></td></tr>'}</tbody></table></div>
+        <div class="table-card audit-table"><div class="audit-table-scroll"><table><caption>Eventos confirmados y heredados</caption><thead><tr><th>Fecha local</th><th>Actor / rol</th><th>Acción</th><th>Entidad</th><th>Resultado</th><th>Detalle</th></tr></thead><tbody>${logs.length?logs.map(e=>`<tr><td data-label="Fecha local">${escapeHtml(new Date(e.fecha).toLocaleString('es-DO',{timeZone:'America/Santo_Domingo'}))}</td><td data-label="Actor y rol">${escapeHtml(e.actorNombre)}<br><span class="sub">${escapeHtml(e.actorRole)}</span></td><td data-label="Acción">${escapeHtml(e.accion)}</td><td data-label="Entidad">${escapeHtml(e.entidad)} ${escapeHtml(e.entidadId||'')}</td><td data-label="Resultado">${escapeHtml(e.resultado)}</td><td data-label="Detalle"><button class="btn btn-secondary" data-audit-detail="${escapeHtml(e.eventId)}" aria-label="Ver detalle de ${escapeHtml(e.accion)}">Ver detalle</button></td></tr>`).join(''):'<tr><td colspan="6"><div class="empty-state">No hay registros que coincidan con los filtros.</div></td></tr>'}</tbody></table></div>
         <div class="table-footer"><span>${total?`Mostrando ${(page-1)*20+1}–${(page-1)*20+logs.length} de ${total}`:'0 registros'} · Página ${page} de ${Math.max(1,pages)}</span><button id="audit-prev" class="btn btn-secondary" ${page<=1?'disabled':''}>Anterior</button><button id="audit-next" class="btn btn-secondary" ${page>=pages?'disabled':''}>Siguiente</button></div></div><div id="audit-detail"></div>`;
       const form=qs('#audit-filters',main);
       form.addEventListener('submit',e=>{e.preventDefault();const p=new URLSearchParams();for(const [k,v] of new FormData(form))if(v)p.set(k,v);navigate('#/app/auditoria?'+p);});

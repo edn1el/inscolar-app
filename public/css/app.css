@@ -3130,3 +3130,43 @@ tbody tr:last-child td {
 .notif-list .notif-item, .notif-panel .notif-item, #analytics-content .kpi-card { animation:none; }
 .settings-menu-icon { display:none; }
 @media(max-width:600px) { .settings-menu-label { display:none; } .settings-menu-icon { display:block; } #settings-menu-btn { width:32px; height:32px; padding:6px; } }
+
+/* Auditoría: filtros alineados y tarjetas legibles en pantallas estrechas. */
+.main { min-width: 0; }
+#audit-filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:16px; align-items:end; margin-bottom:24px; }
+#audit-filters label { display:flex; flex-direction:column; gap:6px; font-size:.85rem; font-weight:600; min-width:0; }
+#audit-filters input, #audit-filters select { width:100%; min-width:0; max-width:100%; }
+#audit-filters > button { min-height:44px; }
+.audit-table-scroll { overflow-x:auto; }
+.audit-table caption { text-align:left; padding:16px; font-weight:600; color:var(--c-ink); }
+.audit-table td { overflow-wrap:anywhere; }
+.audit-table .table-footer { flex-wrap:wrap; gap:12px; }
+.mobile-account-avatar { display:none; }
+/* Leaflet has its own anchor color; the enrollment action needs an explicit contrast. */
+a.enroll-cta, a.enroll-cta:visited, .leaflet-container a.enroll-cta {
+  color:#fff; background:#a91132; font-weight:700; text-decoration:none; min-height:44px;
+}
+a.enroll-cta:hover, .leaflet-container a.enroll-cta:hover { color:#fff; background:#850d28; }
+a.enroll-cta:focus-visible { outline:3px solid var(--c-ink); outline-offset:3px; }
+@media(max-width:640px) {
+  .topbar { padding:0 12px; gap:12px; }
+  .topbar-right { gap:10px; margin-left:auto; }
+  .topbar .who, .topbar #logout-btn { display:none; }
+  .topbar .theme-toggle, .topbar .bell, .topbar #settings-menu-btn, .sidebar-toggle { width:44px; height:44px; min-width:44px; padding:8px; }
+  .topbar #settings-menu-btn { padding:0; border:0; background:transparent; }
+  .topbar .settings-menu-icon, .topbar .settings-menu-label { display:none; }
+  .mobile-account-avatar { display:grid; place-items:center; width:36px; height:36px; border-radius:50%; font-size:.75rem; font-weight:700; }
+  #settings-menu { right:0; width:min(300px,calc(100vw - 24px)); }
+  #audit-filters { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px 12px; }
+  #audit-filters label:first-child, #audit-filters label:nth-child(2), #audit-filters label:nth-child(3) { grid-column:1 / -1; }
+  .audit-table { border:0; background:transparent; box-shadow:none; overflow:visible; }
+  .audit-table-scroll { overflow:visible; }
+  .audit-table caption { display:block; width:100%; padding:0 0 14px; font-size:.9rem; }
+  .audit-table tbody tr { padding:18px; margin-bottom:16px; box-shadow:var(--shadow-sm); }
+  .audit-table td { padding:8px 0; line-height:1.5; }
+  .audit-table td::before { font-size:.68rem; color:var(--c-ink-soft); }
+  .audit-table td:last-child { padding-top:12px; }
+  .audit-table td:last-child::before { display:none; }
+  .audit-table .table-footer { display:grid; grid-template-columns:1fr 1fr; padding:16px 0; }
+  .audit-table .table-footer span { grid-column:1 / -1; }
+}
