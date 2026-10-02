@@ -3442,7 +3442,7 @@
       return;
     }
     const u = state.user;
-    const canManage = isAdmin() || u.role === 'Soporte' || (u.role === 'Personal de institución' && u.institucionId === institucionId);
+    const canManage = isAdmin() || u.role === 'Soporte' || (u.role === 'Personal de institución' && String(u.institucionId) === String(institucionId));
 
     const now = new Date();
     function getStatus(range) {

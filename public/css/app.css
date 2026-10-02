@@ -1835,6 +1835,7 @@ button.link:hover {
 
 .inst-hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-self: flex-end;
 }
@@ -2732,6 +2733,11 @@ tbody tr:last-child td {
 
   .inst-hero-overlay {
     padding: 20px;
+  }
+  
+  .inst-hero-actions {
+    align-self: stretch;
+    justify-content: center;
   }
 
   .modal {
