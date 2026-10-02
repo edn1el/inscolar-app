@@ -227,7 +227,7 @@
 
   // ---------------- router ----------------
   function navigate(hash) { 
-    if (window._navInterceptor && window._navInterceptor() === false) return;
+    if (window._navInterceptor && window._navInterceptor(hash) === false) return;
     window.location.hash = hash; 
   }
 
@@ -2906,8 +2906,11 @@
     let formChanged = false;
     qs('#inst-form').addEventListener('input', () => formChanged = true);
     qs('#btn-cancel').addEventListener('click', () => {
-      if (formChanged && !confirm('Tienes cambios sin guardar. ¿Seguro que deseas cancelar?')) return;
-      navigate('#/app/instituciones');
+      if (formChanged) {
+        customConfirm('Tienes cambios sin guardar. ¿Seguro que deseas cancelar?', 'Sí, cancelar', () => navigate('#/app/instituciones'));
+      } else {
+        navigate('#/app/instituciones');
+      }
     });
 
     qs('#inst-form').addEventListener('submit', async (e) => {
@@ -3407,12 +3410,13 @@
     bindShellEvents();
     qsa('[data-editar-periodo]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + institucionId + '/periodos/' + b.dataset.editarPeriodo + '/editar')));
     qsa('[data-eliminar-periodo]').forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('\u00bfEliminar por completo la configuraci\u00f3n de este ciclo? Esta acci\u00f3n no se puede deshacer.')) return;
-      try {
-        await api('/institutions/' + institucionId + '/periods/' + b.dataset.eliminarPeriodo, { method: 'DELETE' });
-        toast('Configuraci\u00f3n eliminada.', 'ok');
-        renderPeriodosList(institucionId);
-      } catch (err) { toast(err.message, 'err'); }
+      customConfirm('\u00bfEliminar por completo la configuraci\u00f3n de este ciclo? Esta acci\u00f3n no se puede deshacer.', 'Sí, eliminar', async () => {
+        try {
+          await api('/institutions/' + institucionId + '/periods/' + b.dataset.eliminarPeriodo, { method: 'DELETE' });
+          toast('Configuraci\u00f3n eliminada.', 'ok');
+          renderPeriodosList(institucionId);
+        } catch (err) { toast(err.message, 'err'); }
+      });
     }));
   }
 
@@ -3556,9 +3560,13 @@
     });
     let docsOriginal = JSON.stringify(docsState);
 
-    window._navInterceptor = () => {
+    window._navInterceptor = (pendingHash) => {
       if (JSON.stringify(docsState) !== docsOriginal) {
-        return confirm('Tienes cambios sin guardar en los documentos. ¿Seguro que deseas salir?');
+        customConfirm('Tienes cambios sin guardar en los documentos. ¿Seguro que deseas salir?', 'Sí, salir', () => {
+          window._navInterceptor = null;
+          if (pendingHash) navigate(pendingHash);
+        });
+        return false;
       }
       return true;
     };
