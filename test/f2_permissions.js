@@ -76,7 +76,12 @@ async function runTests() {
   const prevEstado = soporte.estado;
   const prevHash = soporte.passwordHash;
   const prevHistory = [...(soporte.passwordHistory || [])];
+  // La cuenta de Soporte de la demo está inactiva y con cambio de contraseña pendiente
+  // a propósito (para demostrar los poderes del administrador). La prueba la habilita
+  // solo mientras corre y la deja como estaba al final.
+  const prevMustChange = soporte.mustChangePassword;
   soporte.estado = 'Activo';
+  soporte.mustChangePassword = false;
   save(db);
 
   server.listen(3099, async () => {
@@ -202,6 +207,7 @@ async function runTests() {
     s2.estado = prevEstado;
     s2.passwordHash = prevHash;
     s2.passwordHistory = prevHistory;
+    s2.mustChangePassword = prevMustChange;
     // Eliminar usuarios de prueba
     db2.users = db2.users.filter(u => !u.email.endsWith('@test.do'));
     save(db2);

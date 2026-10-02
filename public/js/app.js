@@ -530,6 +530,38 @@
       popupAnchor: [0, -36],
     });
   }
+  // El mapa muestra solo República Dominicana: todo lo de fuera se cubre con el color
+  // de la página (el país queda como una isla) y no se puede salir de sus límites.
+  // Con draw, la costa se dibuja sola al cargar.
+  function focusOnDR(map, opts = {}) {
+    const rings = window.DR_OUTLINE;
+    if (!rings || !rings.length) return;
+    const world = [[-85, -180], [-85, 180], [85, 180], [85, -180]];
+    L.polygon([world, ...rings], { className: 'dr-mask', interactive: false, smoothFactor: 0.5 }).addTo(map);
+    const edge = L.polygon(rings, { className: 'dr-edge', interactive: false, fill: false, smoothFactor: 0.5 }).addTo(map);
+    const bounds = L.latLngBounds(rings.flat());
+    map._drBounds = bounds;
+    map.setMaxBounds(bounds.pad(0.12));
+    map.options.maxBoundsViscosity = 1;
+    if (opts.fit !== false) {
+      map.fitBounds(bounds, { padding: [16, 16], animate: false });
+      map.setMinZoom(map.getBoundsZoom(bounds.pad(0.12)));
+    }
+    if (opts.draw && !reduceMotion()) {
+      const path = edge.getElement();
+      if (path && path.getTotalLength) {
+        const len = path.getTotalLength();
+        path.style.strokeDasharray = len;
+        path.style.strokeDashoffset = len;
+        path.getBoundingClientRect();
+        path.classList.add('is-drawing');
+        path.style.strokeDashoffset = 0;
+        // Al terminar se quita el trazo discontinuo para que el zoom no lo deforme.
+        setTimeout(() => { path.style.strokeDasharray = ''; path.classList.remove('is-drawing'); }, 2300);
+      }
+    }
+  }
+
   async function ensureLeaflet() {
     if (typeof L !== 'undefined') return;
     await new Promise((resolve, reject) => {
@@ -625,6 +657,7 @@
         await ensureLeaflet();
         const m = L.map(mapEl, { scrollWheelZoom: false, zoomControl: false, attributionControl: true }).setView([i.lat, i.lng], 14);
         L.tileLayer(tileUrlForTheme(), { maxZoom: 19, attribution: TILE_ATTRIBUTION, className: 'ins-tiles' }).addTo(m);
+        focusOnDR(m, { fit: false });
         L.marker([i.lat, i.lng], { icon: pinIcon(true), keyboard: false }).addTo(m);
       } catch (e) { mapEl.remove(); }
     }
@@ -677,7 +710,7 @@
     const resultsEl = qs('#search-results');
     const countEl = qs('#results-count');
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    Object.keys(window.DR_PROVINCES || {}).sort((a, b) => a.localeCompare(b, 'es'))
+    PROVINCIAS.slice().sort((a, b) => a.localeCompare(b, 'es'))
       .forEach((p) => provSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`));
 
     // En móvil el mapa vive dentro del flujo, entre los filtros y los resultados.
@@ -702,9 +735,10 @@
 
     try {
       await ensureLeaflet();
-      currentMap = L.map(mapContainer, { zoomControl: false, scrollWheelZoom: true }).setView([18.8, -70.2], 8);
+      currentMap = L.map(mapContainer, { zoomControl: false, scrollWheelZoom: true, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 90 }).setView([18.8, -70.2], 8);
       L.control.zoom({ position: 'bottomright' }).addTo(currentMap);
       L.tileLayer(tileUrlForTheme(), { maxZoom: 19, attribution: TILE_ATTRIBUTION, className: 'ins-tiles' }).addTo(currentMap);
+      focusOnDR(currentMap, { draw: true });
     } catch (e) {
       mapContainer.innerHTML = '<div class="map-fallback">El mapa no está disponible en este momento. Puedes seguir buscando en la lista.</div>';
     }
@@ -794,8 +828,14 @@
           bounds.push([i.lat, i.lng]);
         });
         if (userCoords) bounds.push([userCoords.lat, userCoords.lng]);
-        if (bounds.length === 1) currentMap.setView(bounds[0], 13, { animate: !reduceMotion });
-        else if (bounds.length) currentMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13, animate: !reduceMotion });
+        // Sin filtros se ve el país completo; con filtros, el mapa vuela hasta los resultados.
+        if (!filtersActive() && currentMap._drBounds) {
+          currentMap.fitBounds(currentMap._drBounds, { padding: [16, 16], animate: !reduceMotion });
+        } else if (bounds.length === 1) currentMap.setView(bounds[0], 13, { animate: !reduceMotion });
+        else if (bounds.length) {
+          if (reduceMotion) currentMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 13, animate: false });
+          else currentMap.flyToBounds(bounds, { padding: [40, 40], maxZoom: 13, duration: 0.9 });
+        }
       }
 
       qsa('.result-photo').forEach((img) => img.addEventListener('error', () => { img.parentElement.classList.add('is-empty'); img.remove(); }));
@@ -827,8 +867,8 @@
     provSelect.addEventListener('change', () => {
       munSelect.innerHTML = '<option value="">Todos</option>';
       const p = provSelect.value;
-      if (p && window.DR_PROVINCES[p]) {
-        window.DR_PROVINCES[p].forEach((m) => munSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`));
+      if (p && MUNICIPIOS[p]) {
+        MUNICIPIOS[p].forEach((m) => munSelect.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`));
       }
       munSelect.disabled = !p;
       performSearch();
