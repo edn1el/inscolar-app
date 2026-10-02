@@ -94,14 +94,10 @@ router.get('/me/mfa', (req, res) => {
 
 router.post('/me/mfa/start', async (req, res) => {
   const db = req.db;
-  const { method } = req.body || {};
   const code = String(Math.floor(100000 + Math.random() * 900000));
   db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== req.currentUser.id);
-  db.mfaCodes.push({ userId: req.currentUser.id, code, expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), pendingMethod: method || 'correo' });
+  db.mfaCodes.push({ userId: req.currentUser.id, code, expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), pendingMethod: 'correo' });
   save(db);
-  // El metodo "app" (autenticador) es simulado en este prototipo: no se genero
-  // nunca un secreto TOTP real ni un QR real, asi que no tiene correo que mandar.
-  if (method === 'app') return res.json({ devCode: code });
   const sent = await sendMail(db, {
     to: req.currentUser.email,
     subject: 'Inscolar: código de verificación',

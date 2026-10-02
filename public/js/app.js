@@ -1507,16 +1507,10 @@
           <h3>Verificación en dos pasos (MFA)</h3>
           <p class="help" style="margin-bottom:16px;">Al iniciar sesión desde un dispositivo no reconocido, el sistema pedirá un código de verificación adicional.</p>
           ${mfa.enabled
-            ? `<div class="notice ok">MFA activado · método: ${escapeHtml(mfa.method === 'app' ? 'App autenticadora' : 'Correo electrónico')}</div>
+            ? `<div class="notice ok">MFA activado · método: Correo electrónico</div>
                <button class="btn btn-secondary" style="width:auto; padding:10px 18px;" id="mfa-off">Desactivar MFA</button>`
             : `<div id="mfa-flow">
-                 <div class="field" style="margin-bottom:10px;">
-                   <label>Método de verificación</label>
-                   <select id="mfa-method">
-                     <option value="correo">Correo electrónico</option>
-                     <option value="app">Aplicación autenticadora</option>
-                   </select>
-                 </div>
+                 <p class="help" style="margin-bottom:10px;">La verificación se hace por correo electrónico.</p>
                  <button class="btn btn-primary" style="width:auto; padding:10px 18px;" id="mfa-start">Configurar y Activar</button>
                </div>`
           }
@@ -1555,9 +1549,8 @@
 
     const startBtn = qs('#mfa-start');
     startBtn && startBtn.addEventListener('click', async () => {
-      const selectedMethod = qs('#mfa-method').value;
-      const data = await api('/users/me/mfa/start', { method: 'POST', body: { method: selectedMethod } });
-      const methodLabel = selectedMethod === 'app' ? 'Escanea el código QR en tu app (simulado)' : 'Te hemos enviado un código a tu correo';
+      const data = await api('/users/me/mfa/start', { method: 'POST', body: { method: 'correo' } });
+      const methodLabel = 'Te hemos enviado un código a tu correo';
       const codeNotice = data.devCode
         ? `<div class="notice"><strong>${methodLabel}</strong><br>Modo de prueba: tu código es <strong>${data.devCode}</strong></div>`
         : `<div class="notice"><strong>${methodLabel}</strong><br>Revisa tu bandeja de entrada.</div>`;
