@@ -3088,3 +3088,23 @@ tbody tr:last-child td {
 .student-card h4 { margin:0 0 6px; overflow-wrap:anywhere; }
 .student-card p { margin:0; font-size:.85rem; color:var(--c-ink-soft); }
 .student-avatar { flex-shrink:0; width:42px; height:42px; display:grid; place-items:center; background:var(--c-garnet-subtle); color:var(--c-ink); border-radius:50%; font-weight:700; }
+
+.appointment-actions { display:flex; flex-wrap:wrap; gap:10px; }
+.appointment-form-card { max-width:720px; }
+.appointment-form-card select, .appointment-form-card textarea, #appointment-motive { width:100%; }
+.appointment-slot { display:flex; align-items:center; gap:12px; padding:12px; margin:8px 0; border:1px solid var(--c-border); border-radius:10px; cursor:pointer; }
+.appointment-slot input { width:auto; flex-shrink:0; accent-color:var(--c-garnet); }
+.appointment-slot:focus-within { outline:2px solid var(--c-garnet); outline-offset:2px; }
+.appointment-modal-error { color:var(--c-ink); font-weight:600; overflow-wrap:anywhere; }
+.appointment-available-list { list-style:none; padding:0; display:grid; gap:10px; }
+.appointment-available-list .btn { white-space:normal; text-align:left; }
+.appointment-config-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr)); gap:12px; margin:16px 0; }
+.appointment-config-grid label, #appointment-filters label { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.calendar-available, .calendar-appointment { display:block; font:inherit; font-size:.75rem; text-align:left; width:100%; white-space:normal; border:1px solid var(--c-border); border-radius:6px; padding:4px; margin-top:4px; background:var(--c-surface-2); color:var(--c-ink); overflow-wrap:anywhere; cursor:pointer; }
+.calendar-available { color:var(--c-green); font-weight:700; }
+@media(max-width:640px) {
+  #appointment-filters label { width:100%; }
+  .appointment-calendar .calendar-cell { padding:4px; min-width:0; }
+  .appointment-calendar .calendar-daynum { font-size:.85rem; }
+  .calendar-appointment, .calendar-available { font-size:.65rem; }
+}
