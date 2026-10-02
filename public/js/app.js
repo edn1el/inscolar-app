@@ -661,35 +661,32 @@
             if (typeof i.lat === 'number' && typeof i.lng === 'number') {
               const markerIcon = L.divIcon({
                 className: 'modern-pin',
-                html: `<svg viewBox="0 0 24 24" fill="var(--primary-color)" stroke="#fff" stroke-width="2" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3" fill="#fff"></circle></svg>`,
+                html: `<svg viewBox="0 0 24 24" fill="var(--primary-color)" stroke="#fff" stroke-width="2" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform: scale(1.1);"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3" fill="#fff"></circle></svg>`,
                 iconSize: [32, 32],
                 iconAnchor: [16, 32],
-                popupAnchor: [0, -32],
                 tooltipAnchor: [0, -32]
               });
               const marker = L.marker([i.lat, i.lng], { icon: markerIcon }).addTo(currentMap);
               
+              const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
-                <div style="min-width: 200px; padding: 4px;">
-                  <strong style="color:var(--primary-color); font-size:15px; display:block; margin-bottom:6px;">${escapeHtml(i.nombre)}</strong>
-                  <span style="font-size:11px; padding:3px 8px; background:#eef1f4; color:#333; border-radius:12px;">${escapeHtml(i.tipo)}</span>
-                  <div style="font-size:13px; margin-top:8px; color:#555;">📍 ${escapeHtml(i.municipio || '')}, ${escapeHtml(i.provincia || '')}</div>
-                  ${i.telefono ? `<div style="font-size:13px; margin-top:4px; color:#555;">📞 ${escapeHtml(i.telefono)}</div>` : ''}
-                  <div style="font-size:13px; margin-top:4px; color:#555;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Sin calificación'}</div>
-                  <div style="margin-top:8px; font-size:12px; font-weight:bold; color:var(--primary-color);">Clic para ver más detalles</div>
+                <div style="display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
+                  <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
+                    <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
+                  </div>
+                  <div style="flex:1;">
+                    <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
+                    <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
+                    <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
+                    <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
+                  </div>
                 </div>
               `;
-              marker.bindTooltip(detailsHtml, { direction: 'top', opacity: 0.95 });
-              marker.bindPopup(`<strong>${escapeHtml(i.nombre)}</strong><br><a href="#/buscar/${i.id}" style="display:inline-block; margin-top:8px; padding:6px 12px; background:var(--primary-color); color:#fff; border-radius:4px; text-decoration:none; font-size:13px;">Ver perfil completo</a>`);
+              marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip' });
               marker.instId = i.id;
               
               marker.on('click', () => {
-                const card = qs(`.inst-card[data-id="${i.id}"]`);
-                if (card) {
-                  qsa('.inst-card').forEach(c => c.style.borderColor = 'var(--border-color)');
-                  card.style.borderColor = 'var(--primary-color)';
-                  card.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
-                }
+                navigate('#/buscar/' + i.id);
               });
               
               currentMarkers.push(marker);
