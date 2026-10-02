@@ -3,3 +3,5 @@ data/uploads/
 Claude outputs/
 data/db.backup-demo.json
 .env
+data/sessions.json
+data/sessions.json.tmp

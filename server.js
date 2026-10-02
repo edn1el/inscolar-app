@@ -3,6 +3,7 @@ const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const FileSessionStore = require('./lib/session-store');
 
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 if (!fs.existsSync(DB_PATH)) {
@@ -38,6 +39,7 @@ app.use(
     // cada vez que el proceso reinicia. En producción hay que fijar
     // SESSION_SECRET para que los usuarios no se desloguen en cada deploy.
     secret: process.env.SESSION_SECRET || crypto.randomBytes(24).toString('hex'),
+    store: new FileSessionStore(path.join(__dirname, 'data', 'sessions.json')),
     resave: false,
     saveUninitialized: false,
     cookie: {
