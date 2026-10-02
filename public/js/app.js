@@ -2,7 +2,9 @@
   'use strict';
 
   const root = document.getElementById('root');
-  const state = { user: null, authChecked: false, setupNeeded: false, pendingMfa: null };
+  const state = { user: null, authChecked: false, setupNeeded: false, pendingMfa: null, pendingRedirect: null };
+  let cleanupParticles = () => {};
+  let routerVersion = 0;
 
   // ---------------- helpers ----------------
   function escapeHtml(s) {
@@ -259,16 +261,11 @@
   }
 
   async function router() {
-    const activeContent = document.querySelector('.main, .search-layout, .auth-layout, [style*="max-width:800px"]');
-    if (activeContent) {
-      activeContent.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-      activeContent.style.opacity = '0';
-      activeContent.style.transform = 'scale(0.98)';
-      await new Promise(r => setTimeout(r, 150));
-    }
-
-    root.innerHTML = '<div class="loading" style="animation: fadeUp 0.3s ease forwards;">Cargando…</div>';
+    const version = ++routerVersion;
+    cleanupParticles();
+    root.innerHTML = '<div class="loading">Cargando…</div>';
     await ensureAuth();
+    if (version !== routerVersion) return;
     const { segs, query } = parseHash();
 
     if (state.setupNeeded && segs[0] !== 'setup') return navigate('#/setup');
@@ -285,13 +282,19 @@
       case '':
       case 'buscar': return viewBuscar(segs.slice(1));
       case 'setup': return viewSetup();
-      case 'login': return viewLogin();
+      case 'login': return viewLogin(query);
       case 'mfa': return viewMfa();
       case 'force-change': return viewForceChange();
       case 'register': return viewRegister();
       case 'forgot': return viewForgot();
       case 'reset': return viewReset(query.token || '');
-      case 'app': return viewApp(segs.slice(1), query);
+      case 'app': {
+        await viewApp(segs.slice(1), query);
+        if (version !== routerVersion) return;
+        const title = qs('.main h1, .main h2, .main h3, .topbar-title');
+        if (title) { title.tabIndex = -1; title.focus(); }
+        return;
+      }
       default: return navigate('#/');
     }
   }
@@ -301,6 +304,7 @@
 
   // ---------------- shared auth chrome ----------------
   function authShell({ withHero, headline, lede, badge, body }) {
+    cleanupParticles();
     root.innerHTML = `
       <div class="auth-stage ${withHero ? 'with-hero' : ''}">
         ${withHero ? `
@@ -336,7 +340,8 @@
       </div>
     `;
     if (withHero) {
-      setTimeout(initParticles, 0);
+      // La decoración nunca debe impedir que el formulario se vincule.
+      try { initParticles(); } catch (err) { cleanupParticles(); }
     }
   }
 
@@ -344,6 +349,7 @@
     const canvas = document.getElementById('particles-bg');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const btn = document.getElementById('pause-particles');
     let animationId;
     let particles = [];
@@ -351,6 +357,13 @@
     let isSuccess = false;
     let successTarget = { x: 0, y: 0 };
     
+    cleanupParticles = () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('resize', resize);
+      window._triggerLoginSuccess = null;
+      cleanupParticles = () => {};
+    };
+
     if (isPaused && btn) btn.style.display = 'none';
     
     function resize() {
@@ -427,13 +440,13 @@
       animationId = requestAnimationFrame(draw);
     }
     
-    if (!isPaused) draw();
-    else draw();
+    draw();
     
     if (btn) {
       btn.addEventListener('click', () => {
         isPaused = !isPaused;
         btn.setAttribute('aria-pressed', isPaused.toString());
+        cancelAnimationFrame(animationId);
         if (!isPaused) draw();
         btn.innerHTML = isPaused 
           ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Reproducir'
@@ -442,15 +455,16 @@
     }
 
     window._triggerLoginSuccess = (destId) => {
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
-      return new Promise(resolve => {
-        isSuccess = true;
-        isPaused = false;
-        if (btn) btn.style.opacity = '0';
-        const destEl = document.querySelector(destId || '.medallion');
-        if (destEl) {
-          const rect = destEl.getBoundingClientRect();
-          const heroRect = canvas.closest('.hero').getBoundingClientRect();
+      if (!canvas.isConnected || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      isSuccess = true;
+      isPaused = false;
+      if (btn) btn.style.opacity = '0';
+      const destEl = document.querySelector(destId || '.medallion');
+      if (destEl) {
+        const rect = destEl.getBoundingClientRect();
+        const hero = canvas.closest('.hero');
+        if (hero) {
+          const heroRect = hero.getBoundingClientRect();
           successTarget = {
             x: rect.left - heroRect.left + rect.width / 2,
             y: rect.top - heroRect.top + rect.height / 2
@@ -458,9 +472,11 @@
         } else {
           successTarget = { x: canvas.width / 2, y: canvas.height / 2 };
         }
-        draw();
-        setTimeout(resolve, 600);
-      });
+      } else {
+        successTarget = { x: canvas.width / 2, y: canvas.height / 2 };
+      }
+      cancelAnimationFrame(animationId);
+      draw();
     };
   }
 
@@ -488,7 +504,7 @@
           
           <div style="padding:20px; max-width:800px; margin:0 auto; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0;">
             <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}')` : 'background:#e1ecf7;'} border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-              <div class="inst-hero-overlay" style="border-radius: 12px; padding: 30px;">
+              <div class="inst-hero-overlay" style="border-radius: 12px; padding: 30px; display:flex; flex-direction:column; gap:20px;">
                 <div class="inst-hero-body" style="display:flex; align-items:center; gap:20px;">
                   ${logoUrl ? `<img src="${logoUrl}" style="width:80px; height:80px; border-radius:12px; object-fit:cover; border:3px solid #fff;">` : `<div style="width:80px; height:80px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; border:3px solid #eee; color:var(--text-muted);">${ICONS.building}</div>`}
                   <div>
@@ -496,6 +512,11 @@
                     <span class="pill" style="background:${ts.bg};color:${ts.fg}; font-size: 0.8rem; padding: 4px 8px;">${escapeHtml(i.tipo)}</span>
                   </div>
                 </div>
+                ${i.estado === 'Activo' ? `
+                <div class="inst-hero-actions">
+                  <a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary" style="text-decoration:none;">Inscribir estudiante</a>
+                </div>
+                ` : ''}
               </div>
             </div>
 
@@ -677,14 +698,17 @@
         }
 
         qs('#search-results').innerHTML = data.institutions.map(i => `
-          <div class="inst-card" data-id="${i.id}" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
-            <h4 style="margin:0 0 5px 0; color:var(--primary-color);">${escapeHtml(i.nombre)}</h4>
-            <div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">
-              ${escapeHtml(i.municipio || '')}${i.provincia && i.municipio ? ', ' : ''}${escapeHtml(i.provincia || '')}
+          <div class="inst-card" tabindex="0" style="padding:15px; border:1px solid var(--border-color); margin-bottom:10px; border-radius:8px; cursor:pointer; background:var(--bg-card); transition: border-color 0.2s;">
+            <div onclick="window.location.hash='#/buscar/${i.id}'">
+              <h4 style="margin:0 0 5px 0; color:var(--primary-color);">${escapeHtml(i.nombre)}</h4>
+              <div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">
+                ${escapeHtml(i.municipio || '')}${i.provincia && i.municipio ? ', ' : ''}${escapeHtml(i.provincia || '')}
+              </div>
+              ${i.distanciaKm !== undefined && i.distanciaKm !== null ? `<div style="font-size:12px; font-weight:600; color:var(--primary-color);">📍 A ${i.distanciaKm} km</div>` : ''}
             </div>
-            ${i.distanciaKm !== undefined && i.distanciaKm !== null ? `<div style="font-size:12px; font-weight:600; color:var(--primary-color);">📍 A ${i.distanciaKm} km</div>` : ''}
-            <div style="margin-top:10px;">
+            <div style="margin-top:10px; display:flex; gap:8px;">
               <a href="#/buscar/${i.id}" class="btn btn-ghost btn-small view-inst" style="padding:4px 8px; text-decoration:none;">Ver detalles</a>
+              ${i.estado === 'Activo' ? `<a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary btn-small" style="padding:4px 8px; text-decoration:none;">Inscribir</a>` : ''}
             </div>
           </div>
         `).join('');
@@ -704,16 +728,21 @@
               
               const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
-                <div style="cursor:pointer; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
-                  <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
-                    <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <div style="cursor:pointer; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;" onclick="window.location.hash='#/buscar/${i.id}'">
+                    <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
+                      <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
+                    </div>
+                    <div style="flex:1; text-align:left;">
+                      <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
+                      <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
+                      <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
+                      <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
+                    </div>
                   </div>
-                  <div style="flex:1; text-align:left;">
-                    <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
-                    <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
-                    <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
-                    <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
-                  </div>
+                  ${i.estado === 'Activo' ? `
+                  <a href="${state.user && state.user.role === 'Tutor' ? `#/app/inscripciones/nueva?inst=${i.id}` : `#/login?redirect=${encodeURIComponent('#/app/inscripciones/nueva?inst='+i.id)}`}" class="btn btn-primary btn-small" style="text-decoration:none; text-align:center; display:block; padding:8px;">Inscribir estudiante</a>
+                  ` : ''}
                 </div>
               `;
               marker.instId = i.id;
@@ -721,16 +750,8 @@
               const isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window);
               if (isMobile) {
                 marker.bindPopup(detailsHtml, { className: 'modern-popup', closeButton: false, minWidth: 250, offset: [0, -15] });
-                marker.on('popupopen', function(e) {
-                  e.popup.getElement().addEventListener('click', function() {
-                    navigate('#/buscar/' + i.id);
-                  });
-                });
               } else {
-                marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip' });
-                marker.on('click', () => {
-                  navigate('#/buscar/' + i.id);
-                });
+                marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip', interactive: true });
               }
               
               currentMarkers.push(marker);
@@ -871,7 +892,14 @@
   }
 
   // ---------------- HU006 login ----------------
-  function viewLogin() {
+  function loginDestination(user, redirect) {
+    // parseHash ya decodifica los parámetros. Solo aceptar destinos internos.
+    const tutorOnly = /^#\/app\/inscripciones\/(nueva|estudiante-nuevo)(?:[/?]|$)/.test(redirect || '');
+    return typeof redirect === 'string' && redirect.startsWith('#/app/')
+      && (!tutorOnly || user.role === 'Tutor') ? redirect : '#/app/perfil';
+  }
+
+  function viewLogin(query = {}) {
     const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
     authShell({
       withHero: true,
@@ -907,8 +935,10 @@
 
     qs('#login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
-      qs('#err').innerHTML = '';
+      const form = e.target;
+      const loginHash = window.location.hash;
+      const fd = new FormData(form);
+      qs('#err', form.parentElement).innerHTML = '';
       
       const submitBtn = qs('button[type="submit"]', e.target);
       const originalText = submitBtn.textContent;
@@ -924,42 +954,35 @@
       try {
         const deviceToken = localStorage.getItem('deviceToken');
         const data = await api('/auth/login', { method: 'POST', body: { email: fd.get('email'), password: fd.get('password'), deviceToken } });
-        
-        if (window._triggerLoginSuccess) {
-          await window._triggerLoginSuccess('.medallion');
-        }
 
         if (data.status === 'mfa_required') {
           state.pendingMfa = data;
+          state.pendingRedirect = query.redirect;
           navigate('#/mfa');
         } else if (data.status === 'must_change_password') {
+          state.pendingRedirect = query.redirect;
           navigate('#/force-change');
         } else {
           state.user = data.user;
-          navigate('#/app/perfil');
+          state.authChecked = true;
+          state.pendingRedirect = null;
+          const destination = loginDestination(data.user, query.redirect);
+          if (window.location.hash !== loginHash || !form.isConnected) return;
+          // La animación es opcional: no esperar su resultado ni propagar sus fallos.
+          try {
+            if (window._triggerLoginSuccess) {
+              Promise.resolve(window._triggerLoginSuccess('.medallion')).catch(() => {});
+            }
+          } catch (err) { /* continuar con la navegación */ }
+          navigate(destination);
         }
-        
-        setTimeout(() => {
-          const title = document.querySelector('h1, h2, h3, .topbar-title');
-          if (title) {
-            title.tabIndex = -1;
-            title.focus();
-          }
-        }, 100);
       } catch (err) {
+        if (!form.isConnected) return;
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
-        qs('#err').innerHTML = fieldErrorsBlock(err.errors);
-        
-        // Colocar el foco en el primer input con error, o en el input de email
-        setTimeout(() => {
-          const firstErrInput = qs('.field.error input, .field.error select');
-          if (firstErrInput) {
-            firstErrInput.focus();
-          } else {
-            qs('input[name="email"]').focus();
-          }
-        }, 50);
+        qs('#err', form.parentElement).innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+        const firstErrInput = qs('.field.error input, .field.error select', form);
+        (firstErrInput || qs('input[name="email"]', form)).focus();
       }
     });
   }
@@ -1016,7 +1039,10 @@
         }
         state.user = data.user;
         state.pendingMfa = null;
-        navigate('#/app/perfil');
+        state.authChecked = true;
+        const destination = loginDestination(data.user, state.pendingRedirect);
+        state.pendingRedirect = null;
+        navigate(destination);
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors);
       }
@@ -1050,8 +1076,11 @@
           body: { currentPassword: fd.get('currentPassword'), newPassword: fd.get('newPassword'), confirmNewPassword: fd.get('confirmNewPassword') },
         });
         state.user = data.user;
+        state.authChecked = true;
         toast('Contraseña actualizada.', 'ok');
-        navigate('#/app/perfil');
+        const destination = loginDestination(data.user, state.pendingRedirect);
+        state.pendingRedirect = null;
+        navigate(destination);
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors);
       }
@@ -3101,178 +3130,665 @@
     });
   }
 
+
   async function renderInscripcionForm() {
     const [{ students }, { institutions }] = await Promise.all([api('/students'), api('/institutions')]);
     const activas = institutions.filter((i) => (i.estado || 'Activo') === 'Activo');
     const ciclos = cicloOptions();
-    let selectedInst = null;
-    let step = 1;
+    
+    const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const preInstId = query.get('inst');
+    const u = state.user || {};
+    
+    let wState = {
+      step: 1,
+      studentId: students.length ? students[0].id : 'new',
+      newStudent: { nombre: '', fechaNacimiento: '' },
+      tutorName: u.nombre || '',
+      tutorPhone: u.telefono || '',
+      institucionId: preInstId || '',
+      gradoSolicitado: GRADOS[0],
+      cicloEscolar: ciclos[0],
+      periodosValidos: [],
+      documentos: []
+    };
 
-    async function renderStep() {
-      if (step === 1) {
-        qs('.main').innerHTML = `
-          <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
-          <div class="page-head" style="margin-bottom:10px;"><h2>Paso 1: Seleccionar institución</h2></div>
-          <p class="lede" style="margin-bottom:20px;">Explora el mapa y selecciona la escuela donde deseas inscribir al estudiante.</p>
-          
-          <div class="search-layout" style="height: 60vh; min-height: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--border-color); display:flex; flex-direction:row;">
-            <div class="search-sidebar" style="width: 350px; padding: 15px; border-right: 1px solid var(--border-color); background: var(--bg-card); display:flex; flex-direction:column; gap:10px;">
-              <input type="text" id="map-filter" placeholder="Buscar por nombre..." class="search-input" style="padding:10px; border:1px solid var(--border-color); border-radius:8px; width:100%;">
-              <div id="inst-list" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;"></div>
-            </div>
-            <div class="search-map" id="enroll-map-container" style="flex:1; background:var(--bg-body); position:relative;"></div>
+    let draftId = localStorage.getItem('enrollment_draft_id');
+    let expiresAt = null;
+    let timerId = null;
+    let warningModal = null;
+    let activityTimeout = null;
+    let broadcast = null;
+    try { broadcast = new BroadcastChannel('enrollment_draft'); } catch(e) {}
+
+    const clearDraft = () => {
+      draftId = null;
+      localStorage.removeItem('enrollment_draft_id');
+      clearTimeout(timerId);
+      if (warningModal) warningModal.remove();
+      window._navInterceptor = null;
+    };
+
+    const handleExpire = () => {
+      clearDraft();
+      qs('.main').innerHTML = `
+        <div class="card" style="max-width:500px; margin:40px auto; text-align:center;">
+          <div style="width:64px; height:64px; background:#c23b3b; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+            ${ICONS.clock || '⏰'}
           </div>
-        `;
-        bindShellEvents();
+          <h2 style="margin-bottom:10px;">Borrador expirado</h2>
+          <p class="lede" style="margin-bottom:20px;">Tu solicitud de inscripción ha sido cancelada por inactividad. Los cupos reservados han sido liberados.</p>
+          <button class="btn btn-primary" onclick="window.location.hash='#/app/inscripciones/nueva'">Iniciar nueva solicitud</button>
+        </div>
+      `;
+    };
 
-        const listContainer = qs('#inst-list');
-        const filterInput = qs('#map-filter');
-        let markers = [];
-        let mapObj = null;
-
-        if (typeof L === 'undefined') {
-          qs('#enroll-map-container').innerHTML = '<div class="loading" style="padding:20px">Cargando mapa...</div>';
-          await new Promise((resolve) => {
-            const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
-            const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = resolve; document.head.appendChild(script);
-          });
-        }
-
-          const mapEl = qs('#enroll-map-container');
-        if (mapEl) {
-          mapEl.innerHTML = '';
-          mapObj = L.map(mapEl).setView([18.7357, -70.1627], 8);
-          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-          
-          const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapObj);
-          
-          if (isDark) {
-            // Apply CSS filter to OSM tiles for a dark mode effect
-            tileLayer.on('add', () => {
-              const tilePane = mapEl.querySelector('.leaflet-tile-pane');
-              if (tilePane) {
-                tilePane.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
-              }
-            });
-          }
-
-          // Custom Marker Icon (Premium visual)
-          const createIcon = (color) => L.divIcon({
-            className: 'custom-pin',
-            html: `<svg viewBox="0 0 24 24" fill="${color}" width="32" height="32" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform-origin:bottom; transition:transform 0.2s;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
-            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
-          });
-
-          const defaultIcon = createIcon('var(--primary-color)');
-          const hoverIcon = createIcon('var(--c-amber)');
-
-          const renderList = (query = '') => {
-            const filtered = activas.filter(i => i.nombre.toLowerCase().includes(query.toLowerCase()));
-            listContainer.innerHTML = filtered.map(i => `
-              <div class="inst-item" data-id="${i.id}" style="padding:12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer; transition:all 0.2s; background:var(--bg-card);">
-                <div style="font-weight:600; color:var(--primary-color);">${escapeHtml(i.nombre)}</div>
-                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">${escapeHtml(i.municipio||'')}</div>
-              </div>
-            `).join('');
-
-            markers.forEach(m => m.remove());
-            markers = [];
-            const bounds = [];
-            
-            filtered.forEach(i => {
-              if (i.lat && i.lng) {
-                const m = L.marker([i.lat, i.lng], { icon: defaultIcon }).addTo(mapObj);
-                const popupContent = document.createElement('div');
-                popupContent.innerHTML = `<strong>${escapeHtml(i.nombre)}</strong><br><button class="btn btn-primary btn-small" style="margin-top:8px; width:100%;">Seleccionar</button>`;
-                popupContent.querySelector('button').addEventListener('click', () => { selectedInst = i; step = 2; renderStep(); });
-                m.bindPopup(popupContent);
-                m.instId = i.id;
-                
-                m.on('mouseover', () => m.setIcon(hoverIcon));
-                m.on('mouseout', () => m.setIcon(defaultIcon));
-                m.on('click', () => {
-                  qsa('.inst-item').forEach(el => el.style.borderColor = 'var(--border-color)');
-                  const card = qs(`.inst-item[data-id="${i.id}"]`);
-                  if (card) { card.style.borderColor = 'var(--c-amber)'; card.scrollIntoView({behavior:'smooth', block:'nearest'}); }
-                });
-
-                markers.push(m);
-                bounds.push([i.lat, i.lng]);
-              }
-            });
-            if (bounds.length > 0) mapObj.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
-
-            qsa('.inst-item').forEach(card => {
-              card.addEventListener('mouseenter', () => {
-                const mk = markers.find(x => x.instId === card.dataset.id);
-                if (mk) { mk.setIcon(hoverIcon); mk.setZIndexOffset(1000); }
-              });
-              card.addEventListener('mouseleave', () => {
-                const mk = markers.find(x => x.instId === card.dataset.id);
-                if (mk) { mk.setIcon(defaultIcon); mk.setZIndexOffset(0); }
-              });
-              card.addEventListener('click', () => {
-                selectedInst = activas.find(x => x.id === card.dataset.id);
-                step = 2;
-                renderStep();
-              });
-            });
-          };
-
-          renderList();
-          filterInput.addEventListener('input', (e) => renderList(e.target.value));
-        }
-
-      } else if (step === 2) {
-        qs('.main').innerHTML = `
-          <button class="back-link" id="btn-back-step">${ICONS.back} Volver al mapa</button>
-          <div class="page-head"><h2>Paso 2: Datos de inscripción</h2></div>
-          <div class="chart-card" style="max-width:560px;">
-            <div style="background:var(--bg-body); padding:15px; border-radius:8px; margin-bottom:20px; display:flex; align-items:center; gap:15px; border:1px solid var(--border-color);">
-              <div style="width:48px; height:48px; border-radius:8px; background:var(--primary-color); color:#fff; display:flex; align-items:center; justify-content:center;">${ICONS.building}</div>
-              <div>
-                <div style="font-weight:600; font-size:16px;">${escapeHtml(selectedInst.nombre)}</div>
-                <div style="font-size:13px; color:var(--text-muted);">${escapeHtml(selectedInst.provincia)}</div>
+    const scheduleChecks = () => {
+      clearTimeout(timerId);
+      if (!expiresAt) return;
+      const msLeft = expiresAt - Date.now();
+      const WARNING_MS = 10 * 60 * 1000;
+      
+      if (msLeft <= 0) {
+        handleExpire();
+        return;
+      }
+      
+      if (msLeft <= WARNING_MS) {
+        if (!warningModal) {
+          warningModal = document.createElement('div');
+          warningModal.className = 'modal-backdrop';
+          warningModal.innerHTML = `
+            <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+              <h3 id="modal-title" style="margin-top:0;">¿Sigues aquí?</h3>
+              <p>Tu inscripción sigue en borrador. Si no continúas, el proceso se cerrará por inactividad y se liberará cualquier cupo reservado.</p>
+              <p style="font-size:1.5rem; font-weight:bold; color:#eab308; margin-bottom:20px;" id="inactivity-countdown"></p>
+              <div style="display:flex; gap:10px; justify-content:flex-end;">
+                <button class="btn btn-secondary" id="btn-abandon-draft">Salir del proceso</button>
+                <button class="btn btn-primary" id="btn-continue-draft">Continuar inscripción</button>
               </div>
             </div>
-            <div id="err"></div>
-            <form id="enroll-form">
-              <input type="hidden" name="institucionId" value="${selectedInst.id}">
-              <div class="field"><label>Estudiante</label>
-                <select name="studentId">${students.map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('')}</select>
-              </div>
-              <div class="two-col">
-                <div class="field"><label>Grado solicitado</label>
-                  <select name="gradoSolicitado">${GRADOS.map((g) => `<option>${escapeHtml(g)}</option>`).join('')}</select>
-                </div>
-                <div class="field"><label>Ciclo escolar</label>
-                  <select name="cicloEscolar">${ciclos.map((c) => `<option>${c}</option>`).join('')}</select>
-                </div>
-              </div>
-              <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Enviar solicitud</button>
-              </div>
-            </form>
-          </div>
-        `;
-        qs('#btn-back-step').addEventListener('click', () => { step = 1; renderStep(); });
+          `;
+          document.body.appendChild(warningModal);
+          
+          const focusable = warningModal.querySelectorAll('button');
+          if (focusable.length) focusable[1].focus();
+          
+          warningModal.querySelector('#btn-continue-draft').addEventListener('click', () => {
+            reportActivity(true);
+          });
+          
+          warningModal.querySelector('#btn-abandon-draft').addEventListener('click', () => {
+             customConfirm('¿Seguro que deseas salir? Perderás los datos no guardados y tu cupo reservado.', 'Sí, salir', async () => {
+                if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
+                if (broadcast) broadcast.postMessage({ type: 'abandoned' });
+                clearDraft();
+                navigate('#/app/inscripciones');
+             });
+          });
+          
+          warningModal.addEventListener('keydown', (e) => {
+             if (e.key === 'Escape') {
+                e.stopPropagation(); // "Cerrarlo con Escape no debe confirmar actividad... ni abandonar el borrador"
+                warningModal.remove();
+                warningModal = null;
+             }
+          });
+        }
         
-        qs('#enroll-form').addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const fd = new FormData(e.target);
-          qs('#err').innerHTML = '';
-          try {
-            await api('/enrollments', { method: 'POST', body: Object.fromEntries(fd.entries()) });
-            toast('Solicitud enviada.', 'ok');
-            navigate('#/app/inscripciones');
-          } catch (err) {
-            qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+        // Update countdown
+        const cd = warningModal.querySelector('#inactivity-countdown');
+        if (cd) {
+          const m = Math.floor(msLeft / 60000);
+          const s = Math.floor((msLeft % 60000) / 1000);
+          cd.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+        }
+        
+        timerId = setTimeout(scheduleChecks, 1000);
+      } else {
+        if (warningModal) {
+          warningModal.remove();
+          warningModal = null;
+        }
+        const msUntilWarning = msLeft - WARNING_MS;
+        timerId = setTimeout(scheduleChecks, msUntilWarning);
+      }
+    };
+
+    const reportActivity = (force = false) => {
+      if (!draftId) return;
+      if (activityTimeout && !force) return;
+      if (activityTimeout) clearTimeout(activityTimeout);
+      
+      const send = async () => {
+        try {
+          // Send non-file wState data
+          const payload = { ...wState, documentos: [] }; 
+          const res = await api('/drafts/' + draftId + (query.get('expire_mins') ? '?expire_mins=' + query.get('expire_mins') : ''), { method: 'PUT', body: payload });
+          expiresAt = Date.now() + res.timeRemaining;
+          if (broadcast) broadcast.postMessage({ type: 'activity', expiresAt });
+          scheduleChecks();
+        } catch(e) {
+          if (e.message && (e.message.includes('expirado') || e.message.includes('inexistente'))) {
+            handleExpire();
+          } else {
+            toast('Error de conexión al guardar borrador. Se reintentará.', 'error');
           }
-        });
+        }
+      };
+      
+      if (force) send();
+      else activityTimeout = setTimeout(() => { activityTimeout = null; send(); }, 5000); // Throttle 5s
+    };
+
+    if (broadcast) {
+      broadcast.onmessage = (e) => {
+        if (e.data.type === 'activity') {
+          expiresAt = e.data.expiresAt;
+          scheduleChecks();
+        } else if (e.data.type === 'abandoned') {
+          handleExpire();
+        } else if (e.data.type === 'submitted') {
+          clearDraft();
+        }
+      };
+    }
+
+    // Init Draft Session
+    if (draftId) {
+      try {
+        const res = await api('/drafts/' + draftId);
+        expiresAt = Date.now() + res.timeRemaining;
+        wState = { ...wState, ...res.draft.data };
+        scheduleChecks();
+      } catch(e) {
+        draftId = null; // invalid draft, we'll create a new one
       }
     }
+    
+    if (!draftId) {
+       try {
+         const res = await api('/drafts' + (query.get('expire_mins') ? '?expire_mins=' + query.get('expire_mins') : ''), { method: 'POST', body: { ...wState, documentos: [] } });
+         draftId = res.draft.id;
+         expiresAt = res.draft.expiresAt;
+         localStorage.setItem('enrollment_draft_id', draftId);
+         scheduleChecks();
+       } catch (e) {
+         console.warn('Draft init failed', e);
+       }
+    }
+
+    window._navInterceptor = (pendingHash) => {
+      customConfirm('Tienes una inscripción en progreso. ¿Seguro que deseas salir? Perderás los datos no guardados y el cupo reservado.', 'Sí, salir', async () => {
+        if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
+        if (broadcast) broadcast.postMessage({ type: 'abandoned' });
+        clearDraft();
+        if (pendingHash) navigate(pendingHash);
+      });
+      return false;
+    };
+
+    async function fetchConfigAndCheck() {
+      if (!wState.institucionId) return;
+      try {
+         const res = await api('/institutions/' + wState.institucionId + '/periods?cicloEscolar=' + encodeURIComponent(wState.cicloEscolar));
+         wState.periodosValidos = res.periods || [];
+      } catch(e) {
+         wState.periodosValidos = [];
+      }
+    }
+
+    async function renderStep() {
+       let html = '';
+       const steps = ['Estudiante', 'Tutor', 'Institución', 'Documentos', 'Revisión'];
+       const stepperHtml = `
+         <div class="stepper" style="display:flex; justify-content:space-between; margin-bottom:20px; font-size:12px; font-weight:bold; color:var(--text-muted);">
+           ${steps.map((name, i) => `<div style="${wState.step === i+1 ? 'color:var(--primary-color); border-bottom:2px solid var(--primary-color);' : ''} padding-bottom:4px;">${i+1}. ${name}</div>`).join('')}
+         </div>
+       `;
+       
+       let backBtn = `<button class="back-link" id="btn-back-step">${ICONS.back} ${wState.step === 1 ? 'Cancelar inscripción' : 'Paso anterior'}</button>`;
+       
+       if (wState.step === 1) {
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 1: Datos del Estudiante</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:560px;">
+             <form id="step-form">
+               <div class="field"><label>Selecciona un estudiante</label>
+                 <select name="studentId" id="student-sel">
+                   ${students.map(s => `<option value="${s.id}" ${wState.studentId === s.id ? 'selected' : ''}>${escapeHtml(s.nombre)}</option>`).join('')}
+                   <option value="new" ${wState.studentId === 'new' ? 'selected' : ''}>+ Registrar nuevo estudiante</option>
+                 </select>
+               </div>
+               <div id="new-student-fields" style="display:${wState.studentId === 'new' ? 'block' : 'none'}; border-top:1px solid var(--c-border); padding-top:15px; margin-top:15px;">
+                 <div class="field"><label>Nombre completo</label><input type="text" name="new_nombre" value="${escapeHtml(wState.newStudent?.nombre || '')}" ${wState.studentId==='new'?'required':''}></div>
+                 <div class="field"><label>Fecha de nacimiento</label><input type="date" name="new_fecha" value="${wState.newStudent?.fechaNacimiento || ''}" ${wState.studentId==='new'?'required':''}></div>
+               </div>
+               <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
+             </form>
+           </div>
+         `;
+       } else if (wState.step === 2) {
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 2: Tutor y Contacto</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:560px;">
+             <div class="help" style="margin-bottom:15px;">Estos datos se usarán para contactarte sobre esta solicitud (no modifican tu perfil permanentemente aquí).</div>
+             <form id="step-form">
+               <div class="field"><label>Nombre del tutor</label><input type="text" name="tutorName" value="${escapeHtml(wState.tutorName)}" required></div>
+               <div class="field"><label>Teléfono de contacto</label><input type="tel" name="tutorPhone" value="${escapeHtml(wState.tutorPhone)}" required></div>
+               <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
+             </form>
+           </div>
+         `;
+       } else if (wState.step === 3) {
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 3: Institución, Periodo y Grado</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:560px;">
+             <form id="step-form">
+               <div class="field" style="${preInstId ? 'display:none;' : ''}"><label>Institución</label>
+                 <select name="institucionId" id="inst-sel" ${preInstId ? 'disabled' : 'required'}>
+                   <option value="">Selecciona una institución...</option>
+                   ${activas.map(i => `<option value="${i.id}" ${wState.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}
+                 </select>
+               </div>
+               ${preInstId ? `<input type="hidden" name="institucionId" value="${escapeHtml(wState.institucionId)}">` : ''}
+               <div id="inst-card"></div>
+               <div class="two-col">
+                 <div class="field"><label>Grado solicitado</label>
+                   <select name="gradoSolicitado">${GRADOS.map(g => `<option ${wState.gradoSolicitado===g?'selected':''}>${escapeHtml(g)}</option>`).join('')}</select>
+                 </div>
+                 <div class="field"><label>Ciclo escolar</label>
+                   <select name="cicloEscolar">${ciclos.map(c => `<option ${wState.cicloEscolar===c?'selected':''}>${c}</option>`).join('')}</select>
+                 </div>
+               </div>
+               <div id="period-msg" style="margin-bottom:15px;"></div>
+               <div style="margin-top:20px;"><button class="btn btn-primary" id="btn-next-3" type="submit">Continuar</button></div>
+             </form>
+           </div>
+         `;
+       } else if (wState.step === 4) {
+         let reqDocs = [];
+         if (wState.periodosValidos && wState.periodosValidos.length > 0 && wState.periodosValidos[0].documentosRequeridos) {
+            reqDocs = wState.periodosValidos[0].documentosRequeridos;
+         } else {
+            reqDocs = TIPOS_DOCUMENTO.map(t => ({ tipo: t, formatos: ['PDF','JPG','PNG'], maxSizeMB: 5 }));
+         }
+         
+         let uploadedDocs = [];
+         if (draftId) {
+            try {
+              const res = await api('/drafts/' + draftId + '/documents');
+              uploadedDocs = res.documents || [];
+            } catch(e) {}
+         }
+         
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 4: Documentos</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:600px;">
+             <p class="help" style="margin-bottom:15px;">Adjunta los documentos requeridos por la institución para este grado.</p>
+             <div id="docs-list">
+               ${reqDocs.map((req, idx) => {
+                 const docType = (req.tipo || req).trim();
+                 const uploaded = uploadedDocs.find(d => d.tipoDocumento === docType);
+                 const allowedExt = (req.formatos || ['PDF','JPG','PNG']).map(f => '.'+f.toLowerCase()).join(',');
+                 
+                 let inner = '';
+                 if (uploaded) {
+                   inner = `
+                     <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:10px; border-radius:6px; border:1px solid #16a34a;">
+                       <div style="display:flex; align-items:center; gap:10px;">
+                         <div style="color:#16a34a;">${ICONS.check}</div>
+                         <div>
+                           <div style="font-weight:bold; font-size:13px;">${escapeHtml(uploaded.nombreArchivo)}</div>
+                           <div style="font-size:11px; color:var(--text-muted);">${(uploaded.size/1024/1024).toFixed(2)} MB · Cargado</div>
+                         </div>
+                       </div>
+                       <button class="btn btn-secondary btn-small remove-doc-btn" data-id="${uploaded.id}">Quitar</button>
+                     </div>
+                   `;
+                 } else {
+                   inner = `
+                     <div class="doc-upload-area" id="area-${idx}" style="border:2px dashed var(--c-border); padding:20px; text-align:center; border-radius:8px; cursor:pointer; background:var(--bg-body); transition:background 0.2s;">
+                       <div style="color:var(--text-muted); margin-bottom:10px;">${ICONS.document}</div>
+                       <div style="font-size:13px; font-weight:bold; margin-bottom:4px;">Haz clic o arrastra un archivo</div>
+                       <div style="font-size:11px; color:var(--text-muted);">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Máx: ${req.maxSizeMB||5} MB</div>
+                       <input type="file" id="file-${idx}" accept="${allowedExt}" style="display:none;" data-type="${escapeHtml(docType)}" data-max="${req.maxSizeMB||5}">
+                     </div>
+                     <div id="upload-status-${idx}" style="margin-top:10px; font-size:12px;"></div>
+                   `;
+                 }
+                 
+                 return `
+                   <div class="field" style="border:1px solid var(--c-border); padding:15px; border-radius:8px; margin-bottom:15px;" data-req="${idx}">
+                     <label style="margin-bottom:10px; display:block;">${escapeHtml(docType)} ${req.descripcion ? `<span class="help" style="display:inline; margin-left:5px;">- ${escapeHtml(req.descripcion)}</span>` : ''}</label>
+                     ${inner}
+                   </div>
+                 `;
+               }).join('')}
+             </div>
+             ${reqDocs.length === 0 ? '<div class="empty-state">No se requieren documentos adicionales.</div>' : ''}
+             <div style="margin-top:20px;">
+               <button class="btn btn-primary" id="btn-next-4">Continuar</button>
+               <span class="help" id="docs-error" style="color:#ef4444; margin-left:15px; font-size:12px;"></span>
+             </div>
+           </div>
+         `;
+       } else if (wState.step === 5) {
+         const selectedInstObj = activas.find(i => i.id === wState.institucionId) || {};
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 5: Revisión y Envío</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:600px;">
+             <h3 style="margin-top:0;">Resumen de la solicitud</h3>
+             <table class="table" style="margin-top:15px;">
+               <tbody>
+                 <tr><td style="font-weight:bold; width:150px;">Estudiante</td><td>${wState.studentId === 'new' ? escapeHtml(wState.newStudent.nombre) : escapeHtml(students.find(s=>s.id===wState.studentId)?.nombre)}</td></tr>
+                 <tr><td style="font-weight:bold;">Tutor</td><td>${escapeHtml(wState.tutorName)} (${escapeHtml(wState.tutorPhone)})</td></tr>
+                 <tr><td style="font-weight:bold;">Institución</td><td>${escapeHtml(selectedInstObj.nombre)}</td></tr>
+                 <tr><td style="font-weight:bold;">Grado / Ciclo</td><td>${escapeHtml(wState.gradoSolicitado)} · ${wState.cicloEscolar}</td></tr>
+                 <tr><td style="font-weight:bold;">Documentos</td><td>${wState.documentos.length} archivo(s) seleccionados</td></tr>
+               </tbody>
+             </table>
+             <div id="err" style="margin-top:15px;"></div>
+             <div style="margin-top:20px; display:flex; gap:10px;">
+               <button class="btn btn-primary" id="btn-submit-final" style="padding:12px 24px;">Confirmar y Enviar Solicitud</button>
+             </div>
+           </div>
+         `;
+       }
+       
+       qs('.main').innerHTML = html;
+       bindShellEvents();
+       
+       const form = qs('#step-form');
+       if (form) {
+         // Report activity on input changes
+         form.addEventListener('input', () => reportActivity());
+         form.addEventListener('change', () => reportActivity());
+         
+         form.addEventListener('submit', async (e) => {
+           e.preventDefault();
+           reportActivity(true);
+           const fd = new FormData(form);
+           
+           if (wState.step === 1) {
+             wState.studentId = fd.get('studentId');
+             if (wState.studentId === 'new') {
+               wState.newStudent.nombre = fd.get('new_nombre');
+               wState.newStudent.fechaNacimiento = fd.get('new_fecha');
+             }
+             wState.step = 2; renderStep();
+           } else if (wState.step === 2) {
+             wState.tutorName = fd.get('tutorName');
+             wState.tutorPhone = fd.get('tutorPhone');
+             wState.step = 3; renderStep();
+           } else if (wState.step === 3) {
+             wState.institucionId = fd.get('institucionId');
+             wState.gradoSolicitado = fd.get('gradoSolicitado');
+             wState.cicloEscolar = fd.get('cicloEscolar');
+             
+             const btn = qs('#btn-next-3');
+             btn.disabled = true; btn.textContent = 'Verificando...';
+             await fetchConfigAndCheck();
+             
+             if (wState.periodosValidos.length === 0) {
+               qs('#period-msg').innerHTML = '<div class="alert error" style="margin-bottom:15px;">No hay un periodo de inscripción abierto para esta institución y ciclo.</div>';
+               btn.disabled = false; btn.textContent = 'Continuar';
+               return;
+             }
+             wState.step = 4; renderStep();
+           } else if (wState.step === 4) {
+             wState.documentos = Array.from(fd.entries()).filter(([k,v]) => v instanceof File && v.size > 0);
+             wState.step = 5; renderStep();
+           }
+         });
+       }
+
+       const btnBack = qs('#btn-back-step');
+       if (btnBack) {
+         btnBack.addEventListener('click', async () => {
+           reportActivity(true);
+           if (wState.step === 1) {
+             customConfirm('¿Seguro que deseas salir? Perderás los datos no guardados y el cupo reservado.', 'Sí, salir', async () => {
+               if (draftId) await api('/drafts/' + draftId, { method: 'DELETE' }).catch(e=>e);
+               if (broadcast) broadcast.postMessage({ type: 'abandoned' });
+               clearDraft();
+               navigate('#/app/inscripciones');
+             });
+           } else {
+             wState.step--;
+             renderStep();
+           }
+         });
+       }
+
+       if (wState.step === 1) {
+         const sel = qs('#student-sel');
+         sel.addEventListener('change', () => {
+           qs('#new-student-fields').style.display = sel.value === 'new' ? 'block' : 'none';
+           qs('[name="new_nombre"]').required = sel.value === 'new';
+           qs('[name="new_fecha"]').required = sel.value === 'new';
+         });
+       }
+
+       if (wState.step === 3) {
+         const ensureLeaflet = async () => {
+            if (typeof L !== 'undefined') return;
+            await new Promise((resolve) => {
+              const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+              const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = resolve; document.head.appendChild(script);
+            });
+         };
+         
+         const renderInstCard = async () => {
+           const id = qs('#inst-sel').value;
+           const inst = activas.find(i => i.id === id);
+           const c = qs('#inst-card');
+           if (!inst) { c.innerHTML = ''; return; }
+           c.innerHTML = `
+             <div style="background:var(--bg-body); padding:15px; border-radius:8px; margin-bottom:15px; border:1px solid var(--border-color);">
+               <div style="display:flex; align-items:center; gap:15px; margin-bottom:${inst.lat ? '15px' : '0'};">
+                 <div style="width:40px; height:40px; border-radius:8px; background:var(--primary-color); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${ICONS.building}</div>
+                 <div>
+                   <div style="font-weight:bold;">${escapeHtml(inst.nombre)}</div>
+                   <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(inst.direccion || '')} · ${escapeHtml(inst.municipio || '')}, ${escapeHtml(inst.provincia || '')}</div>
+                 </div>
+               </div>
+               ${inst.lat && inst.lng ? `<div id="mini-map" style="height:150px; border-radius:8px; background:#e0e0e0; z-index:1;"></div>` : ''}
+             </div>
+           `;
+           if (inst.lat && inst.lng) {
+             await ensureLeaflet();
+             const mapEl = qs('#mini-map');
+             if (mapEl) {
+               const m = L.map(mapEl, {zoomControl:false, dragging:false, scrollWheelZoom:false}).setView([inst.lat, inst.lng], 14);
+               const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+               const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
+               if (isDark) {
+                 tileLayer.on('add', () => {
+                   const tp = mapEl.querySelector('.leaflet-tile-pane');
+                   if (tp) tp.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
+                 });
+               }
+               
+               const createIcon = (color) => L.divIcon({
+                 className: 'custom-pin',
+                 html: `<svg viewBox="0 0 24 24" fill="${color}" width="32" height="32" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform-origin:bottom; transition:transform 0.2s;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
+                 iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+               });
+               L.marker([inst.lat, inst.lng], { icon: createIcon('var(--primary-color)') }).addTo(m);
+             }
+           }
+         };
+         qs('#inst-sel').addEventListener('change', renderInstCard);
+         renderInstCard();
+       }
+
+
+       if (wState.step === 4) {
+         let isUploading = false;
+         
+         const uploadFile = async (file, type, maxMB, statusEl) => {
+           if (isUploading) return;
+           isUploading = true;
+           
+           if (file.size > maxMB * 1024 * 1024) {
+             statusEl.innerHTML = `<span style="color:#ef4444;">El archivo supera el tamaño máximo permitido (${maxMB} MB).</span>`;
+             isUploading = false;
+             return;
+           }
+           
+           const fd = new FormData();
+           fd.append('archivo', file);
+           fd.append('tipoDocumento', type);
+           
+           statusEl.innerHTML = '<span style="color:#3b82f6;">Cargando documento... (Por favor espera)</span>';
+           
+           try {
+             await api('/drafts/' + draftId + '/documents', { method: 'POST', body: fd, isMultipart: true });
+             reportActivity(true);
+             renderStep();
+           } catch(e) {
+             statusEl.innerHTML = `<span style="color:#ef4444;">${e.errors ? e.errors[0] : 'Error al cargar el documento.'} <button class="btn btn-ghost btn-small" style="padding:0; margin-left:5px; text-decoration:underline;">Reintentar</button></span>`;
+             const retryBtn = statusEl.querySelector('button');
+             if (retryBtn) retryBtn.addEventListener('click', () => uploadFile(file, type, maxMB, statusEl));
+           } finally {
+             isUploading = false;
+           }
+         };
+
+         qsAll('.doc-upload-area').forEach(area => {
+           const input = area.querySelector('input[type="file"]');
+           const statusEl = area.nextElementSibling;
+           const type = input.getAttribute('data-type');
+           const maxMB = parseFloat(input.getAttribute('data-max'));
+           
+           area.addEventListener('click', () => { if (!isUploading) input.click(); });
+           
+           area.addEventListener('dragover', e => { e.preventDefault(); area.style.background = 'var(--bg-card)'; });
+           area.addEventListener('dragleave', e => { e.preventDefault(); area.style.background = 'var(--bg-body)'; });
+           area.addEventListener('drop', e => {
+             e.preventDefault();
+             area.style.background = 'var(--bg-body)';
+             if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+               uploadFile(e.dataTransfer.files[0], type, maxMB, statusEl);
+             }
+           });
+           
+           input.addEventListener('change', e => {
+             if (e.target.files && e.target.files.length > 0) {
+               uploadFile(e.target.files[0], type, maxMB, statusEl);
+             }
+           });
+         });
+         
+         qsAll('.remove-doc-btn').forEach(btn => {
+           btn.addEventListener('click', () => {
+             customConfirm('¿Seguro que deseas quitar este documento?', 'Sí, quitar', async () => {
+                const id = btn.getAttribute('data-id');
+                btn.disabled = true;
+                btn.textContent = 'Quitando...';
+                try {
+                  await api('/documents/' + id, { method: 'DELETE' });
+                  reportActivity(true);
+                  renderStep();
+                } catch(e) {
+                  toast('Error al quitar el documento', 'error');
+                  btn.disabled = false;
+                  btn.textContent = 'Quitar';
+                }
+             });
+           });
+         });
+
+         const btnNext = qs('#btn-next-4');
+         if (btnNext) {
+           btnNext.addEventListener('click', async (e) => {
+             e.preventDefault();
+             const reqs = Array.from(qsAll('.doc-upload-area'));
+             if (reqs.length > 0) {
+               qs('#docs-error').textContent = 'Faltan documentos requeridos por cargar.';
+               return;
+             }
+             if (isUploading) {
+               qs('#docs-error').textContent = 'Hay una carga en progreso, por favor espera.';
+               return;
+             }
+             
+             let count = 0;
+             if (draftId) {
+               try {
+                 const res = await api('/drafts/' + draftId + '/documents');
+                 count = (res.documents || []).length;
+               } catch(err) {}
+             }
+             wState.uploadedDocsCount = count;
+             
+             reportActivity(true);
+             wState.step = 5; 
+             renderStep();
+           });
+         }
+       }
+         if (wState.step === 5) {
+         qs('#btn-submit-final').addEventListener('click', async (e) => {
+           const btn = e.target;
+           if (btn.disabled) return;
+           btn.disabled = true;
+           btn.textContent = 'Enviando...';
+           qs('#err').innerHTML = '';
+           
+           try {
+             let finalStudentId = wState.studentId;
+             if (wState.studentId === 'new') {
+                const sres = await api('/students', { method: 'POST', body: wState.newStudent });
+                finalStudentId = sres.student.id;
+             }
+             
+             const payload = {
+               studentId: finalStudentId,
+               institucionId: wState.institucionId,
+               draftId: draftId,
+               gradoSolicitado: wState.gradoSolicitado,
+               cicloEscolar: wState.cicloEscolar
+             };
+             
+             const eres = await api('/enrollments', { method: 'POST', body: payload });
+             
+             if (broadcast) broadcast.postMessage({ type: 'submitted' });
+             clearDraft();
+             
+             qs('.main').innerHTML = `
+               <div class="card" style="max-width:500px; margin:40px auto; text-align:center;">
+                 <div style="width:64px; height:64px; background:#2e9e5b; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+                   ${ICONS.check}
+                 </div>
+                 <h2 style="margin-bottom:10px;">¡Solicitud enviada!</h2>
+                 <p class="lede" style="margin-bottom:20px;">Tu solicitud de inscripción ha sido enviada exitosamente a la institución. Su estado actual es <strong>Enviada</strong>.</p>
+                 <button class="btn btn-primary" onclick="window.location.hash='#/app/inscripciones'">Ver mis inscripciones</button>
+               </div>
+             `;
+           } catch(err) {
+             btn.disabled = false;
+             btn.textContent = 'Confirmar y Enviar Solicitud';
+             qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+           }
+         });
+       }
+    }
+    
     await renderStep();
   }
+
 
   // ---------------- Documentos de una inscripcion ----------------
   const TIPOS_DOCUMENTO = ['Acta de nacimiento', 'Cédula o identificación del tutor', 'Certificado de notas', 'Foto 2x2', 'Otro'];
@@ -3285,87 +3801,245 @@
   }
 
   async function renderDocumentosInscripcion(enrollmentId) {
-    const { enrollments } = await api('/enrollments');
-    const enrollment = enrollments.find((e) => e.id === enrollmentId);
+    let enrollment;
+    try {
+      const res = await api('/enrollments');
+      enrollment = res.enrollments.find((e) => e.id === enrollmentId);
+    } catch (e) {
+      toast('Error al cargar la inscripción', 'error');
+      return;
+    }
     if (!enrollment) {
-      qs('.main').innerHTML = '<div class="empty-state">No se encontró esa solicitud de inscripción.</div>';
+      qs('.main').innerHTML = '<div class="alert error">Inscripción no encontrada o sin acceso.</div>';
       return;
     }
     const u = state.user;
     const isOwnerTutor = u.role === 'Tutor' && enrollment.tutorId === u.id;
     const canDecide = isAdmin() || (u.role === 'Personal de institución' && u.institucionId === enrollment.institucionId);
 
-    const [{ documents }, periodsRes] = await Promise.all([
-      api('/enrollments/' + enrollmentId + '/documents'),
-      api('/institutions/' + enrollment.institucionId + '/periods?cicloEscolar=' + encodeURIComponent(enrollment.cicloEscolar)),
-    ]);
-    const configurados = periodsRes.periods[0] && periodsRes.periods[0].documentosRequeridos;
-    const tiposParaSubir = configurados && configurados.length ? configurados : TIPOS_DOCUMENTO;
-
-    qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
-      <div class="page-head"><div><h2>Documentos — ${escapeHtml(enrollment.estudianteNombre)}</h2><div class="sub">${escapeHtml(enrollment.institucionNombre)} · ${escapeHtml(enrollment.gradoSolicitado)} · ${escapeHtml(enrollment.cicloEscolar)}</div></div></div>
-      ${isOwnerTutor ? `
-        <div class="chart-card" style="max-width:560px; margin-bottom:20px;">
-          <div id="doc-err"></div>
-          <form id="doc-form">
-            <div class="field"><label>Tipo de documento</label>
-              <select name="tipoDocumento">${tiposParaSubir.map((t) => `<option>${escapeHtml(t)}</option>`).join('')}</select>
-            </div>
-            <div class="field"><label>Archivo (PDF, JPG o PNG, máx. 5 MB)</label><input type="file" name="archivo" accept=".pdf,.jpg,.jpeg,.png" required></div>
-            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Subir documento</button>
-          </form>
-        </div>
-      ` : ''}
-      <div class="notif-list">
-        ${documents.length ? documents.map((d) => `
-          <div class="notif-item">
-            <div>
-              <div class="t1">${escapeHtml(d.tipoDocumento || d.nombreArchivo)} · <a href="/api/documents/${d.id}/file" target="_blank" rel="noopener">${escapeHtml(d.nombreArchivo)}</a> <span class="help">(${fmtBytes(d.size)})</span></div>
-              ${d.estado === 'Rechazado' && d.motivoRechazo ? `<div class="t2">${escapeHtml(d.motivoRechazo)}</div>` : ''}
-              <div class="t3">${fmtDate(d.uploadedAt)} · ${escapeHtml(d.estado)}</div>
-            </div>
-            ${canDecide && d.estado === 'Pendiente' ? `<span class="actions-cell"><button class="ok" data-doc-accept="${d.id}">Aceptar</button><button class="danger" data-doc-reject="${d.id}">Rechazar</button></span>` : ''}
-          </div>
-        `).join('') : '<div class="empty-state">No se han subido documentos todavía.</div>'}
-      </div>
-    `;
-    bindShellEvents();
-
-    const docForm = qs('#doc-form');
-    if (docForm) {
-      docForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        qs('#doc-err').innerHTML = '';
-        const fd = new FormData(docForm);
-        try {
-          const res = await fetch('/api/enrollments/' + enrollmentId + '/documents', { method: 'POST', body: fd });
-          const data = await res.json();
-          if (!res.ok) throw { errors: data.errors || [data.error || 'No se pudo subir el documento.'] };
-          toast('Documento subido.', 'ok');
-          renderDocumentosInscripcion(enrollmentId);
-        } catch (err) {
-          qs('#doc-err').innerHTML = fieldErrorsBlock(err.errors || [err.message || 'No se pudo subir el documento.']);
-        }
-      });
+    const { documents } = await api('/enrollments/' + enrollmentId + '/documents');
+    
+    let configurados = enrollment.requisitosSnapshot;
+    if (!configurados || !configurados.length) {
+      configurados = TIPOS_DOCUMENTO.map(t => ({ tipo: t, formatos: ['PDF','JPG','PNG'], maxSizeMB: 5 }));
     }
 
-    qsa('[data-doc-accept]').forEach((b) => b.addEventListener('click', async () => {
-      try {
-        await api('/documents/' + b.dataset.docAccept + '/decidir', { method: 'POST', body: { estado: 'Aceptado' } });
-        toast('Documento aceptado.', 'ok');
-        renderDocumentosInscripcion(enrollmentId);
-      } catch (err) { toast(err.message, 'err'); }
-    }));
-    qsa('[data-doc-reject]').forEach((b) => b.addEventListener('click', async () => {
-      const motivo = prompt('Motivo del rechazo:');
-      if (!motivo || !motivo.trim()) return;
-      try {
-        await api('/documents/' + b.dataset.docReject + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
-        toast('Documento rechazado.', 'ok');
-        renderDocumentosInscripcion(enrollmentId);
-      } catch (err) { toast(err.message, 'err'); }
-    }));
+    const docsByType = {};
+    documents.forEach(d => {
+      const t = d.tipoDocumento;
+      if (!docsByType[t]) docsByType[t] = [];
+      docsByType[t].push(d);
+    });
+
+    const isCorrectionsMode = enrollment.estado === 'Documentos pendientes' && isOwnerTutor;
+
+    let html = `
+      <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
+      <div class="page-head">
+        <div>
+          <h2>Documentos — ${escapeHtml(enrollment.estudianteNombre)}</h2>
+          <div class="sub">${escapeHtml(enrollment.institucionNombre)} · ${escapeHtml(enrollment.gradoSolicitado)} · ${escapeHtml(enrollment.cicloEscolar)}</div>
+          <div style="margin-top:5px;">${enrollment.estado === 'Documentos pendientes' ? '<span class="pill" style="background:#ef4444;color:#fff;">Correcciones requeridas</span>' : ''}</div>
+        </div>
+      </div>
+      
+      <div style="max-width:800px;">
+    `;
+
+    let pendingCorrections = false;
+
+    configurados.forEach((req, idx) => {
+      const docType = (req.tipo || req).trim();
+      const docsOfThisType = docsByType[docType] || [];
+      const latestDoc = docsOfThisType.length > 0 ? docsOfThisType[0] : null;
+      
+      const isRejected = latestDoc && latestDoc.estado === 'Rechazado';
+      if (isRejected) pendingCorrections = true;
+      const isAccepted = latestDoc && latestDoc.estado === 'Aceptado';
+      const isPending = latestDoc && latestDoc.estado === 'Pendiente';
+      
+      let badge = '';
+      if (isAccepted) badge = '<span style="color:#16a34a; font-weight:bold; font-size:12px;">✓ Aprobado</span>';
+      else if (isRejected) badge = '<span style="color:#ef4444; font-weight:bold; font-size:12px;">✗ Rechazado</span>';
+      else if (isPending) badge = '<span style="color:#eab308; font-weight:bold; font-size:12px;">En revisión</span>';
+      else badge = '<span style="color:var(--text-muted); font-size:12px;">Falta documento</span>';
+
+      html += `
+        <div class="card" style="margin-bottom:15px; padding:20px; border-left:4px solid ${isRejected ? '#ef4444' : isAccepted ? '#16a34a' : isPending ? '#eab308' : 'var(--c-border)'}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+            <div>
+              <h3 style="margin:0 0 5px 0;">${escapeHtml(docType)}</h3>
+              ${req.descripcion ? `<div style="font-size:13px; color:var(--text-muted); margin-bottom:5px;">${escapeHtml(req.descripcion)}</div>` : ''}
+              <div>${badge}</div>
+            </div>
+            ${latestDoc ? `<a href="/api/documents/${latestDoc.id}/file" target="_blank" rel="noopener" class="btn btn-secondary btn-small" style="text-decoration:none;">Ver archivo (${(latestDoc.size/1024/1024).toFixed(2)}MB)</a>` : ''}
+          </div>
+      `;
+
+      if (isRejected && latestDoc.motivoRechazo) {
+        html += `<div style="background:#fef2f2; border:1px solid #f87171; color:#991b1b; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px;"><strong>Motivo del rechazo:</strong> ${escapeHtml(latestDoc.motivoRechazo)}</div>`;
+      }
+      
+      if (latestDoc && canDecide && isPending && enrollment.estado !== 'Aprobada' && enrollment.estado !== 'Rechazada' && enrollment.estado !== 'Abandonada') {
+        html += `
+          <div style="margin-top:15px; border-top:1px solid var(--c-border); padding-top:15px; display:flex; gap:10px;">
+            <button class="btn btn-primary btn-small doc-accept-btn" data-id="${latestDoc.id}">Aprobar</button>
+            <button class="btn btn-danger btn-small doc-reject-btn" data-id="${latestDoc.id}">Rechazar</button>
+          </div>
+        `;
+      }
+      
+      const canUpload = isOwnerTutor && enrollment.estado === 'Documentos pendientes' && (!latestDoc || isRejected);
+      
+      if (canUpload) {
+        const allowedExt = (req.formatos || ['PDF','JPG','PNG']).map(f => '.'+f.toLowerCase()).join(',');
+        html += `
+          <div style="margin-top:15px;">
+            <div style="font-size:12px; font-weight:bold; margin-bottom:5px;">Subir corrección:</div>
+            <div class="doc-upload-area" id="area-${idx}" style="border:2px dashed var(--c-border); padding:20px; text-align:center; border-radius:8px; cursor:pointer; background:var(--bg-body); transition:background 0.2s;">
+              <div style="color:var(--text-muted); margin-bottom:10px;">${ICONS.document}</div>
+              <div style="font-size:13px; font-weight:bold; margin-bottom:4px;">Haz clic o arrastra el nuevo archivo</div>
+              <div style="font-size:11px; color:var(--text-muted);">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Máx: ${req.maxSizeMB||5} MB</div>
+              <input type="file" id="file-${idx}" accept="${allowedExt}" style="display:none;" data-type="${escapeHtml(docType)}" data-max="${req.maxSizeMB||5}">
+            </div>
+            <div id="upload-status-${idx}" style="margin-top:10px; font-size:12px;"></div>
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+    });
+    
+    if (isCorrectionsMode) {
+       html += `
+         <div class="card" style="margin-top:20px; text-align:right;">
+           <button class="btn btn-primary" id="btn-submit-corrections" ${pendingCorrections ? 'disabled title="Aún hay documentos rechazados sin corregir"' : ''}>Enviar Correcciones</button>
+         </div>
+       `;
+    }
+
+    html += `</div>`;
+    
+    qs('.main').innerHTML = html;
+    bindShellEvents();
+
+    qsAll('.doc-accept-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        customConfirm('¿Seguro que deseas aprobar este documento?', 'Aprobar', async () => {
+          try {
+            await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Aceptado' } });
+            toast('Documento aprobado.', 'ok');
+            renderDocumentosInscripcion(enrollmentId);
+          } catch (err) { toast(err.message, 'error'); }
+        });
+      });
+    });
+
+    qsAll('.doc-reject-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        showConfirmModal({
+          title: 'Rechazar Documento',
+          bodyHtml: `
+            <p>Indica el motivo por el que se rechaza este documento. El tutor deberá subir uno nuevo.</p>
+            <div class="field"><label>Motivo del rechazo</label>
+              <textarea id="rechazo-motivo" rows="3" required></textarea>
+            </div>
+          `,
+          confirmText: 'Rechazar',
+          danger: true,
+          onConfirm: async () => {
+            const motivo = document.getElementById('rechazo-motivo').value;
+            if (!motivo || !motivo.trim()) {
+              toast('Debes indicar un motivo', 'error');
+              return false;
+            }
+            try {
+              await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
+              toast('Documento rechazado.', 'ok');
+              renderDocumentosInscripcion(enrollmentId);
+              return true;
+            } catch (err) {
+              toast(err.message, 'error');
+              return false;
+            }
+          }
+        });
+      });
+    });
+    
+    const btnSubmit = qs('#btn-submit-corrections');
+    if (btnSubmit) {
+       btnSubmit.addEventListener('click', () => {
+          customConfirm('¿Seguro que deseas enviar estas correcciones? La solicitud volverá a estado de revisión.', 'Enviar correcciones', async () => {
+             btnSubmit.disabled = true;
+             btnSubmit.textContent = 'Enviando...';
+             try {
+                await api('/enrollments/' + enrollmentId + '/correcciones', { method: 'POST' });
+                toast('Correcciones enviadas.', 'ok');
+                renderDocumentosInscripcion(enrollmentId);
+             } catch(e) {
+                toast(e.message, 'error');
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = 'Enviar Correcciones';
+             }
+          });
+       });
+    }
+
+    let isUploading = false;
+    qsAll('.doc-upload-area').forEach(area => {
+      const input = area.querySelector('input[type="file"]');
+      const statusEl = area.nextElementSibling;
+      const type = input.getAttribute('data-type');
+      const maxMB = parseFloat(input.getAttribute('data-max'));
+      
+      const uploadFile = async (file) => {
+        if (isUploading) return;
+        isUploading = true;
+        
+        if (file.size > maxMB * 1024 * 1024) {
+          statusEl.innerHTML = `<span style="color:#ef4444;">El archivo supera el tamaño máximo permitido (${maxMB} MB).</span>`;
+          isUploading = false;
+          return;
+        }
+        
+        const fd = new FormData();
+        fd.append('archivo', file);
+        fd.append('tipoDocumento', type);
+        
+        statusEl.innerHTML = '<span style="color:#3b82f6;">Cargando documento... (Por favor espera)</span>';
+        
+        try {
+          await api('/enrollments/' + enrollmentId + '/documents', { method: 'POST', body: fd, isMultipart: true });
+          toast('Documento subido correctamente.', 'ok');
+          renderDocumentosInscripcion(enrollmentId);
+        } catch(e) {
+          statusEl.innerHTML = `<span style="color:#ef4444;">${e.errors ? e.errors[0] : 'Error al cargar el documento.'} <button class="btn btn-ghost btn-small" style="padding:0; margin-left:5px; text-decoration:underline;">Reintentar</button></span>`;
+          const retryBtn = statusEl.querySelector('button');
+          if (retryBtn) retryBtn.addEventListener('click', () => uploadFile(file));
+        } finally {
+          isUploading = false;
+        }
+      };
+
+      area.addEventListener('click', () => { if (!isUploading) input.click(); });
+      
+      area.addEventListener('dragover', e => { e.preventDefault(); area.style.background = 'var(--bg-card)'; });
+      area.addEventListener('dragleave', e => { e.preventDefault(); area.style.background = 'var(--bg-body)'; });
+      area.addEventListener('drop', e => {
+        e.preventDefault();
+        area.style.background = 'var(--bg-body)';
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          uploadFile(e.dataTransfer.files[0]);
+        }
+      });
+      
+      input.addEventListener('change', e => {
+        if (e.target.files && e.target.files.length > 0) {
+          uploadFile(e.target.files[0]);
+        }
+      });
+    });
   }
 
   // ---------------- Periodos de ciclo escolar ----------------
