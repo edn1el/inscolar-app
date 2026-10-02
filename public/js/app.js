@@ -6,6 +6,42 @@
   let cleanupParticles = () => {};
   let routerVersion = 0;
 
+  // Shared arrival transition for public routes, app sections and wizard steps.
+  // Rendering and focus never wait for an animation; reduced motion cancels it.
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let screenAnimation = null;
+  const animateScreen = el => {
+    if (!el?.isConnected || el.matches('.loading') || reducedMotion.matches || typeof el.animate !== 'function') return;
+    screenAnimation?.cancel();
+    screenAnimation = el.animate([{opacity:0.72},{opacity:1}], {duration:200,easing:'ease-out'});
+    screenAnimation.id = 'inscolar-screen-arrival';
+  };
+  new MutationObserver(records => {
+    const screen = records.some(r => r.target === root) ? root.querySelector('.main') || root.firstElementChild
+      : records.find(r => r.target instanceof Element && r.target.matches('.main'))?.target;
+    if (screen) animateScreen(screen);
+  }).observe(root, {childList:true,subtree:true});
+  reducedMotion.addEventListener('change', () => { if (reducedMotion.matches) screenAnimation?.cancel(); });
+
+  function cedulaDigits(value) { return String(value || '').replace(/\D/g, '').slice(0,11); }
+  function formatCedula(value) {
+    const digits = cedulaDigits(value);
+    return digits.slice(0,3) + (digits.length>3 ? '-'+digits.slice(3,10) : '') + (digits.length>10 ? '-'+digits.slice(10) : '');
+  }
+  function bindCedula(input) {
+    if (!input) return;
+    input.value = formatCedula(input.value);
+    input.addEventListener('input', () => {
+      const before = input.value, caret = input.selectionStart;
+      const count = cedulaDigits(before.slice(0,caret)).length;
+      input.value = formatCedula(before);
+      let position=0, seen=0;
+      while (position<input.value.length && seen<count) { if (/\d/.test(input.value[position])) seen++; position++; }
+      input.setSelectionRange(position,position);
+    });
+  }
+
+
   // ---------------- helpers ----------------
   function escapeHtml(s) {
     if (s === null || s === undefined) return '';
@@ -3157,7 +3193,6 @@
         <form id="student-form">
           <div class="field"><label>Nombre completo</label><input type="text" name="nombre" required></div>
           <div class="field"><label>Fecha de nacimiento</label><input type="date" name="fechaNacimiento" required></div>
-          <div class="field"><label>Acta o NUP</label><input type="text" name="documento" placeholder="Opcional"></div>
           <div style="display:flex; gap:10px;">
             <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Guardar estudiante</button>
             <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/inscripciones">Cancelar</button>
@@ -3469,7 +3504,7 @@
              <div class="help" style="margin-bottom:15px;">Estos datos se usarán para contactarte sobre esta solicitud (no modifican tu perfil permanentemente aquí).</div>
              <form id="step-form">
                <div class="field"><label>Nombre completo del tutor (nombre y apellidos)</label><input type="text" name="tutorName" value="${escapeHtml(wState.tutorName)}" required></div>
-               <div class="field"><label for="wizard-tutor-id">Cédula del tutor</label><input id="wizard-tutor-id" name="tutorCedula" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" value="${escapeHtml(wState.tutorCedula)}" required><p class="help">11 dígitos. Se guarda en este expediente sin modificar tu perfil.</p></div>
+               <div class="field"><label for="wizard-tutor-id">Cédula del tutor</label><input id="wizard-tutor-id" name="tutorCedula" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]{3}-[0-9]{7}-[0-9]" maxlength="13" placeholder="000-0000000-0" aria-describedby="wizard-tutor-id-help" value="${escapeHtml(formatCedula(wState.tutorCedula))}" required><p class="help" id="wizard-tutor-id-help">11 dígitos; los guiones se agregan automáticamente. Se guarda en este expediente sin modificar tu perfil.</p></div>
                <div class="field"><label>Teléfono de contacto</label><input type="tel" name="tutorPhone" value="${escapeHtml(wState.tutorPhone)}" required></div>
                <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
              </form>
@@ -3600,12 +3635,13 @@
        qs('.main').innerHTML = html;
        bindShellEvents();
        
+       bindCedula(qs('#wizard-tutor-id'));
        const form = qs('#step-form');
        if (form) {
          // Report activity on input changes
          const capture = () => {
            const f = new FormData(form);
-           for (const k of ['studentId','tutorName','tutorPhone','tutorCedula','institucionId','gradoSolicitado','cicloEscolar']) if (f.has(k)) wState[k] = f.get(k);
+           for (const k of ['studentId','tutorName','tutorPhone','tutorCedula','institucionId','gradoSolicitado','cicloEscolar']) if (f.has(k)) wState[k] = k === 'tutorCedula' ? cedulaDigits(f.get(k)) : f.get(k);
            if (f.has('new_nombre')) wState.newStudent.nombre = f.get('new_nombre');
            if (f.has('new_fecha')) wState.newStudent.fechaNacimiento = f.get('new_fecha');
          };
@@ -3626,7 +3662,7 @@
            } else if (wState.step === 2) {
              wState.tutorName = fd.get('tutorName');
              wState.tutorPhone = fd.get('tutorPhone');
-             wState.tutorCedula = fd.get('tutorCedula');
+             wState.tutorCedula = cedulaDigits(fd.get('tutorCedula'));
              await advanceStep(3);
            } else if (wState.step === 3) {
              wState.institucionId = fd.get('institucionId');
@@ -3727,6 +3763,7 @@
 
        if (wState.step === 4) {
          let isUploading = false;
+         const btnNext = qs('#btn-next-4');
          
          const uploadFile = async (file, type, maxMB, statusEl) => {
            if (isUploading) return;
@@ -3738,6 +3775,7 @@
              return;
            }
            
+           if (btnNext) { btnNext.disabled = true; btnNext.textContent = 'Subiendo…'; }
            const fd = new FormData();
            fd.append('archivo', file);
            fd.append('tipoDocumento', type);
@@ -3747,13 +3785,14 @@
            try {
              await api('/drafts/' + draftId + '/documents', { method: 'POST', body: fd, isMultipart: true });
              reportActivity(true);
-             renderStep();
+             await renderStep();
            } catch(e) {
              statusEl.innerHTML = `<span style="color:#ef4444;">${e.errors ? e.errors[0] : 'Error al cargar el documento.'} <button class="btn btn-ghost btn-small" style="padding:0; margin-left:5px; text-decoration:underline;">Reintentar</button></span>`;
              const retryBtn = statusEl.querySelector('button');
              if (retryBtn) retryBtn.addEventListener('click', () => uploadFile(file, type, maxMB, statusEl));
            } finally {
              isUploading = false;
+             if (btnNext?.isConnected) { btnNext.disabled = false; btnNext.textContent = 'Continuar'; }
            }
          };
 
@@ -3801,7 +3840,6 @@
            });
          });
 
-         const btnNext = qs('#btn-next-4');
          if (btnNext) {
            btnNext.addEventListener('click', async (e) => {
              e.preventDefault();

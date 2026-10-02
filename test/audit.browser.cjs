@@ -35,7 +35,7 @@ test('F8: auditoría real, permisos, filtros, detalle y recuperación',{timeout:
     await page.locator('#settings-menu-btn').click();await expect(page.locator('#settings-menu a').filter({hasText:'Mi perfil'})).toBeVisible();await page.locator('#settings-logout').focus();await page.keyboard.press('Escape');await expect(page.locator('#settings-menu-btn')).toBeFocused();
     assert.ok(await page.locator('.audit-table tbody tr').first().locator('td[data-label]').count()>=6);
     await page.evaluate(()=>{const div=document.createElement('div');div.className='leaflet-container';div.id='contrast-test';div.innerHTML='<a class="btn btn-primary enroll-cta" href="#/login">Inscribir estudiante</a>';document.body.append(div);});
-    const colors=await page.locator('#contrast-test a').evaluate(el=>{const s=getComputedStyle(el);return [s.color,s.backgroundColor];});assert.deepEqual(colors,['rgb(255, 255, 255)','rgb(169, 17, 50)']);await page.locator('#contrast-test').evaluate(el=>el.remove());
+    const colors=await page.locator('#contrast-test a').evaluate(el=>{const s=getComputedStyle(el);return [s.color,s.backgroundColor];});assert.deepEqual(colors,['rgb(255, 255, 255)','rgb(169, 17, 50)']);assert.deepEqual(await page.locator('#contrast-test a').evaluate(el=>{const s=getComputedStyle(el);return [s.display,s.alignItems,s.justifyContent];}),['flex','center','center']);await page.locator('#contrast-test').evaluate(el=>el.remove());
     await page.screenshot({path:path.join(dir,'audit-'+theme+'-'+width+'.png')});
    }
   });
