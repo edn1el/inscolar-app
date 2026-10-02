@@ -67,6 +67,7 @@
       err.status = res.status;
       throw err;
     }
+    if (opts.method && opts.method !== 'GET' && (/^\/enrollments\//.test(path) || (data.document && data.document.enrollmentId))) enrollmentChanged();
     return data;
   }
 
@@ -142,9 +143,9 @@
       try {
         const keepOpen = await onConfirm(modal);
         if (!keepOpen) cleanup();
-        else { btn.disabled = false; btn.textContent = confirmText; }
+        else { btn.disabled = modal.dataset.obsolete === 'true'; btn.textContent = confirmText; }
       } catch (err) {
-        btn.disabled = false;
+        btn.disabled = modal.dataset.obsolete === 'true';
         btn.textContent = confirmText;
         toast(err.message || 'Error', 'err');
       }
@@ -276,6 +277,7 @@
   }
 
   async function router() {
+    if (window._enrollmentCleanup) { window._enrollmentCleanup(); window._enrollmentCleanup=null; }
     if (window._wizardCleanup) { window._wizardCleanup(); window._wizardCleanup = null; }
     const version = ++routerVersion;
     cleanupParticles();
@@ -1388,6 +1390,7 @@
       else if (section === 'inscripciones' && segs[1] === 'estudiante-nuevo') await renderEstudianteForm();
       else if (section === 'inscripciones' && segs[1] === 'nueva') await renderInscripcionForm();
       else if (section === 'inscripciones' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteInscripcion(segs[2]);
+      else if (section === 'inscripciones' && segs[2] === 'detalle') await renderInscripcionDetalle(segs[1]);
       else if (section === 'inscripciones' && segs[2] === 'documentos') await renderDocumentosInscripcion(segs[1]);
       else if (section === 'inscripciones') await renderInscripciones(query);
       else if (section === 'citas' && segs[1] === 'nueva') await renderCitaForm();
@@ -2991,131 +2994,165 @@
   }
 
   // ---------------- Inscripciones ----------------
-  async function renderInscripciones(query) {
-    const u = state.user;
-    const tutor = u.role === 'Tutor';
-    const staff = u.role === 'Personal de institución';
-    const admin = isAdmin();
-
-    const params = new URLSearchParams();
-    if (query.estado) params.set('estado', query.estado);
-    if (query.institucionId && admin) params.set('institucionId', query.institucionId);
-    const { total, enrollments } = await api('/enrollments?' + params.toString());
-
-    let students = [];
-    let studentsBlock = '';
-    if (tutor) {
-      const sres = await api('/students');
-      students = sres.students;
-      studentsBlock = `
-        <div class="chart-card" style="margin-bottom:20px;">
-          <div class="page-head" style="margin:0 0 12px;"><h3 style="margin:0;">Mis estudiantes</h3>
-            <button class="btn btn-primary btn-small" style="width:auto; padding:8px 16px;" data-nav="#/app/inscripciones/estudiante-nuevo">Agregar estudiante</button>
-          </div>
-          ${students.length ? `<div class="two-col">${students.map((s) => `<div><div class="help">${escapeHtml(s.nombre)}</div><div>Nacimiento: ${escapeHtml(s.fechaNacimiento)}</div></div>`).join('')}</div>` : '<div class="help">Todavía no has registrado ningún estudiante.</div>'}
+  let enrollmentRenderVersion = 0;
+  const ENROLLMENT_STATES = ['Enviada', 'En revisión', 'Documentos pendientes', 'Aceptada', 'Rechazada', 'Cancelada', 'Abandonada'];
+  const ENROLLMENT_EXPLANATIONS = {
+    Enviada: 'La institución ha recibido la solicitud. El siguiente paso es iniciar su revisión.',
+    'En revisión': 'La institución está evaluando el expediente. Aprobar los documentos no acepta automáticamente la inscripción.',
+    'Documentos pendientes': 'Hay documentos que debes corregir. Abre Documentos para consultar los motivos y cargar las correcciones.',
+    Aceptada: 'La inscripción fue aceptada. Esta decisión es definitiva.',
+    Rechazada: 'La inscripción fue rechazada. Consulta el motivo. Esta solicitud está cerrada.',
+    Cancelada: 'El tutor canceló esta solicitud. Se conserva el expediente y su historial.',
+    Abandonada: 'El borrador finalizó por inactividad. Las solicitudes enviadas no expiran por este motivo.'
+  };
+  function enrollmentStateHtml(e) {
+    const icons = {Aceptada:'✓', Rechazada:'✕', Cancelada:'⊘', Abandonada:'⌛', 'Documentos pendientes':'⚠', 'En revisión':'◉', Enviada:'↗'};
+    return `<span class="pill enrollment-state" data-state="${escapeHtml(e.estado)}">${icons[e.estado] || '•'} ${escapeHtml(e.estado)}</span>`;
+  }
+  let enrollmentUpdates;
+  try { enrollmentUpdates = new BroadcastChannel('inscolar_enrollments'); } catch (_) {}
+  function enrollmentChanged() {
+    if (enrollmentUpdates) enrollmentUpdates.postMessage({type:'changed'});
+    window.dispatchEvent(new Event('enrollment-updated'));
+  }
+  function watchEnrollments(handler) {
+    const stream = new EventSource('/api/enrollments/events');
+    stream.addEventListener('changed',handler);
+    stream.addEventListener('open',handler);
+    stream.addEventListener('error',handler);
+    if (window._enrollmentCleanup) window._enrollmentCleanup();
+    const visible = () => { if (document.visibilityState === 'visible') handler(); };
+    window.addEventListener('focus',handler);
+    document.addEventListener('visibilitychange',visible);
+    window.addEventListener('enrollment-updated',handler);
+    if (enrollmentUpdates) enrollmentUpdates.addEventListener('message',handler);
+    window._enrollmentCleanup = () => {
+      stream.close();
+      window.removeEventListener('focus',handler); document.removeEventListener('visibilitychange',visible);
+      window.removeEventListener('enrollment-updated',handler);
+      if(enrollmentUpdates) enrollmentUpdates.removeEventListener('message',handler);
+    };
+  }
+  function enrollmentError(container, error, retry) {
+    container.innerHTML = `<div class="empty-state" role="alert"><p>${escapeHtml(error.message || 'No se pudo cargar la solicitud.')}</p><button class="btn btn-primary" id="enrollment-retry">Reintentar</button></div>`;
+    qs('#enrollment-retry',container).addEventListener('click',retry);
+  }
+  async function renderInscripciones(query = {}) {
+    const renderVersion=++enrollmentRenderVersion;
+    if(window._enrollmentCleanup){window._enrollmentCleanup();window._enrollmentCleanup=null;}
+    const container = qs('.main');
+    container.innerHTML = '<div class="loading" role="status">Cargando solicitudes…</div>';
+    const u=state.user, tutor=u.role==='Tutor', admin=isAdmin();
+    const params=new URLSearchParams();
+    for(const k of ['estado','institucionId','cicloEscolar','grado','q','page']) if(query[k]) params.set(k,query[k]);
+    params.set('page',query.page || '1');params.set('limit','10');
+    try {
+      const [data,studentsData,institutionData]=await Promise.all([api('/enrollments?'+params),tutor?api('/students'):Promise.resolve({students:[]}),admin?api('/institutions'):Promise.resolve({institutions:[]})]);
+      if (!container.isConnected || renderVersion!==enrollmentRenderVersion) return;
+      const {enrollments,total,page,limit,filtros}=data;
+      const option=(value,label,selected)=>`<option value="${escapeHtml(value)}" ${value===selected?'selected':''}>${escapeHtml(label || value)}</option>`;
+      const pages=Math.max(1,Math.ceil(total/limit));
+      container.innerHTML=`
+        <div class="page-head"><div><h2>Inscripciones</h2><div class="sub">${tutor?'Consulta el progreso y las siguientes acciones de tus solicitudes.':'Revisión y seguimiento de solicitudes autorizadas.'}</div></div>${tutor?'<button class="btn btn-primary" data-nav="#/app/inscripciones/nueva">Nueva inscripción</button>':''}</div>
+        <div id="enrollment-update" role="status"></div>
+        ${tutor?`<details class="card" style="margin-bottom:16px"><summary>Mis estudiantes (${studentsData.students.length})</summary><p>${studentsData.students.map(s=>escapeHtml(s.nombre)).join(' · ') || 'Aún no tienes estudiantes. Puedes registrarlo en Nueva inscripción.'}</p><button class="btn btn-secondary" data-nav="#/app/inscripciones/estudiante-nuevo">Agregar estudiante</button></details>`:''}
+        <form class="filters" id="enrollment-filters">
+          <label>Buscar<input name="q" value="${escapeHtml(query.q || '')}" placeholder="Referencia, estudiante o institución"></label>
+          <label>Estado<select name="estado">${option('Todos','Todos',query.estado || 'Todos')}${ENROLLMENT_STATES.map(s=>option(s,s,query.estado)).join('')}</select></label>
+          <label>Periodo<select name="cicloEscolar">${option('Todos','Todos',query.cicloEscolar || 'Todos')}${filtros.ciclos.map(s=>option(s,s,query.cicloEscolar)).join('')}</select></label>
+          <label>Grado<select name="grado">${option('Todos','Todos',query.grado || 'Todos')}${filtros.grados.map(s=>option(s,s,query.grado)).join('')}</select></label>
+          ${admin?`<label>Institución<select name="institucionId">${option('Todas','Todas',query.institucionId || 'Todas')}${institutionData.institutions.map(i=>option(i.id,i.nombre,query.institucionId)).join('')}</select></label>`:''}
+          <button class="btn btn-primary" type="submit">Filtrar</button><button class="btn btn-secondary" type="button" id="enrollment-clear">Limpiar filtros</button>
+        </form>
+        <div class="table-card"><table><thead><tr><th>Referencia</th><th>Estudiante</th>${tutor?'':'<th>Tutor</th>'}<th>Institución</th><th>Periodo / grado</th><th>Fecha de envío</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+        ${enrollments.length?enrollments.map(e=>`<tr><td data-label="Referencia">${escapeHtml(e.id)}</td><td data-label="Estudiante">${escapeHtml(e.estudianteNombre)}</td>${tutor?'':`<td data-label="Tutor">${escapeHtml(e.tutorNombre)}</td>`}<td data-label="Institución">${escapeHtml(e.institucionNombre)}</td><td data-label="Periodo / grado">${escapeHtml(e.cicloEscolar)}<br>${escapeHtml(e.gradoSolicitado)}</td><td data-label="Fecha de envío">${fmtDate(e.createdAt)}</td><td data-label="Estado">${enrollmentStateHtml(e)}${e.motivoRechazo?`<p class="help">${escapeHtml(e.motivoRechazo)}</p>`:''}</td><td data-label="Acciones"><span class="actions-cell"><button class="neutral" data-nav="#/app/inscripciones/${encodeURIComponent(e.id)}/detalle">Ver detalle</button><button class="neutral" data-nav="#/app/inscripciones/${encodeURIComponent(e.id)}/documentos">${e.estado==='Documentos pendientes' && tutor?'Corregir documentos':'Documentos'}</button></span></td></tr>`).join(''):`<tr><td colspan="8" class="empty-state">No hay solicitudes con estos filtros. ${tutor?'Puedes limpiar los filtros o iniciar una nueva solicitud.':'Prueba otro estado, periodo o grado.'}</td></tr>`}
+        </tbody></table><div class="table-footer"><span>Mostrando ${enrollments.length} de ${total} solicitudes</span><div class="pagination"><button class="btn btn-ghost" id="enrollment-prev" ${page<=1?'disabled':''}>Anterior</button><span>Página ${page} de ${pages}</span><button class="btn btn-ghost" id="enrollment-next" ${page>=pages?'disabled':''}>Siguiente</button></div></div></div>`;
+      bindShellEvents();
+      const apply=(newPage=1)=>{const p=new URLSearchParams();for(const [k,v] of new FormData(qs('#enrollment-filters')))if(v && !['Todos','Todas'].includes(v))p.set(k,v);p.set('page',newPage);navigate('#/app/inscripciones?'+p);};
+      qs('#enrollment-filters').addEventListener('submit',event=>{event.preventDefault();apply();});
+      qs('#enrollment-clear').onclick=()=>navigate('#/app/inscripciones');
+      qs('#enrollment-prev').onclick=()=>apply(page-1);qs('#enrollment-next').onclick=()=>apply(page+1);
+      watchEnrollments(()=>{
+        if(!container.isConnected || renderVersion!==enrollmentRenderVersion)return;
+        const notice=qs('#enrollment-update',container);notice.innerHTML='<p class="notice">Puede haber actualizaciones en las solicitudes. <button class="btn btn-secondary" id="refresh-enrollments">Actualizar listado</button></p>';
+        qs('#refresh-enrollments',notice).onclick=()=>renderInscripciones(query);
+      });
+    } catch(error) { if(container.isConnected && renderVersion===enrollmentRenderVersion)enrollmentError(container,error,()=>renderInscripciones(query)); }
+  }
+  async function renderInscripcionDetalle(id) {
+    const renderVersion=++enrollmentRenderVersion;
+    if(window._enrollmentCleanup){window._enrollmentCleanup();window._enrollmentCleanup=null;}
+    const container=qs('.main');
+    container.innerHTML='<div class="loading" role="status">Cargando expediente…</div>';
+    try {
+      const data=await api('/enrollments/'+encodeURIComponent(id));
+      if(!container.isConnected || renderVersion!==enrollmentRenderVersion)return;
+      const e=data.enrollment;
+      const c=e.disponibilidad;
+      const availability=c.configurado?`${c.disponibles} disponibles · ${c.ocupados} ocupados · ${c.reservados} reservados · límite ${c.limite}`:'Sin configuración de cupos. La aceptación permanecerá bloqueada hasta configurarlos.';
+      const approved=data.documentos.every(r=>r.document && ['Aceptado','Aprobado'].includes(r.document.estado));
+      container.innerHTML=`<button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a solicitudes</button>
+        <div class="page-head"><div><h2>Solicitud ${escapeHtml(e.id)}</h2><div class="sub">${escapeHtml(e.estudianteNombre)} · ${escapeHtml(e.institucionNombre)}</div></div><button class="btn btn-secondary" id="detail-refresh">Actualizar</button></div>
+        <div id="enrollment-update" role="status"></div>
+        <div class="chart-card"><h3>Estado y siguiente paso</h3>${enrollmentStateHtml(e)}<p>${escapeHtml(ENROLLMENT_EXPLANATIONS[e.estado] || e.estado)}</p>${e.motivoRechazo?`<p><strong>Motivo del rechazo:</strong> ${escapeHtml(e.motivoRechazo)}</p>`:''}${e.motivoCancelacion?`<p><strong>Motivo de cancelación:</strong> ${escapeHtml(e.motivoCancelacion)}</p>`:''}
+          <div class="enrollment-actions">
+          ${e.acciones.revisar?'<button class="btn btn-primary" data-enrollment-action="revisar">Iniciar revisión</button>':''}
+          ${e.acciones.aceptar?`<button class="btn btn-primary" data-enrollment-action="aceptar" ${!approved || !c.configurado || (c.disponibles===0 && !c.reservaPropia)?'disabled':''}>Aceptar inscripción</button>`:''}
+          ${e.acciones.rechazar?'<button class="btn btn-danger" data-enrollment-action="rechazar">Rechazar solicitud</button>':''}
+          ${e.acciones.cancelar?'<button class="btn btn-secondary" data-enrollment-action="cancelar">Cancelar solicitud</button>':''}
+          <button class="btn btn-secondary" data-nav="#/app/inscripciones/${encodeURIComponent(e.id)}/documentos">${state.user.role==='Tutor' && e.estado==='Documentos pendientes'?'Corregir documentos':'Abrir documentos'}</button>
+          <button class="btn btn-secondary" data-nav="#/app/inscripciones/comprobante/${encodeURIComponent(e.id)}">Comprobante</button></div>
+          ${e.acciones.aceptar && !approved?'<p class="help">Para aceptar, todos los documentos obligatorios deben estar aprobados.</p>':''}
         </div>
-      `;
-    }
+        <div class="two-col" style="margin-top:16px"><div class="chart-card"><h3>Resumen</h3><dl class="enrollment-summary"><dt>Estudiante</dt><dd>${escapeHtml(data.estudiante?.nombre || e.estudianteNombre)}</dd><dt>Nacimiento</dt><dd>${escapeHtml(data.estudiante?.fechaNacimiento || 'Sin dato registrado')}</dd><dt>Tutor</dt><dd>${escapeHtml(data.tutor?.nombre || e.tutorNombre)}</dd><dt>Correo</dt><dd>${escapeHtml(data.tutor?.email || 'Sin dato registrado')}</dd><dt>Teléfono</dt><dd>${escapeHtml(data.tutor?.telefono || 'Sin dato registrado')}</dd><dt>Institución</dt><dd>${escapeHtml(e.institucionNombre)}</dd><dt>Periodo</dt><dd>${escapeHtml(e.cicloEscolar)}</dd><dt>Grado</dt><dd>${escapeHtml(e.gradoSolicitado)}</dd><dt>Envío</dt><dd>${fmtDate(e.createdAt)}</dd></dl></div>
+        <div class="chart-card"><h3>Documentos obligatorios</h3><ul class="enrollment-documents">${data.documentos.map(r=>`<li><strong>${escapeHtml(r.tipo)}</strong><br>${r.document?`${escapeHtml(r.document.estado)} · ${escapeHtml(r.document.nombreArchivo)}${r.document.motivoRechazo?`<p>Motivo: ${escapeHtml(r.document.motivoRechazo)}</p>`:''}`:'⚠ Falta documento'}</li>`).join('')}</ul><h3>Disponibilidad para este grado</h3><p id="enrollment-capacity">${escapeHtml(availability)}</p>${e.periodoId && (isAdmin() || (isStaff() && state.user.institucionId===e.institucionId))?'<button class="btn btn-secondary" id="configure-enrollment-capacity">Configurar cupos de este grado</button>':''}</div></div>
+        <div class="chart-card" style="margin-top:16px"><h3>Historial</h3>${data.historial.length?`<ol class="enrollment-history">${data.historial.map(h=>`<li><strong>${escapeHtml(h.accion)}</strong><div>${fmtDate(h.fecha)} · ${escapeHtml(h.actorNombre || 'Actor no registrado')}</div>${h.anterior && h.nuevo?`<div>${escapeHtml(h.anterior)} → ${escapeHtml(h.nuevo)}</div>`:''}${h.motivo?`<p>${escapeHtml(h.motivo)}</p>`:''}</li>`).join('')}</ol>`:'<p>No hay eventos registrados para esta solicitud anterior.</p>'}</div>`;
+      bindShellEvents();
+      const heading=qs('h2',container);if(heading){heading.tabIndex=-1;heading.focus();}
+      qs('#detail-refresh').onclick=()=>renderInscripcionDetalle(id);
+      const configure=qs('#configure-enrollment-capacity');
+      if(configure) configure.onclick=()=>showConfirmModal({title:'Configurar cupos de inscripción',confirmText:'Guardar cupos',bodyHtml:`<p>${escapeHtml(e.institucionNombre)} · ${escapeHtml(e.cicloEscolar)} · ${escapeHtml(e.gradoSolicitado)}</p><label for="enrollment-limit">Cupo máximo de inscripción</label><input id="enrollment-limit" type="number" min="1" max="100000" value="${c.limite || ''}"><p>El límite no puede quedar por debajo de las inscripciones aceptadas y reservas vigentes.</p>`,onConfirm:async modal=>{
+        const limite=Number(qs('#enrollment-limit',modal).value);
+        await api('/institutions/'+encodeURIComponent(e.institucionId)+'/periods/'+encodeURIComponent(e.periodoId)+'/cupos-inscripcion',{method:'PUT',body:{grado:e.gradoSolicitado,limite}});
+        enrollmentChanged();await renderInscripcionDetalle(id);
+      }});
 
-    let institucionesOptions = [];
-    if (admin) {
-      const ires = await api('/institutions');
-      institucionesOptions = ires.institutions;
-    }
-
-    const estados = ['Todos', 'Enviada', 'En revisión', 'Documentos pendientes', 'Pendiente', 'Aprobada', 'Rechazada', 'Abandonada'];
-    const showInstCol = admin || tutor;
-    const colCount = 6 + (tutor ? 0 : 1) + (showInstCol ? 1 : 0);
-
-    qs('.main').innerHTML = `
-      <div class="page-head">
-        <div><h2>Inscripciones</h2><div class="sub">${tutor ? 'Solicita el cupo de tus estudiantes en una institución.' : staff ? 'Solicitudes de inscripción para tu institución.' : 'Todas las solicitudes de inscripción del sistema.'}</div></div>
-        ${tutor ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/inscripciones/nueva" ${!students.length ? 'disabled title="Agrega un estudiante primero"' : ''}>Nueva inscripción</button>` : ''}
-      </div>
-      ${studentsBlock}
-      <div class="filters">
-        <select id="f-estado">${estados.map((r) => `<option ${query.estado === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        ${admin ? `<select id="f-institucion"><option ${!query.institucionId ? 'selected' : ''}>Todas</option>${institucionesOptions.map((i) => `<option value="${i.id}" ${query.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}</select>` : ''}
-      </div>
-      <div class="table-card">
-        <table>
-          <thead><tr><th>Estudiante</th>${tutor ? '' : '<th>Tutor</th>'}${showInstCol ? '<th>Institución</th>' : ''}<th>Grado</th><th>Ciclo</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
-          <tbody>
-            ${enrollments.length ? enrollments.map((e) => {
-              const estadoColor = e.estado === 'Aprobada' ? '#2e9e5b' : e.estado === 'Rechazada' ? '#c23b3b' : e.estado === 'Abandonada' ? '#9aa0a6' : '#c98a1b';
-              return `<tr>
-                <td>${escapeHtml(e.estudianteNombre)}</td>
-                ${tutor ? '' : `<td>${escapeHtml(e.tutorNombre)}</td>`}
-                ${showInstCol ? `<td>${escapeHtml(e.institucionNombre)}</td>` : ''}
-                <td>${escapeHtml(e.gradoSolicitado)}</td>
-                <td>${escapeHtml(e.cicloEscolar)}</td>
-                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}${e.estado === 'Abandonada' ? '<div class="help">Sin respuesta durante 30 días.</div>' : ''}</td>
-                <td>${fmtDate(e.createdAt)}</td>
-                <td><span class="actions-cell">
-                  ${tutor && ['Pendiente', 'Enviada', 'En revisión'].includes(e.estado) ? `<button class="danger" data-cancel="${e.id}">Cancelar</button>` : ''}
-                  ${!tutor && ['Pendiente', 'Enviada', 'En revisión'].includes(e.estado) ? `<button class="ok" data-approve="${e.id}">Aprobar</button><button class="danger" data-reject="${e.id}">Rechazar</button>` : ''}
-                  ${tutor && e.estado === 'Aprobada' ? `<button class="neutral" data-nav="#/app/calificar/${e.institucionId}">Calificar</button><button class="neutral" data-nav="#/app/reportar/${e.institucionId}">Reportar</button>` : ''}
-                  <button class="neutral" data-nav="#/app/inscripciones/${e.id}/documentos">Documentos</button>
-                  <button class="neutral" data-comprobante="${e.id}">Comprobante</button>
-                </span></td>
-              </tr>`;
-            }).join('') : `<tr><td colspan="${colCount}" class="empty-state">No hay solicitudes${query.estado && query.estado !== 'Todos' ? ' con ese estado' : ''}.</td></tr>`}
-          </tbody>
-        </table>
-        <div class="table-footer"><span>Mostrando ${enrollments.length} de ${total} solicitudes</span></div>
-      </div>
-    `;
-    bindShellEvents();
-
-    function applyFilters() {
-      const p = new URLSearchParams();
-      if (qs('#f-estado').value !== 'Todos') p.set('estado', qs('#f-estado').value);
-      if (admin && qs('#f-institucion') && qs('#f-institucion').value !== 'Todas') p.set('institucionId', qs('#f-institucion').value);
-      navigate('#/app/inscripciones?' + p.toString());
-    }
-    qs('#f-estado').addEventListener('change', applyFilters);
-    if (admin && qs('#f-institucion')) qs('#f-institucion').addEventListener('change', applyFilters);
-
-    qsa('[data-comprobante]').forEach((b) => b.addEventListener('click', () => navigate('#/app/inscripciones/comprobante/' + b.dataset.comprobante)));
-    qsa('[data-cancel]').forEach((b) => b.addEventListener('click', () => {
-      const e = enrollments.find(x => x.id === b.dataset.cancel);
-      showConfirmModal({
-        title: 'Cancelar solicitud de inscripción',
-        bodyHtml: `<p>¿Cancelar la solicitud de <strong>${escapeHtml(e.estudianteNombre)}</strong> en <strong>${escapeHtml(e.institucionNombre)}</strong>?</p><p>Esta acción eliminará permanentemente la solicitud y no podrá ser recuperada.</p>`,
-        confirmText: 'Cancelar solicitud',
-        danger: true,
-        onConfirm: async () => {
-          await api('/enrollments/' + b.dataset.cancel + '/cancelar', { method: 'POST' });
-          toast('Solicitud cancelada.', 'ok');
-          renderInscripciones(query);
-          return false;
-        }
+      let obsolete=false,checking=false;
+      const warn=()=>{
+        if(!container.isConnected || renderVersion!==enrollmentRenderVersion)return;
+        obsolete=true;
+        qsa('[data-enrollment-action]',container).forEach(b=>b.disabled=true);
+        const modal=document.querySelector('[data-enrollment-id="'+CSS.escape(id)+'"]');
+        if(modal){modal.dataset.obsolete='true';qs('#mod-confirm',modal).disabled=true;qs('.enrollment-modal-error',modal).textContent='La solicitud cambió. Cierra este modal y actualiza el expediente. Tu motivo se conserva mientras esté abierto.';}
+        const notice=qs('#enrollment-update',container);notice.innerHTML='<p class="notice">La solicitud o su disponibilidad cambió. Actualiza antes de decidir. <button class="btn btn-secondary" id="refresh-enrollment">Actualizar expediente</button></p>';qs('#refresh-enrollment',notice).onclick=()=>renderInscripcionDetalle(id);
+      };
+      const check=async()=>{if(checking || !container.isConnected || renderVersion!==enrollmentRenderVersion)return;checking=true;try {const latest=await api('/enrollments/'+encodeURIComponent(id));if(container.isConnected && renderVersion===enrollmentRenderVersion && (latest.enrollment.version!==e.version || JSON.stringify(latest.enrollment.disponibilidad)!==JSON.stringify(c)))warn();}catch(error){if(container.isConnected && renderVersion===enrollmentRenderVersion){obsolete=true;qsa('[data-enrollment-action]',container).forEach(b=>b.disabled=true);qs('#enrollment-update',container).textContent='No se pudo verificar el estado vigente. Usa Actualizar antes de decidir.';}}finally{checking=false;}};
+      watchEnrollments(check);
+      qsa('[data-enrollment-action]',container).forEach(button=>button.onclick=()=>{
+        if(obsolete)return;
+        const action=button.dataset.enrollmentAction;
+        const title={revisar:'Iniciar revisión',aceptar:'Aceptar inscripción',rechazar:'Rechazar solicitud',cancelar:'Cancelar solicitud'}[action];
+        const motive=action==='rechazar' || action==='cancelar';
+        showConfirmModal({title,confirmText:title,danger:action==='rechazar' || action==='cancelar',
+          bodyHtml:`<p><strong>${escapeHtml(e.estudianteNombre)}</strong><br>${escapeHtml(e.institucionNombre)} · ${escapeHtml(e.gradoSolicitado)}<br>Referencia: ${escapeHtml(e.id)}</p><p>${action==='aceptar'?'La aceptación es definitiva y ocupará o convertirá un único cupo.':action==='cancelar'?'La solicitud quedará cerrada; conservarás su historial y se liberará solo su reserva, si existe.':action==='rechazar'?'El rechazo es definitivo. El tutor verá el motivo.':'El expediente pasará a En revisión.'}</p>${motive?`<label for="enrollment-motive">Motivo ${action==='cancelar'?'(opcional)':'(obligatorio)'}</label><textarea id="enrollment-motive" rows="3" maxlength="2000"></textarea>`:''}<p class="enrollment-modal-error" role="alert"></p>`,
+          onConfirm:async modal=>{
+            modal.dataset.enrollmentId=id;
+            if(obsolete || modal.dataset.obsolete)throw new Error('Actualiza el expediente antes de decidir.');
+            const body={version:e.version};if(motive)body.motivo=qs('#enrollment-motive',modal).value;
+            if(action==='rechazar' && body.motivo.trim().length<3){qs('.enrollment-modal-error',modal).textContent='Indica un motivo comprensible (mínimo 3 caracteres).';return true;}
+            const endpoint=action==='aceptar' || action==='rechazar'?'decidir':action;
+            if(endpoint==='decidir')body.estado=action==='aceptar'?'Aceptada':'Rechazada';
+            try {
+              await api('/enrollments/'+encodeURIComponent(id)+'/'+endpoint,{method:'POST',body});
+              toast('Solicitud actualizada.','ok');
+              if(window._enrollmentCleanup){window._enrollmentCleanup();window._enrollmentCleanup=null;}
+              enrollmentChanged();await renderInscripcionDetalle(id);return false;
+            }catch(error){qs('.enrollment-modal-error',modal).textContent=error.message;if(error.status===409){warn();modal.dataset.obsolete='true';}return true;}
+          }
+        });
+        const modal=qs('#mod-confirm')?.closest('.sidebar-backdrop');if(modal)modal.dataset.enrollmentId=id;
       });
-    }));
-    qsa('[data-approve]').forEach((b) => b.addEventListener('click', async () => {
-      try {
-        await api('/enrollments/' + b.dataset.approve + '/decidir', { method: 'POST', body: { estado: 'Aprobada' } });
-        toast('Inscripción aprobada.', 'ok');
-        renderInscripciones(query);
-      } catch (err) { toast(err.message, 'err'); }
-    }));
-    qsa('[data-reject]').forEach((b) => b.addEventListener('click', () => {
-      const e = enrollments.find(x => x.id === b.dataset.reject);
-      showConfirmModal({
-        title: 'Rechazar solicitud',
-        bodyHtml: `<p>¿Rechazar la solicitud de <strong>${escapeHtml(e.estudianteNombre)}</strong>?</p><p>Indica el motivo del rechazo:</p><input id="mod-motivo" class="input" style="margin-top:8px;" placeholder="Motivo del rechazo..." />`,
-        confirmText: 'Rechazar',
-        danger: true,
-        onConfirm: async (modal) => {
-          const motivo = qs('#mod-motivo', modal).value;
-          if (!motivo || !motivo.trim()) throw new Error('Debes indicar un motivo.');
-          await api('/enrollments/' + b.dataset.reject + '/decidir', { method: 'POST', body: { estado: 'Rechazada', motivo } });
-          toast('Inscripción rechazada.', 'ok');
-          renderInscripciones(query);
-          return false;
-        }
-      });
-    }));
+    } catch(error){if(container.isConnected && renderVersion===enrollmentRenderVersion)enrollmentError(container,error,()=>renderInscripcionDetalle(id));}
   }
 
   async function renderEstudianteForm() {
@@ -3528,7 +3565,7 @@
                  <tr><td style="font-weight:bold;">Tutor</td><td>${escapeHtml(wState.tutorName)} (${escapeHtml(wState.tutorPhone)})</td></tr>
                  <tr><td style="font-weight:bold;">Institución</td><td>${escapeHtml(selectedInstObj.nombre)}</td></tr>
                  <tr><td style="font-weight:bold;">Grado / Ciclo</td><td>${escapeHtml(wState.gradoSolicitado)} · ${wState.cicloEscolar}</td></tr>
-                 <tr><td style="font-weight:bold;">Documentos</td><td>${wState.documentos.length} archivo(s) seleccionados</td></tr>
+                 <tr><td style="font-weight:bold;">Documentos</td><td>${wState.uploadedDocsCount || 0} archivo(s) cargados</td></tr>
                </tbody>
              </table>
              <div id="err" style="margin-top:15px;"></div>
@@ -3835,12 +3872,15 @@
   }
 
   async function renderDocumentosInscripcion(enrollmentId) {
+    const renderVersion=++enrollmentRenderVersion;
+    if(window._enrollmentCleanup){window._enrollmentCleanup();window._enrollmentCleanup=null;}
+    const container=qs('.main');
     let enrollment;
     try {
-      const res = await api('/enrollments');
-      enrollment = res.enrollments.find((e) => e.id === enrollmentId);
+      const res = await api('/enrollments/' + encodeURIComponent(enrollmentId));
+      enrollment = res.enrollment;
     } catch (e) {
-      toast('Error al cargar la inscripción', 'error');
+      if(container.isConnected && renderVersion===enrollmentRenderVersion)enrollmentError(container,e,()=>renderDocumentosInscripcion(enrollmentId));
       return;
     }
     if (!enrollment) {
@@ -3869,6 +3909,7 @@
 
     let html = `
       <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
+      <button class="btn btn-secondary" data-nav="#/app/inscripciones/${encodeURIComponent(enrollmentId)}/detalle">Abrir detalle y revisión</button>
       <div class="page-head">
         <div>
           <h2>Documentos — ${escapeHtml(enrollment.estudianteNombre)}</h2>
@@ -3888,7 +3929,7 @@
       const latestDoc = docsOfThisType.length > 0 ? docsOfThisType[0] : null;
       
       const isRejected = latestDoc && latestDoc.estado === 'Rechazado';
-      if (isRejected) pendingCorrections = true;
+      if (isRejected || !latestDoc) pendingCorrections = true;
       const isAccepted = latestDoc && latestDoc.estado === 'Aceptado';
       const isPending = latestDoc && latestDoc.estado === 'Pendiente';
       
@@ -3914,7 +3955,7 @@
         html += `<div style="background:#fef2f2; border:1px solid #f87171; color:#991b1b; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px;"><strong>Motivo del rechazo:</strong> ${escapeHtml(latestDoc.motivoRechazo)}</div>`;
       }
       
-      if (latestDoc && canDecide && isPending && enrollment.estado !== 'Aprobada' && enrollment.estado !== 'Rechazada' && enrollment.estado !== 'Abandonada') {
+      if (latestDoc && canDecide && isPending && ['En revisión','Documentos pendientes'].includes(enrollment.estado)) {
         html += `
           <div style="margin-top:15px; border-top:1px solid var(--c-border); padding-top:15px; display:flex; gap:10px;">
             <button class="btn btn-primary btn-small doc-accept-btn" data-id="${latestDoc.id}">Aprobar</button>
@@ -3954,14 +3995,30 @@
 
     html += `</div>`;
     
-    qs('.main').innerHTML = html;
+    if(!container.isConnected || renderVersion!==enrollmentRenderVersion)return;
+    container.innerHTML = '<div id="document-update" role="status"></div>' + html;
     bindShellEvents();
+    let checking=false;
+    watchEnrollments(async()=>{
+      if(checking || !container.isConnected || renderVersion!==enrollmentRenderVersion)return;
+      checking=true;
+      try {
+        const latest=await api('/enrollments/'+encodeURIComponent(enrollmentId));
+        if(!container.isConnected || renderVersion!==enrollmentRenderVersion)return;
+        if(latest.enrollment.version!==enrollment.version){
+          qsa('.doc-accept-btn,.doc-reject-btn,#btn-submit-corrections',container).forEach(b=>b.disabled=true);
+          const modal=qs('#mod-confirm')?.closest('.sidebar-backdrop');if(modal){modal.dataset.obsolete='true';qs('#mod-confirm',modal).disabled=true;}
+          const notice=qs('#document-update',container);notice.innerHTML='<p class="notice">La solicitud cambió. Actualiza los documentos antes de decidir. <button class="btn btn-secondary" id="refresh-documents">Actualizar documentos</button></p>';qs('#refresh-documents',notice).onclick=()=>renderDocumentosInscripcion(enrollmentId);
+        }
+      }catch(error){if(container.isConnected && renderVersion===enrollmentRenderVersion){qsa('.doc-accept-btn,.doc-reject-btn,#btn-submit-corrections',container).forEach(b=>b.disabled=true);qs('#document-update',container).innerHTML='<p>No se pudo verificar el estado. <button class="btn btn-secondary" id="refresh-documents">Reintentar</button></p>';qs('#refresh-documents',container).onclick=()=>renderDocumentosInscripcion(enrollmentId);}}
+      finally{checking=false;}
+    });
 
     qsa('.doc-accept-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         customConfirm('¿Seguro que deseas aprobar este documento?', 'Aprobar', async () => {
           try {
-            await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Aceptado' } });
+            await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Aceptado', version: enrollment.version } });
             toast('Documento aprobado.', 'ok');
             renderDocumentosInscripcion(enrollmentId);
           } catch (err) { toast(err.message, 'error'); }
@@ -3988,7 +4045,7 @@
               return true;
             }
             try {
-              await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo } });
+              await api('/documents/' + btn.dataset.id + '/decidir', { method: 'POST', body: { estado: 'Rechazado', motivo, version: enrollment.version } });
               toast('Documento rechazado.', 'ok');
               renderDocumentosInscripcion(enrollmentId);
               return false;
@@ -4008,7 +4065,7 @@
              btnSubmit.disabled = true;
              btnSubmit.textContent = 'Enviando...';
              try {
-                await api('/enrollments/' + enrollmentId + '/correcciones', { method: 'POST' });
+                await api('/enrollments/' + enrollmentId + '/correcciones', { method: 'POST', body: {version:enrollment.version} });
                 toast('Correcciones enviadas.', 'ok');
                 renderDocumentosInscripcion(enrollmentId);
              } catch(e) {
@@ -4882,6 +4939,7 @@
               <div class="t2">${n.anterior || n.nuevo ? `Campo ${escapeHtml(n.campo)}: ${escapeHtml(n.anterior || '—')} → ${escapeHtml(n.nuevo || '—')}. ` : ''}Realizado por ${escapeHtml(n.actorNombre)}.</div>
               <div class="t3">${fmtDate(n.createdAt)}</div>
             </div>
+            ${n.entityId ? `<button class="btn btn-secondary btn-small" data-nav="#/app/inscripciones/${encodeURIComponent(n.entityId)}/detalle">Ver solicitud</button>` : ''}
             ${!n.read ? `<button class="btn btn-ghost btn-small" data-read="${n.id}">Marcar leída</button>` : ''}
           </div>
         `).join('') : '<div class="empty-state">No hay notificaciones.</div>'}

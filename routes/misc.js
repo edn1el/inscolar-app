@@ -113,7 +113,7 @@ router.get('/analytics/summary', requireAdmin, (req, res) => {
   // HU080-HU084: solicitudes de inscripción
   const inscripciones = {
     total: db.enrollments.length,
-    aprobadas: db.enrollments.filter((e) => e.estado === 'Aprobada').length,
+    aprobadas: db.enrollments.filter((e) => ['Aprobada','Aceptada'].includes(e.estado)).length,
     rechazadas: db.enrollments.filter((e) => e.estado === 'Rechazada').length,
     pendientes: db.enrollments.filter((e) => ['Pendiente', 'Enviada', 'En revisión', 'Documentos pendientes'].includes(e.estado)).length,
     abandonadas: db.enrollments.filter((e) => e.estado === 'Abandonada').length,
