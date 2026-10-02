@@ -461,10 +461,10 @@
         const logoUrl = i.logo ? '/api/institutions/' + i.id + '/logo?v=' + encodeURIComponent(i.logo.uploadedAt) : null;
         
         root.innerHTML = `
-          <div class="search-layout" style="animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0; padding-bottom: 50px;">
-          <div class="top-nav" style="background:var(--c-surface); border-bottom:1px solid var(--c-border); padding:10px 20px; z-index: 10;">
+          <div style="height: 100vh; height: 100dvh; width: 100%; overflow-y: auto; background: var(--bg-body); animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0; padding-bottom: 50px;">
+          <div class="top-nav" style="background:var(--c-surface); border-bottom:1px solid var(--c-border); padding:10px 20px; z-index: 10; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <a href="#/buscar" class="btn btn-ghost btn-small">← Volver a resultados</a>
-            ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small" style="float:right">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>'}
+            ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small">Iniciar sesión</a>'}
           </div>
           
           <div style="padding:20px; max-width:800px; margin:0 auto; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0;">
@@ -480,7 +480,7 @@
               </div>
             </div>
 
-            <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
+            <div class="chart-row" style="align-items:start;">
               <div class="chart-card">
                 <h3>Información general</h3>
                 <div class="two-col" style="margin-top: 15px;">

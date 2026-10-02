@@ -2713,6 +2713,20 @@ tbody tr:last-child td {
     grid-template-columns: 1fr;
   }
 
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .inst-hero-body {
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .inst-hero-overlay {
+    padding: 20px;
+  }
+
   .modal {
     padding: 24px 20px;
   }
