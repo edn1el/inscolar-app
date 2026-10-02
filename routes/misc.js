@@ -130,7 +130,7 @@ router.get('/analytics/summary', requireAdmin, (req, res) => {
   // HU089-HU093: citas
   const citas = {
     total: db.appointments.length,
-    confirmadas: db.appointments.filter((a) => a.estado === 'Confirmada').length,
+    confirmadas: db.appointments.filter((a) => ['Confirmada','Aceptada'].includes(a.estado)).length,
     canceladas: db.appointments.filter((a) => a.estado === 'Cancelada').length,
     pendientes: db.appointments.filter((a) => a.estado === 'Pendiente').length,
     rechazadas: db.appointments.filter((a) => a.estado === 'Rechazada').length,

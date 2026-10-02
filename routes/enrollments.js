@@ -187,7 +187,7 @@ router.get('/enrollments/:id', (req,res) => {
   const s=db.students.find(s=>s.id===e.studentId),t=db.users.find(t=>t.id===e.tutorId);
   const existingEvents=(db.logs || []).filter(l=>l.entidad==='Inscripción' && l.entidadId===e.id && !(e.historial || []).some(h=>h.id===l.eventId || (h.fecha===l.fecha && h.accion===l.accion))).map(l=>({id:l.id,fecha:l.fecha,actorId:l.actorId,actorNombre:l.actorNombre,accion:l.accion,motivo:l.detalle}));
   res.json({enrollment:publicEnrollment(e,db,u), estudiante:s?{id:s.id,nombre:s.nombre,fechaNacimiento:s.fechaNacimiento}:null,
-    tutor:t?{id:t.id,nombre:t.nombre,email:t.email,telefono:e.contactoTutor?.telefono || t.telefonomovil || ''}:null,
+    tutor:t?{id:t.id,nombre:e.contactoTutor?.nombre || t.nombre,email:t.email,cedula:e.contactoTutor?.cedula || t.cedula || '',telefono:e.contactoTutor?.telefono || t.telefonoMovil || t.telefonoFijo || t.telefonomovil || ''}:null,
     documentos:service.documentSummary(db,e).map(r=>({...r,document:r.document?{id:r.document.id,tipoDocumento:r.document.tipoDocumento,nombreArchivo:r.document.nombreArchivo,estado:r.document.estado,motivoRechazo:r.document.motivoRechazo,uploadedAt:r.document.uploadedAt}:null})),
     historial:[...existingEvents,...(e.historial || [])].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha))});
 });
@@ -217,6 +217,10 @@ router.post('/enrollments', (req, res) => {
   const institucion = db.institutions.find((i) => i.id === institucionId);
   if (!institucion) errors.push('Selecciona una institución válida.');
   else if ((institucion.estado || 'Activo') !== 'Activo') errors.push('Esa institución no está activa actualmente.');
+  const contactoTutor={nombre:String(req.body.tutorName ?? u.nombre ?? '').trim(),telefono:String(req.body.tutorPhone ?? u.telefonoMovil ?? u.telefonoFijo ?? u.telefonomovil ?? '').trim(),cedula:String(req.body.tutorCedula ?? u.cedula ?? '').trim()};
+  if(contactoTutor.nombre.length<3 || contactoTutor.nombre.length>100)errors.push('Tutor: indica el nombre completo (3 a 100 caracteres).');
+  if(!require('../lib/validate').isCedula(contactoTutor.cedula))errors.push('Tutor: la cédula debe contener 11 dígitos.');
+  if(contactoTutor.telefono.replace(/[^0-9]/g,'').length!==10)errors.push('Tutor: el teléfono de contacto debe contener 10 dígitos.');
   if (!GRADOS.includes(gradoSolicitado)) errors.push('Selecciona un grado válido.');
   if (!cicloEscolar || !CICLO_RE.test(cicloEscolar)) errors.push('Selecciona un ciclo escolar válido.');
   if (student && institucion && db.enrollments.some((e) =>
@@ -227,14 +231,14 @@ router.post('/enrollments', (req, res) => {
   }
   if (institucion && cicloEscolar) {
     const period = findPeriod(db, institucion.id, cicloEscolar);
-    if (period && !withinRange(period.inscripcion)) {
+    if (!period || !period.inscripcion || !withinRange(period.inscripcion)) {
       errors.push(`El periodo de inscripción del ciclo ${cicloEscolar} para esta institución no está abierto actualmente.`);
     }
   }
-  if (draft && institucion) {
+  if (institucion) {
     const p = findPeriod(db, institucionId, cicloEscolar);
     const required = require('../lib/requirements').requirements(p && p.documentosRequeridos, gradoSolicitado);
-    if (required.some(r => !db.documents.some(d => d.draftId === draft.id && d.tutorId === u.id && d.tipoDocumento === r.tipo && d.estado !== 'Rechazado' && d.size <= r.maxSizeMB * 1024 * 1024 && r.formatos.some(f => ({PDF:'application/pdf', JPG:'image/jpeg', JPEG:'image/jpeg', PNG:'image/png'})[f] === d.mimeType)))) errors.push('Carga todos los documentos requeridos antes de enviar.');
+    if (required.length && (!draft || required.some(r => !db.documents.some(d => d.draftId === draft.id && d.tutorId === u.id && d.tipoDocumento === r.tipo && d.estado !== 'Rechazado' && d.size <= r.maxSizeMB * 1024 * 1024 && r.formatos.some(f => ({PDF:'application/pdf', JPG:'image/jpeg', JPEG:'image/jpeg', PNG:'image/png'})[f] === d.mimeType))))) errors.push('Carga todos los documentos requeridos antes de enviar.');
   }
   const reservations = draft ? (db.enrollmentReservations || []).filter(r=>r.draftId===draft.id && r.estado==='Reservada') : [];
   if(reservations.some(r=>r.tutorId!==u.id || !(db.enrollmentCapacities || []).some(c=>c.id===r.capacityId && c.institucionId===institucionId && c.cicloEscolar===cicloEscolar && c.grado===gradoSolicitado))) errors.push('La reserva no corresponde a este borrador, institución y grado.');
@@ -250,7 +254,7 @@ router.post('/enrollments', (req, res) => {
     gradoSolicitado,
     cicloEscolar,
     estado: 'Borrador',
-    contactoTutor: { nombre: String(req.body.tutorName || u.nombre || '').trim(), telefono: String(req.body.tutorPhone || u.telefonomovil || '').trim() },
+    contactoTutor,
     motivoRechazo: '',
     requisitosNormalizados: true,
     requisitosSnapshot: require('../lib/requirements').requirements(period && period.documentosRequeridos, gradoSolicitado),

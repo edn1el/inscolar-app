@@ -58,6 +58,8 @@
     } finally { clearTimeout(timeout); }
     if (!res.ok) {
       if (res.status === 401 && state.user && !path.startsWith('/auth/')) {
+        if(window._wizardCleanup)window._wizardCleanup();
+        window._navInterceptor=null;
         state.user = null;
         state.authChecked = false;
         navigate('#/login');
@@ -1458,9 +1460,6 @@
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
             </button>
-            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
-            </button>
             <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Analíticas
             </button>
@@ -1473,9 +1472,6 @@
             <button class="nav-item ${activeSection === 'usuarios' ? 'active' : ''}" data-nav="#/app/usuarios">${ICONS.users} Usuarios</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
-            </button>
-            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
             </button>
             ` : isStaff() ? `
             <div class="sec-label">Módulos</div>
@@ -1578,6 +1574,8 @@
     logoutBtn.dataset.bound = '1';
     logoutBtn.addEventListener('click', async () => {
       await api('/auth/logout', { method: 'POST' });
+      if(window._wizardCleanup)window._wizardCleanup();
+      window._navInterceptor=null;
       state.user = null;
       navigate('#/login');
     });
@@ -3097,7 +3095,7 @@
           <button class="btn btn-secondary" data-nav="#/app/inscripciones/comprobante/${encodeURIComponent(e.id)}">Comprobante</button></div>
           ${e.acciones.aceptar && !approved?'<p class="help">Para aceptar, todos los documentos obligatorios deben estar aprobados.</p>':''}
         </div>
-        <div class="two-col" style="margin-top:16px"><div class="chart-card"><h3>Resumen</h3><dl class="enrollment-summary"><dt>Estudiante</dt><dd>${escapeHtml(data.estudiante?.nombre || e.estudianteNombre)}</dd><dt>Nacimiento</dt><dd>${escapeHtml(data.estudiante?.fechaNacimiento || 'Sin dato registrado')}</dd><dt>Tutor</dt><dd>${escapeHtml(data.tutor?.nombre || e.tutorNombre)}</dd><dt>Correo</dt><dd>${escapeHtml(data.tutor?.email || 'Sin dato registrado')}</dd><dt>Teléfono</dt><dd>${escapeHtml(data.tutor?.telefono || 'Sin dato registrado')}</dd><dt>Institución</dt><dd>${escapeHtml(e.institucionNombre)}</dd><dt>Periodo</dt><dd>${escapeHtml(e.cicloEscolar)}</dd><dt>Grado</dt><dd>${escapeHtml(e.gradoSolicitado)}</dd><dt>Envío</dt><dd>${fmtDate(e.createdAt)}</dd></dl></div>
+        <div class="two-col" style="margin-top:16px"><div class="chart-card"><h3>Resumen</h3><dl class="enrollment-summary"><dt>Estudiante</dt><dd>${escapeHtml(data.estudiante?.nombre || e.estudianteNombre)}</dd><dt>Nacimiento</dt><dd>${escapeHtml(data.estudiante?.fechaNacimiento || 'Sin dato registrado')}</dd><dt>Tutor</dt><dd>${escapeHtml(data.tutor?.nombre || e.tutorNombre)}${data.tutor?.cedula?`<br>Cédula: ${escapeHtml(data.tutor.cedula)}`:''}</dd><dt>Correo</dt><dd>${escapeHtml(data.tutor?.email || 'Sin dato registrado')}</dd><dt>Teléfono</dt><dd>${escapeHtml(data.tutor?.telefono || 'Sin dato registrado')}</dd><dt>Institución</dt><dd>${escapeHtml(e.institucionNombre)}</dd><dt>Periodo</dt><dd>${escapeHtml(e.cicloEscolar)}</dd><dt>Grado</dt><dd>${escapeHtml(e.gradoSolicitado)}</dd><dt>Envío</dt><dd>${fmtDate(e.createdAt)}</dd></dl></div>
         <div class="chart-card"><h3>Documentos obligatorios</h3><ul class="enrollment-documents">${data.documentos.map(r=>`<li><strong>${escapeHtml(r.tipo)}</strong><br>${r.document?`${escapeHtml(r.document.estado)} · ${escapeHtml(r.document.nombreArchivo)}${r.document.motivoRechazo?`<p>Motivo: ${escapeHtml(r.document.motivoRechazo)}</p>`:''}`:'⚠ Falta documento'}</li>`).join('')}</ul><h3>Disponibilidad para este grado</h3><p id="enrollment-capacity">${escapeHtml(availability)}</p>${e.periodoId && (isAdmin() || (isStaff() && state.user.institucionId===e.institucionId))?'<button class="btn btn-secondary" id="configure-enrollment-capacity">Configurar cupos de este grado</button>':''}</div></div>
         <div class="chart-card" style="margin-top:16px"><h3>Historial</h3>${data.historial.length?`<ol class="enrollment-history">${data.historial.map(h=>`<li><strong>${escapeHtml(h.accion)}</strong><div>${fmtDate(h.fecha)} · ${escapeHtml(h.actorNombre || 'Actor no registrado')}</div>${h.anterior && h.nuevo?`<div>${escapeHtml(h.anterior)} → ${escapeHtml(h.nuevo)}</div>`:''}${h.motivo?`<p>${escapeHtml(h.motivo)}</p>`:''}</li>`).join('')}</ol>`:'<p>No hay eventos registrados para esta solicitud anterior.</p>'}</div>`;
       bindShellEvents();
@@ -3195,7 +3193,8 @@
       studentId: students.length ? students[0].id : 'new',
       newStudent: { nombre: '', fechaNacimiento: '' },
       tutorName: u.nombre || '',
-      tutorPhone: u.telefonomovil || u.telefono || '',
+      tutorPhone: u.telefonoMovil || u.telefonoFijo || u.telefonomovil || u.telefono || '',
+      tutorCedula: u.cedula || '',
       institucionId: preInstId || '',
       gradoSolicitado: GRADOS[0],
       cicloEscolar: ciclos[0],
@@ -3467,7 +3466,8 @@
            <div class="card" style="max-width:560px;">
              <div class="help" style="margin-bottom:15px;">Estos datos se usarán para contactarte sobre esta solicitud (no modifican tu perfil permanentemente aquí).</div>
              <form id="step-form">
-               <div class="field"><label>Nombre del tutor</label><input type="text" name="tutorName" value="${escapeHtml(wState.tutorName)}" required></div>
+               <div class="field"><label>Nombre completo del tutor (nombre y apellidos)</label><input type="text" name="tutorName" value="${escapeHtml(wState.tutorName)}" required></div>
+               <div class="field"><label for="wizard-tutor-id">Cédula del tutor</label><input id="wizard-tutor-id" name="tutorCedula" inputmode="numeric" pattern="[0-9]{11}" maxlength="11" value="${escapeHtml(wState.tutorCedula)}" required><p class="help">11 dígitos. Se guarda en este expediente sin modificar tu perfil.</p></div>
                <div class="field"><label>Teléfono de contacto</label><input type="tel" name="tutorPhone" value="${escapeHtml(wState.tutorPhone)}" required></div>
                <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
              </form>
@@ -3581,7 +3581,7 @@
              <table class="table" style="margin-top:15px;">
                <tbody>
                  <tr><td style="font-weight:bold; width:150px;">Estudiante</td><td>${wState.studentId === 'new' ? escapeHtml(wState.newStudent.nombre) : escapeHtml(students.find(s=>s.id===wState.studentId)?.nombre)}</td></tr>
-                 <tr><td style="font-weight:bold;">Tutor</td><td>${escapeHtml(wState.tutorName)} (${escapeHtml(wState.tutorPhone)})</td></tr>
+                 <tr><td style="font-weight:bold;">Tutor</td><td>${escapeHtml(wState.tutorName)} (${escapeHtml(wState.tutorPhone)})<br>Cédula: ${escapeHtml(wState.tutorCedula)}</td></tr>
                  <tr><td style="font-weight:bold;">Institución</td><td>${escapeHtml(selectedInstObj.nombre)}</td></tr>
                  <tr><td style="font-weight:bold;">Grado / Ciclo</td><td>${escapeHtml(wState.gradoSolicitado)} · ${wState.cicloEscolar}</td></tr>
                  <tr><td style="font-weight:bold;">Documentos</td><td>${wState.uploadedDocsCount || 0} archivo(s) cargados</td></tr>
@@ -3603,7 +3603,7 @@
          // Report activity on input changes
          const capture = () => {
            const f = new FormData(form);
-           for (const k of ['studentId','tutorName','tutorPhone','institucionId','gradoSolicitado','cicloEscolar']) if (f.has(k)) wState[k] = f.get(k);
+           for (const k of ['studentId','tutorName','tutorPhone','tutorCedula','institucionId','gradoSolicitado','cicloEscolar']) if (f.has(k)) wState[k] = f.get(k);
            if (f.has('new_nombre')) wState.newStudent.nombre = f.get('new_nombre');
            if (f.has('new_fecha')) wState.newStudent.fechaNacimiento = f.get('new_fecha');
          };
@@ -3624,6 +3624,7 @@
            } else if (wState.step === 2) {
              wState.tutorName = fd.get('tutorName');
              wState.tutorPhone = fd.get('tutorPhone');
+             wState.tutorCedula = fd.get('tutorCedula');
              await advanceStep(3);
            } else if (wState.step === 3) {
              wState.institucionId = fd.get('institucionId');
@@ -3840,6 +3841,7 @@
                newStudent: wState.newStudent,
                tutorName: wState.tutorName,
                tutorPhone: wState.tutorPhone,
+               tutorCedula: wState.tutorCedula,
                institucionId: wState.institucionId,
                draftId: draftId,
                gradoSolicitado: wState.gradoSolicitado,
@@ -4718,7 +4720,7 @@
       container.innerHTML=`<button class="back-link" data-nav="#/app/citas">${ICONS.back} Volver a citas</button><div class="page-head"><h2>Cita ${escapeHtml(a.id)}</h2><button class="btn btn-secondary" id="appointment-detail-refresh">Actualizar</button></div>
         <div id="appointment-update" role="status"></div><section class="chart-card">${appointmentSummary(a)}${appointmentState(a)}${a.estado==='Pendiente'?'<p>Falta la aceptación del personal de la institución.</p>':''}<p>Tutor: ${escapeHtml(a.tutorNombre)}</p><p>Motivo: ${escapeHtml(a.motivo)}</p>${a.notas?`<p>Notas: ${escapeHtml(a.notas)}</p>`:''}${a.motivoRechazo||a.motivoCancelacion?`<p class="notice">Motivo de ${a.estado==='Rechazada'?'rechazo':'cancelación'}: ${escapeHtml(a.motivoRechazo||a.motivoCancelacion)}</p>`:''}
         <div class="appointment-actions">${Object.entries(a.acciones).filter(([k,v])=>v).map(([k])=>`<button class="btn ${k==='rechazar'||k==='cancelar'?'btn-secondary':'btn-primary'}" data-appointment-action="${k}">${{aceptar:'Aceptar cita',rechazar:'Rechazar cita',cancelar:'Cancelar cita',reprogramar:'Reprogramar'}[k]}</button>`).join('')}
-        <button class="btn btn-ghost" data-nav="#/app/citas/comprobante/${a.id}">Comprobante</button>${a.enrollmentId?`<button class="btn btn-ghost" data-nav="#/app/inscripciones/${a.enrollmentId}/detalle">Ver solicitud</button>`:''}${['Rechazada','Cancelada'].includes(a.estado)?`<button class="btn btn-primary" data-nav="#/app/citas/nueva?inst=${a.institucionId}${a.enrollmentId?'&solicitud='+a.enrollmentId:''}">Buscar otro horario</button>`:''}</div></section>
+        ${state.user.role==='Tutor'&&a.estado==='Aceptada'?`<button class="btn btn-ghost" data-nav="#/app/calificar/${a.institucionId}">Calificar</button><button class="btn btn-ghost" data-nav="#/app/reportar/${a.institucionId}">Reportar</button>`:''}<button class="btn btn-ghost" data-nav="#/app/citas/comprobante/${a.id}">Comprobante</button>${a.enrollmentId?`<button class="btn btn-ghost" data-nav="#/app/inscripciones/${a.enrollmentId}/detalle">Ver solicitud</button>`:''}${['Rechazada','Cancelada'].includes(a.estado)?`<button class="btn btn-primary" data-nav="#/app/citas/nueva?inst=${a.institucionId}${a.enrollmentId?'&solicitud='+a.enrollmentId:''}">Buscar otro horario</button>`:''}</div></section>
         <section class="chart-card"><h3>Historial</h3><ol class="appointment-history">${(a.historial||[]).map(h=>`<li><strong>${escapeHtml(h.accion)}</strong> · ${escapeHtml(fmtAppointment(h.fecha))}<p>${escapeHtml(h.anterior||'Nueva')} → ${escapeHtml(h.nuevo)}${h.fechaAnterior&&h.fechaAnterior!==h.fechaNueva?'<br>Antes: '+escapeHtml(fmtAppointment(h.fechaAnterior))+'<br>Ahora: '+escapeHtml(fmtAppointment(h.fechaNueva)):''}${h.motivo?'<br>'+escapeHtml(h.motivo):''}</p></li>`).join('')||'<li>No hay cambios registrados para esta cita anterior.</li>'}</ol></section>`;
       bindShellEvents();qs('#appointment-detail-refresh').onclick=()=>renderCitaDetalle(id);
       let obsolete=false,checking=false;
@@ -5077,7 +5079,7 @@
         <div class="chart-card">
           <h3>Citas por estado</h3>
           ${barRows([
-            { label: 'Confirmadas', count: s.citas.confirmadas },
+            { label: 'Aceptadas', count: s.citas.confirmadas },
             { label: 'Canceladas', count: s.citas.canceladas },
             { label: 'Pendientes', count: s.citas.pendientes },
           ], (i) => i.label, (i) => i.count, 'Sin citas agendadas todavía.')}

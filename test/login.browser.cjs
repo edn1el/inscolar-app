@@ -235,6 +235,18 @@ test('login y sesión en Chromium', { timeout: 120000 }, async (t) => {
       await page.reload();
       await profile(page, user);
     });
+    await scenario('sesión vencida durante wizard vuelve a login y recupera borrador sin abandonar',async(page,context)=>{
+      await login(page,tutor,'#/app/inscripciones/nueva?inst=i001');
+      await page.locator('#student-sel').waitFor();await page.locator('#step-form button[type=submit]').click();
+      const saved=page.waitForResponse(r=>r.url().includes('/api/drafts/')&&r.request().method()==='PUT');
+      await page.locator('[name=tutorName]').fill('Contacto recuperable');await saved;
+      const draft=await page.evaluate(()=>localStorage.getItem('enrollment_draft_id'));
+      await context.request.post(base+'/api/auth/logout');await page.locator('[name=tutorPhone]').fill('8095550999');
+      await expect(page.locator('#login-form')).toBeVisible();await expect(page.getByRole('dialog')).toHaveCount(0);
+      assert.equal(await page.evaluate(()=>localStorage.getItem('enrollment_draft_id')),draft);
+      await page.locator('[name=email]').fill(tutor.email);await page.locator('[name=password]').fill(password);await page.locator('#login-form button[type=submit]').click();await profile(page,tutor);
+      await page.evaluate(()=>location.hash='#/app/inscripciones/nueva?inst=i001');await expect(page.locator('[name=tutorName]')).toHaveValue('Contacto recuperable');assert.equal(await page.evaluate(()=>localStorage.getItem('enrollment_draft_id')),draft);
+    });
     await scenario('reinicio real invalida sesión y recupera navegación sin recarga', async page => {
       await login(page);
       await profile(page, tutor);
