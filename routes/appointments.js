@@ -3,7 +3,7 @@ const { load, save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
 const { notifyUser } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
-const { citasPeriodStatus } = require('../lib/periods');
+const { citasPeriodStatus, citasOcupadas } = require('../lib/periods');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -70,10 +70,7 @@ router.post('/appointments', (req, res) => {
       activePeriod = active;
       const limite = active.citas.limiteCitas;
       if (limite) {
-        const count = db.appointments.filter((a) =>
-          a.institucionId === institucion.id && a.estado !== 'Cancelada' &&
-          new Date(a.createdAt) >= new Date(active.citas.desde) && new Date(a.createdAt) <= new Date(new Date(active.citas.hasta).setHours(23, 59, 59, 999))
-        ).length;
+        const count = citasOcupadas(db, institucion.id, active.citas);
         if (count >= limite) errors.push(`Se alcanzó el límite de citas (${limite}) para el periodo actual de esta institución.`);
       }
     }

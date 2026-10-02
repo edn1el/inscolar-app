@@ -2,6 +2,7 @@ const express = require('express');
 const { save, nextId } = require('../lib/db');
 const { requireAuth } = require('../lib/middleware');
 const { logEvent } = require('../lib/audit');
+const { citasOcupadas } = require('../lib/periods');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -111,6 +112,14 @@ router.put('/institutions/:id/periods/:periodId', (req, res) => {
     if (invalid.length) errors.push(`Tipo(s) de documento no reconocido(s): ${invalid.join(', ')}.`);
   }
 
+  // No se puede bajar el límite por debajo de las citas que ya ocupan cupo.
+  if (citasR.range && citasR.range.limiteCitas) {
+    const ocupadas = citasOcupadas(db, institucion.id, citasR.range);
+    if (citasR.range.limiteCitas < ocupadas) {
+      errors.push(`Periodo de citas: no se puede bajar el límite a ${citasR.range.limiteCitas} porque ya hay ${ocupadas} cita(s) ocupando cupo en ese periodo.`);
+    }
+  }
+
   if (errors.length) return res.status(400).json({ errors });
 
   if (body.inscripcion !== undefined) period.inscripcion = inscripcionR.range;
@@ -136,6 +145,21 @@ router.delete('/institutions/:id/periods/:periodId/:tipo', (req, res) => {
   const { tipo } = req.params;
   if (!SUBPERIODOS.includes(tipo)) return res.status(400).json({ error: 'Tipo de periodo inválido.' });
 
+  // No se elimina un periodo que ya tiene actividad asociada (se perdería el contexto de esas solicitudes).
+  const inscripcionesDelCiclo = db.enrollments.filter((e) => e.institucionId === institucion.id && e.cicloEscolar === period.cicloEscolar);
+  if (tipo === 'inscripcion' && inscripcionesDelCiclo.length) {
+    return res.status(400).json({ error: 'No se puede eliminar el periodo de inscripción porque ya tiene solicitudes asociadas.' });
+  }
+  if (tipo === 'documentos') {
+    const ids = new Set(inscripcionesDelCiclo.map((e) => e.id));
+    if ((db.documents || []).some((d) => ids.has(d.enrollmentId))) {
+      return res.status(400).json({ error: 'No se puede eliminar el periodo de documentos porque ya se enviaron documentos en este ciclo.' });
+    }
+  }
+  if (tipo === 'citas' && period.citas && citasOcupadas(db, institucion.id, period.citas) > 0) {
+    return res.status(400).json({ error: 'No se puede eliminar el periodo de citas porque ya hay citas agendadas en él.' });
+  }
+
   period[tipo] = null;
   period.updatedAt = new Date().toISOString();
   logEvent(db, { actor: u, accion: `${NOMBRE_SUBPERIODO[tipo]} eliminado`, entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${period.cicloEscolar}` });
@@ -152,6 +176,12 @@ router.delete('/institutions/:id/periods/:periodId', (req, res) => {
   if (!canManage(u, institucion.id)) return res.status(403).json({ error: 'No tienes permiso para configurar periodos de esta institución.' });
   const period = db.periods.find((p) => p.id === req.params.periodId && p.institucionId === institucion.id);
   if (!period) return res.status(404).json({ error: 'Configuración de periodo no encontrada.' });
+
+  const tieneSolicitudes = db.enrollments.some((e) => e.institucionId === institucion.id && e.cicloEscolar === period.cicloEscolar);
+  const tieneCitas = period.citas && citasOcupadas(db, institucion.id, period.citas) > 0;
+  if (tieneSolicitudes || tieneCitas) {
+    return res.status(400).json({ error: `No se puede eliminar el ciclo ${period.cicloEscolar} porque ya tiene ${tieneSolicitudes ? 'solicitudes de inscripción' : 'citas agendadas'} asociadas.` });
+  }
 
   db.periods = db.periods.filter((p) => p.id !== period.id);
   logEvent(db, { actor: u, accion: 'Configuración de periodo eliminada', entidad: 'Periodo', entidadId: period.id, detalle: `${institucion.nombre} · ciclo ${period.cicloEscolar}` });
