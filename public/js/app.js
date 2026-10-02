@@ -1405,7 +1405,7 @@
       'usuarios': 'Usuarios', 'instituciones': 'Instituciones',
       'inscripciones': 'Inscripciones', 'citas': 'Citas', 'analiticas': 'Analíticas',
       'auditoria': 'Auditoría', 'perfil': 'Mi perfil', 'seguridad': 'Seguridad',
-      'configuracion': 'Configuración', 'manual': 'Instrucciones'
+      'configuracion': 'Configuración', 'manual': 'Instrucciones', 'notificaciones': 'Notificaciones', 'calificar': 'Calificar institución', 'reportar': 'Reportar institución'
     };
     const currentName = sectionNames[activeSection] || 'Inicio';
 
@@ -2570,7 +2570,8 @@
             if (!d) return '<div class="calendar-cell other-month"></div>';
             const items = dias[keyFor(d)] || [];
             const shown = items.slice(0, 3);
-            return `<div class="calendar-cell">
+            const hoy = new Date(); const esHoy = hoy.getFullYear() === year && hoy.getMonth() + 1 === month && hoy.getDate() === d;
+            return `<div class="calendar-cell ${esHoy ? 'is-today' : ''}" ${esHoy ? 'aria-current="date"' : ''}>
               <div class="calendar-daynum">${d}</div>
               ${shown.map((it) => `<div class="calendar-item"><span class="calendar-dot" style="background:${estadoColorCal(it.estado)}"></span>${new Date(it.hora).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit' })}${detalle ? ' · ' + escapeHtml(it.tutorNombre) : ''}</div>`).join('')}
               ${items.length > 3 ? `<div class="help">+${items.length - 3} más</div>` : ''}
@@ -3065,116 +3066,94 @@
       if (step === 1) {
         qs('.main').innerHTML = `
           <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
-          <div class="page-head" style="margin-bottom:10px;"><h2>Paso 1: Seleccionar institución</h2></div>
-          <p class="lede" style="margin-bottom:20px;">Explora el mapa y selecciona la escuela donde deseas inscribir al estudiante.</p>
-          
-          <div class="search-layout" style="height: 60vh; min-height: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--border-color); display:flex; flex-direction:row;">
-            <div class="search-sidebar" style="width: 350px; padding: 15px; border-right: 1px solid var(--border-color); background: var(--bg-card); display:flex; flex-direction:column; gap:10px;">
-              <input type="text" id="map-filter" placeholder="Buscar por nombre..." class="search-input" style="padding:10px; border:1px solid var(--border-color); border-radius:8px; width:100%;">
-              <div id="inst-list" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;"></div>
+          <div class="page-head"><div><h2>Paso 1: Seleccionar institución</h2><div class="sub">Explora el mapa o la lista y elige la escuela donde deseas inscribir al estudiante.</div></div></div>
+          <div class="enroll-picker">
+            <div class="enroll-list-col">
+              <label class="ff ff-search enroll-filter"><span class="sr-only">Buscar por nombre</span>${ICONS.search}<input type="search" id="map-filter" placeholder="Buscar por nombre…" autocomplete="off"></label>
+              <div id="inst-list" class="enroll-list" role="list"></div>
             </div>
-            <div class="search-map" id="enroll-map-container" style="flex:1; background:var(--bg-body); position:relative;"></div>
+            <div class="enroll-map" id="enroll-map-container" aria-label="Mapa de instituciones"></div>
           </div>
         `;
         bindShellEvents();
 
         const listContainer = qs('#inst-list');
         const filterInput = qs('#map-filter');
-        let markers = [];
+        const mapEl = qs('#enroll-map-container');
+        let markers = new Map();
         let mapObj = null;
 
-        if (typeof L === 'undefined') {
-          qs('#enroll-map-container').innerHTML = '<div class="loading" style="padding:20px">Cargando mapa...</div>';
-          await new Promise((resolve) => {
-            const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
-            const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = resolve; document.head.appendChild(script);
-          });
+        try {
+          await ensureLeaflet();
+          mapObj = L.map(mapEl, { zoomControl: false, zoomSnap: 0.25, zoomDelta: 0.5 }).setView([18.8, -70.2], 8);
+          L.control.zoom({ position: 'bottomright' }).addTo(mapObj);
+          L.tileLayer(tileUrlForTheme(), { maxZoom: 19, attribution: TILE_ATTRIBUTION, className: 'ins-tiles' }).addTo(mapObj);
+          focusOnDR(mapObj);
+        } catch (e) {
+          mapEl.innerHTML = '<div class="map-fallback">El mapa no está disponible en este momento. Puedes elegir la escuela en la lista.</div>';
         }
 
-          const mapEl = qs('#enroll-map-container');
-        if (mapEl) {
-          mapEl.innerHTML = '';
-          mapObj = L.map(mapEl).setView([18.7357, -70.1627], 8);
-          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-          
-          const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapObj);
-          
-          if (isDark) {
-            // Apply CSS filter to OSM tiles for a dark mode effect
-            tileLayer.on('add', () => {
-              const tilePane = mapEl.querySelector('.leaflet-tile-pane');
-              if (tilePane) {
-                tilePane.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
-              }
+        const choose = (id) => {
+          selectedInst = activas.find((x) => x.id === id);
+          if (!selectedInst) return;
+          step = 2;
+          renderStep();
+        };
+        const highlight = (id, scroll) => {
+          markers.forEach((m, mid) => {
+            const el = m.getElement();
+            if (el) el.classList.toggle('is-active', mid === id);
+            m.setZIndexOffset(mid === id ? 1000 : 0);
+          });
+          qsa('.enroll-item').forEach((c) => c.classList.toggle('is-active', c.dataset.id === id));
+          if (scroll) {
+            const card = qs(`.enroll-item[data-id="${id}"]`);
+            if (card) card.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest' });
+          }
+        };
+
+        const renderList = (query = '') => {
+          const q = query.trim().toLowerCase();
+          const filtered = activas.filter((i) => i.nombre.toLowerCase().includes(q));
+          listContainer.innerHTML = filtered.length ? filtered.map((i, idx) => `
+            <button type="button" class="enroll-item" role="listitem" data-id="${i.id}" style="--i:${Math.min(idx, 8)}">
+              <span class="enroll-item-name">${escapeHtml(i.nombre)}</span>
+              <span class="enroll-item-place">${escapeHtml(instPlace(i))}</span>
+              <span class="enroll-item-meta"><span class="tag">${escapeHtml(i.tipo || '')}</span>${ratingBadge(i)}</span>
+            </button>
+          `).join('') : '<div class="results-empty"><strong>Ninguna escuela coincide.</strong><p>Prueba con otro nombre.</p></div>';
+
+          if (mapObj) {
+            markers.forEach((m) => m.remove());
+            markers = new Map();
+            const bounds = [];
+            filtered.forEach((i, idx) => {
+              if (typeof i.lat !== 'number' || typeof i.lng !== 'number') return;
+              const m = L.marker([i.lat, i.lng], { icon: pinIcon(false, idx), title: i.nombre, riseOnHover: true }).addTo(mapObj);
+              const pop = document.createElement('div');
+              pop.className = 'enroll-pop';
+              pop.innerHTML = `<strong>${escapeHtml(i.nombre)}</strong><span>${escapeHtml(instPlace(i))}</span><button type="button" class="btn btn-primary btn-sm">Elegir esta escuela</button>`;
+              qs('button', pop).addEventListener('click', () => choose(i.id));
+              m.bindPopup(pop, { closeButton: false, className: 'ins-popup', offset: [0, -34] });
+              m.on('click', () => highlight(i.id, true));
+              markers.set(i.id, m);
+              bounds.push([i.lat, i.lng]);
             });
+            if (!q && mapObj._drBounds) mapObj.fitBounds(mapObj._drBounds, { padding: [16, 16] });
+            else if (bounds.length === 1) mapObj.setView(bounds[0], 13);
+            else if (bounds.length) mapObj.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
           }
 
-          // Custom Marker Icon (Premium visual)
-          const createIcon = (color) => L.divIcon({
-            className: 'custom-pin',
-            html: `<svg viewBox="0 0 24 24" fill="${color}" width="32" height="32" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform-origin:bottom; transition:transform 0.2s;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
-            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+          qsa('.enroll-item').forEach((card) => {
+            card.addEventListener('mouseenter', () => highlight(card.dataset.id));
+            card.addEventListener('focus', () => highlight(card.dataset.id));
+            card.addEventListener('click', () => choose(card.dataset.id));
           });
+        };
 
-          const defaultIcon = createIcon('var(--primary-color)');
-          const hoverIcon = createIcon('var(--c-amber)');
-
-          const renderList = (query = '') => {
-            const filtered = activas.filter(i => i.nombre.toLowerCase().includes(query.toLowerCase()));
-            listContainer.innerHTML = filtered.map(i => `
-              <div class="inst-item" data-id="${i.id}" style="padding:12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer; transition:all 0.2s; background:var(--bg-card);">
-                <div style="font-weight:600; color:var(--primary-color);">${escapeHtml(i.nombre)}</div>
-                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">${escapeHtml(i.municipio||'')}</div>
-              </div>
-            `).join('');
-
-            markers.forEach(m => m.remove());
-            markers = [];
-            const bounds = [];
-            
-            filtered.forEach(i => {
-              if (i.lat && i.lng) {
-                const m = L.marker([i.lat, i.lng], { icon: defaultIcon }).addTo(mapObj);
-                const popupContent = document.createElement('div');
-                popupContent.innerHTML = `<strong>${escapeHtml(i.nombre)}</strong><br><button class="btn btn-primary btn-small" style="margin-top:8px; width:100%;">Seleccionar</button>`;
-                popupContent.querySelector('button').addEventListener('click', () => { selectedInst = i; step = 2; renderStep(); });
-                m.bindPopup(popupContent);
-                m.instId = i.id;
-                
-                m.on('mouseover', () => m.setIcon(hoverIcon));
-                m.on('mouseout', () => m.setIcon(defaultIcon));
-                m.on('click', () => {
-                  qsa('.inst-item').forEach(el => el.style.borderColor = 'var(--border-color)');
-                  const card = qs(`.inst-item[data-id="${i.id}"]`);
-                  if (card) { card.style.borderColor = 'var(--c-amber)'; card.scrollIntoView({behavior:'smooth', block:'nearest'}); }
-                });
-
-                markers.push(m);
-                bounds.push([i.lat, i.lng]);
-              }
-            });
-            if (bounds.length > 0) mapObj.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
-
-            qsa('.inst-item').forEach(card => {
-              card.addEventListener('mouseenter', () => {
-                const mk = markers.find(x => x.instId === card.dataset.id);
-                if (mk) { mk.setIcon(hoverIcon); mk.setZIndexOffset(1000); }
-              });
-              card.addEventListener('mouseleave', () => {
-                const mk = markers.find(x => x.instId === card.dataset.id);
-                if (mk) { mk.setIcon(defaultIcon); mk.setZIndexOffset(0); }
-              });
-              card.addEventListener('click', () => {
-                selectedInst = activas.find(x => x.id === card.dataset.id);
-                step = 2;
-                renderStep();
-              });
-            });
-          };
-
-          renderList();
-          filterInput.addEventListener('input', (e) => renderList(e.target.value));
-        }
+        renderList();
+        let typing;
+        filterInput.addEventListener('input', (e) => { clearTimeout(typing); typing = setTimeout(() => renderList(e.target.value), 200); });
 
       } else if (step === 2) {
         qs('.main').innerHTML = `
@@ -3274,9 +3253,10 @@
         ${documents.length ? documents.map((d) => `
           <div class="notif-item">
             <div>
-              <div class="t1">${escapeHtml(d.tipoDocumento || d.nombreArchivo)} · <a href="/api/documents/${d.id}/file" target="_blank" rel="noopener">${escapeHtml(d.nombreArchivo)}</a> <span class="help">(${fmtBytes(d.size)})</span></div>
-              ${d.estado === 'Rechazado' && d.motivoRechazo ? `<div class="t2">${escapeHtml(d.motivoRechazo)}</div>` : ''}
-              <div class="t3">${fmtDate(d.uploadedAt)} · ${escapeHtml(d.estado)}</div>
+              <div class="t1 doc-title">${escapeHtml(d.tipoDocumento || 'Documento')} <span class="doc-status ${d.estado === 'Aceptado' ? 'ok' : d.estado === 'Rechazado' ? 'bad' : 'wait'}"><span class="estado-cell ${d.estado === 'Pendiente' ? 'is-live' : ''}"><span class="dot"></span>${escapeHtml(d.estado)}</span></span></div>
+              <div class="t2 doc-file"><a href="/api/documents/${d.id}/file" target="_blank" rel="noopener">${escapeHtml(d.nombreArchivo)}</a> <span class="help">${fmtBytes(d.size)}</span></div>
+              ${d.estado === 'Rechazado' && d.motivoRechazo ? `<div class="t2 doc-reason">Motivo: ${escapeHtml(d.motivoRechazo)}</div>` : ''}
+              <div class="t3">Subido el ${fmtDate(d.uploadedAt)}</div>
             </div>
             ${canDecide && d.estado === 'Pendiente' ? `<span class="actions-cell"><button class="ok" data-doc-accept="${d.id}">Aceptar</button><button class="danger" data-doc-reject="${d.id}">Rechazar</button></span>` : ''}
           </div>
