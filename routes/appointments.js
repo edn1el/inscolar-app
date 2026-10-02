@@ -1,228 +1,25 @@
-const express = require('express');
-const { load, save, nextId } = require('../lib/db');
-const { requireAuth } = require('../lib/middleware');
-const { notifyUser } = require('../lib/notify');
-const { logEvent } = require('../lib/audit');
-const { citasPeriodStatus } = require('../lib/periods');
-
-const router = express.Router();
-router.use(requireAuth);
-
-const MOTIVOS = ['Entrega de documentos', 'Entrevista de admisión', 'Seguimiento académico', 'Otro'];
-const STAFF_ROLES = ['Administrador', 'Soporte'];
-
-function publicAppointment(a, db) {
-  const institucion = db.institutions.find((i) => i.id === a.institucionId);
-  const tutor = db.users.find((u) => u.id === a.tutorId);
-  const student = a.studentId ? db.students.find((s) => s.id === a.studentId) : null;
-  return {
-    ...a,
-    institucionNombre: institucion ? institucion.nombre : '—',
-    tutorNombre: tutor ? tutor.nombre : '—',
-    estudianteNombre: student ? student.nombre : null,
-  };
-}
-
-router.get('/appointments', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
-  const { estado, institucionId } = req.query;
-  let list = db.appointments.slice();
-
-  if (u.role === 'Tutor') list = list.filter((a) => a.tutorId === u.id);
-  else if (u.role === 'Personal de institución') list = list.filter((a) => a.institucionId === u.institucionId);
-  else if (!STAFF_ROLES.includes(u.role)) list = [];
-
-  if (estado && estado !== 'Todos') list = list.filter((a) => a.estado === estado);
-  if (institucionId && institucionId !== 'Todas' && STAFF_ROLES.includes(u.role)) {
-    list = list.filter((a) => a.institucionId === institucionId);
-  }
-
-  list.sort((a, b) => new Date(a.fechaHoraSolicitada) - new Date(b.fechaHoraSolicitada));
-  res.json({ total: list.length, appointments: list.map((a) => publicAppointment(a, db)) });
-});
-
-router.post('/appointments', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
-  if (u.role !== 'Tutor') return res.status(403).json({ error: 'Solo un tutor puede solicitar una cita.' });
-
-  const { institucionId, studentId, motivo, fechaHoraSolicitada, notas } = req.body || {};
-  const errors = [];
-  const institucion = db.institutions.find((i) => i.id === institucionId);
-  if (!institucion) errors.push('Selecciona una institución válida.');
-  else if ((institucion.estado || 'Activo') !== 'Activo') errors.push('Esa institución no está activa actualmente.');
-  if (!MOTIVOS.includes(motivo)) errors.push('Selecciona un motivo válido.');
-  const when = new Date(fechaHoraSolicitada);
-  if (!fechaHoraSolicitada || isNaN(when.getTime())) errors.push('Selecciona una fecha y hora válidas.');
-  else if (when.getTime() <= Date.now()) errors.push('La fecha y hora deben ser en el futuro.');
-  let student = null;
-  if (studentId) {
-    student = db.students.find((s) => s.id === studentId && s.tutorId === u.id);
-    if (!student) errors.push('El estudiante seleccionado no es válido.');
-  }
-  let activePeriod = null;
-  if (institucion) {
-    const { hasConfig, active } = citasPeriodStatus(db, institucion.id, when);
-    if (hasConfig && !active) {
-      errors.push('No hay un periodo habilitado para agendar citas en esta institución actualmente.');
-    } else if (active) {
-      activePeriod = active;
-      const limite = active.citas.limiteCitas;
-      if (limite) {
-        const count = db.appointments.filter((a) =>
-          a.institucionId === institucion.id && 
-          (a.estado === 'Pendiente' || a.estado === 'Aceptada' || a.estado === 'Confirmada') &&
-          new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada) >= new Date(active.citas.desde) &&
-          new Date(a.fechaHoraConfirmada || a.fechaHoraSolicitada) <= new Date(active.citas.hasta)
-        ).length;
-        if (count >= limite) errors.push(`Se alcanzó el límite de citas (${limite}) para el periodo actual de esta institución.`);
-      }
-    }
-  }
-  if (errors.length) return res.status(400).json({ errors });
-
-  const appointment = {
-    id: nextId(db.appointments, 'c'),
-    tutorId: u.id,
-    studentId: student ? student.id : null,
-    institucionId: institucion.id,
-    motivo,
-    notas: (notas || '').trim(),
-    fechaHoraSolicitada: when.toISOString(),
-    fechaHoraConfirmada: null,
-    estado: 'Pendiente',
-    motivoCancelacion: '',
-    motivoRechazo: '',
-    createdAt: new Date().toISOString(),
-    decidedAt: null,
-    decidedBy: null,
-  };
-  db.appointments.push(appointment);
-  logEvent(db, { actor: u, accion: 'Cita creada', entidad: 'Cita', entidadId: appointment.id, detalle: `${institucion.nombre} · ${motivo}` });
-  save(db);
-  res.json({ appointment: publicAppointment(appointment, db) });
-});
-
-router.post('/appointments/:id/confirmar', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
-  const appointment = db.appointments.find((a) => a.id === req.params.id);
-  if (!appointment) return res.status(404).json({ error: 'Cita no encontrada.' });
-
-  const canDecide = STAFF_ROLES.includes(u.role) || (u.role === 'Personal de institución' && u.institucionId === appointment.institucionId);
-  if (!canDecide) return res.status(403).json({ error: 'No tienes permiso para confirmar esta cita.' });
-  if (appointment.estado !== 'Pendiente') return res.status(400).json({ error: 'Esta cita ya fue decidida.' });
-
-  const { fechaHoraConfirmada } = req.body || {};
-  let finalWhen = appointment.fechaHoraSolicitada;
-  if (fechaHoraConfirmada) {
-    const w = new Date(fechaHoraConfirmada);
-    if (isNaN(w.getTime())) return res.status(400).json({ errors: ['La fecha y hora confirmadas no son válidas.'] });
-    finalWhen = w.toISOString();
-  }
-
-  appointment.estado = 'Confirmada';
-  appointment.fechaHoraConfirmada = finalWhen;
-  appointment.decidedAt = new Date().toISOString();
-  appointment.decidedBy = u.id;
-  logEvent(db, { actor: u, accion: 'Cita confirmada', entidad: 'Cita', entidadId: appointment.id, detalle: '' });
-
-  const tutorConfirm = db.users.find((t) => t.id === appointment.tutorId);
-  if (tutorConfirm) {
-    notifyUser(db, {
-      recipient: tutorConfirm,
-      campo: 'Estado de cita',
-      anterior: 'Pendiente',
-      nuevo: 'Confirmada',
-      actor: u,
-      userNombre: tutorConfirm.nombre,
-    });
-  }
-
-  save(db);
-  res.json({ appointment: publicAppointment(appointment, db) });
-});
-
-// HU054: rechazar una cita Pendiente (distinto de cancelar, que tambien aplica a una
-// cita ya Confirmada). Solo el personal de la institucion o Administracion puede rechazar,
-// y siempre requiere un motivo.
-router.post('/appointments/:id/rechazar', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
-  const appointment = db.appointments.find((a) => a.id === req.params.id);
-  if (!appointment) return res.status(404).json({ error: 'Cita no encontrada.' });
-
-  const canDecide = STAFF_ROLES.includes(u.role) || (u.role === 'Personal de institución' && u.institucionId === appointment.institucionId);
-  if (!canDecide) return res.status(403).json({ error: 'No tienes permiso para rechazar esta cita.' });
-  if (appointment.estado !== 'Pendiente') return res.status(400).json({ error: 'Solo se puede rechazar una cita pendiente.' });
-
-  const { motivo } = req.body || {};
-  if (!motivo || !motivo.trim()) return res.status(400).json({ error: 'Indica el motivo del rechazo.' });
-
-  appointment.estado = 'Rechazada';
-  appointment.motivoRechazo = motivo.trim();
-  appointment.decidedAt = new Date().toISOString();
-  appointment.decidedBy = u.id;
-  logEvent(db, { actor: u, accion: 'Cita rechazada', entidad: 'Cita', entidadId: appointment.id, detalle: appointment.motivoRechazo });
-
-  const tutorReject = db.users.find((t) => t.id === appointment.tutorId);
-  if (tutorReject) {
-    notifyUser(db, {
-      recipient: tutorReject,
-      campo: 'Estado de cita',
-      anterior: 'Pendiente',
-      nuevo: 'Rechazada',
-      actor: u,
-      userNombre: tutorReject.nombre,
-    });
-  }
-
-  save(db);
-  res.json({ appointment: publicAppointment(appointment, db) });
-});
-
-router.post('/appointments/:id/cancelar', (req, res) => {
-  const db = req.db;
-  const u = req.currentUser;
-  const appointment = db.appointments.find((a) => a.id === req.params.id);
-  if (!appointment) return res.status(404).json({ error: 'Cita no encontrada.' });
-
-  const isOwner = appointment.tutorId === u.id;
-  const isStaffOfInst = u.role === 'Personal de institución' && u.institucionId === appointment.institucionId;
-  const canCancel = isOwner || isStaffOfInst || STAFF_ROLES.includes(u.role);
-  if (!canCancel) return res.status(403).json({ error: 'No tienes permiso para cancelar esta cita.' });
-  if (appointment.estado === 'Cancelada' || appointment.estado === 'Rechazada') {
-    return res.status(400).json({ error: 'Esta cita ya fue decidida y no se puede cancelar.' });
-  }
-
-  const { motivo } = req.body || {};
-  if (!isOwner && (!motivo || !motivo.trim())) return res.status(400).json({ error: 'Indica el motivo de la cancelación.' });
-
-  const estadoAnterior = appointment.estado;
-  appointment.estado = 'Cancelada';
-  appointment.motivoCancelacion = (motivo || '').trim();
-  appointment.decidedAt = new Date().toISOString();
-  appointment.decidedBy = u.id;
-  logEvent(db, { actor: u, accion: 'Cita cancelada', entidad: 'Cita', entidadId: appointment.id, detalle: appointment.motivoCancelacion });
-
-  // Si fue el propio tutor quien cancelo, no hace falta notificarlo de su propia accion.
-  if (!isOwner) {
-    const tutorCancel = db.users.find((t) => t.id === appointment.tutorId);
-    if (tutorCancel) {
-      notifyUser(db, {
-        recipient: tutorCancel,
-        campo: 'Estado de cita',
-        anterior: estadoAnterior,
-        nuevo: 'Cancelada',
-        actor: u,
-        userNombre: tutorCancel.nombre,
-      });
-    }
-  }
-
-  save(db);
-  res.json({ appointment: publicAppointment(appointment, db) });
-});
-
-module.exports = router;
+const express=require('express');
+const {save,load}=require('../lib/db');
+const {requireAuth}=require('../lib/middleware');
+const service=require('../lib/appointment-service');
+const updates=require('../lib/appointment-updates');
+const router=express.Router();router.use(requireAuth);
+function handle(fn){return(req,res)=>{try{fn(req,res);}catch(e){res.status(e.status||500).json({error:e.status?e.message:'No se pudo guardar o consultar la cita. Reintenta.'});}};}
+function appointment(req){const a=req.db.appointments.find(a=>a.id===req.params.id);if(!a)throw Object.assign(Error('Cita no encontrada.'),{status:404});if(!service.read(req.currentUser,a))throw Object.assign(Error('No tienes acceso a esta cita.'),{status:403});return a;}
+function institution(req,id){const i=req.db.institutions.find(i=>i.id===id);if(!i)throw Object.assign(Error('Institución no encontrada.'),{status:404});if(req.currentUser.role==='Personal de institución'&&!service.staff(req.currentUser,id))throw Object.assign(Error('No puedes consultar otra institución.'),{status:403});return i;}
+router.get('/appointments/events',(req,res)=>{if(!['Tutor','Personal de institución'].includes(req.currentUser.role))return res.status(403).json({error:'No tienes acceso a citas.'});res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache','Connection':'keep-alive'});res.flushHeaders();res.write(': conectado\n\n');const id=req.currentUser.id;
+ const listener=change=>{const u=load().users.find(u=>u.id===id&&u.estado!=='Inactivo');if(!u){res.end();return;}if(service.staff(u,change.institucionId)||(u.role==='Tutor'&&(!change.tutorId||change.tutorId===u.id)))res.write('event: changed\ndata: {}\n\n');};updates.on('changed',listener);const timer=setInterval(()=>res.write(': activo\n\n'),30000);req.on('close',()=>{clearInterval(timer);updates.off('changed',listener);});});
+router.get('/appointments/availability',handle((req,res)=>{const id=req.query.institucionId;const i=institution(req,id);let exclude=null;if(req.query.excludeId){const a=req.db.appointments.find(a=>a.id===req.query.excludeId);if(!a||!service.read(req.currentUser,a)||a.institucionId!==id)throw Object.assign(Error('No puedes consultar esta cita.'),{status:403});exclude=a.id;}
+ const month=req.query.mes||service.dateKey(new Date()).slice(0,7);if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))throw Object.assign(Error('Selecciona un mes válido.'),{status:400});res.json({institucion:{id:i.id,nombre:i.nombre},mes:month,zonaHoraria:service.TIME_ZONE,slots:(i.estado||'Activo')==='Activo'?service.available(req.db,id,month,exclude):[]});}));
+router.post('/institutions/:id/appointment-slots',handle((req,res)=>{institution(req,req.params.id);const slots=service.configure(req.db,req.currentUser,req.params.id,req.body||{});save(req.db);updates.publish({institucionId:req.params.id});res.json({slots,zonaHoraria:service.TIME_ZONE});}));
+router.get('/appointments',handle((req,res)=>{const u=req.currentUser;if(!['Tutor','Personal de institución'].includes(u.role))throw Object.assign(Error('No tienes acceso a citas.'),{status:403});let list=req.db.appointments.filter(a=>service.read(u,a));const {estado,fecha,grupo}=req.query;
+ if(estado&&estado!=='Todos')list=list.filter(a=>service.status(a)===estado);
+ if(fecha){if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha))throw Object.assign(Error('Fecha inválida.'),{status:400});list=list.filter(a=>service.dateKey(service.when(a))===fecha);}
+ if(grupo==='proximas')list=list.filter(a=>service.ACTIVE.includes(a.estado)&&new Date(service.when(a))>=new Date());
+ if(grupo==='anteriores')list=list.filter(a=>!service.ACTIVE.includes(a.estado)||new Date(service.when(a))<new Date());
+ list.sort((a,b)=>new Date(service.when(a))-new Date(service.when(b))||a.id.localeCompare(b.id));const total=list.length;
+ const paged=req.query.page!==undefined||req.query.limit!==undefined;const page=Number(req.query.page||1),limit=Number(req.query.limit||10);if(!Number.isInteger(page)||page<1||!Number.isInteger(limit)||limit<1||limit>100)throw Object.assign(Error('Paginación inválida.'),{status:400});if(paged)list=list.slice((page-1)*limit,page*limit);res.json({total,page,limit,appointments:list.map(a=>service.dto(req.db,u,a)),zonaHoraria:service.TIME_ZONE});}));
+router.get('/appointments/:id',handle((req,res)=>res.json({appointment:service.dto(req.db,req.currentUser,appointment(req))})));
+router.post('/appointments',handle((req,res)=>{const {appointment:a,replayed}=service.create(req.db,req.currentUser,req.body||{});if(!replayed){save(req.db);updates.publish(a);}res.json({appointment:service.dto(req.db,req.currentUser,a),replayed});}));
+for(const action of ['aceptar','rechazar','cancelar','reprogramar','confirmar'])router.post('/appointments/:id/'+action,handle((req,res)=>{const a=appointment(req);if(action==='confirmar'&&req.body?.fechaHoraConfirmada&&req.body.fechaHoraConfirmada!==a.fechaHoraSolicitada)throw Object.assign(Error('Usa Reprogramar para cambiar el horario.'),{status:400});service.transition(req.db,req.currentUser,a,action==='confirmar'?'aceptar':action,req.body||{});save(req.db);updates.publish(a);res.json({appointment:service.dto(req.db,req.currentUser,a)});}));
+module.exports=router;
