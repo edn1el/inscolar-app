@@ -1558,7 +1558,7 @@
     qs('.main').innerHTML = `
       <div class="page-head"><div><h2>Perfil de usuario</h2><div class="sub">Datos personales asociados a tu cuenta.</div></div>
       <button class="btn btn-primary btn-small" style="width:auto; padding:9px 18px;" data-nav="#/app/perfil/editar">Editar</button></div>
-      <div class="chart-row" style="grid-template-columns: 2fr 1fr;">
+      <div class="chart-row">
         <div class="chart-card">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:20px;">
             <div class="profile-avatar-wrap" id="foto-wrap" title="Cambiar foto de perfil">
@@ -1670,7 +1670,7 @@
     const mfa = await api('/users/me/mfa');
     qs('.main').innerHTML = `
       <div class="page-head"><h2>Seguridad</h2></div>
-      <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
+      <div class="chart-row" style="align-items:start;">
         <div class="chart-card">
           <h3>Cambiar contraseña</h3>
           <div id="pw-err"></div>
@@ -2425,7 +2425,7 @@
       <div class="page-head" style="margin-top:16px;">
         <div class="sub">Detalle de la institución.</div>
       </div>
-      <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
+      <div class="chart-row" style="align-items:start;">
         <div class="chart-card">
           <h3>Información general</h3>
           <div class="two-col">

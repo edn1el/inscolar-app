@@ -2681,7 +2681,9 @@ tbody tr:last-child td {
     display: flex;
   }
 
-  .topbar-breadcrumb {
+  .topbar-breadcrumb,
+  .who .stack,
+  .brand .stack {
     display: none;
   }
 
@@ -2761,10 +2763,6 @@ tbody tr:last-child td {
 
   .kpi-row {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .who .stack {
-    display: none;
   }
 
   /* Solo avatar en 320px */
