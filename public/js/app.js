@@ -2,7 +2,9 @@
   'use strict';
 
   const root = document.getElementById('root');
-  const state = { user: null, authChecked: false, setupNeeded: false, pendingMfa: null };
+  const state = { user: null, authChecked: false, setupNeeded: false, pendingMfa: null, pendingRedirect: null };
+  let cleanupParticles = () => {};
+  let routerVersion = 0;
 
   // ---------------- helpers ----------------
   function escapeHtml(s) {
@@ -259,16 +261,11 @@
   }
 
   async function router() {
-    const activeContent = document.querySelector('.main, .search-layout, .auth-layout, [style*="max-width:800px"]');
-    if (activeContent) {
-      activeContent.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
-      activeContent.style.opacity = '0';
-      activeContent.style.transform = 'scale(0.98)';
-      await new Promise(r => setTimeout(r, 150));
-    }
-
-    root.innerHTML = '<div class="loading" style="animation: fadeUp 0.3s ease forwards;">Cargando…</div>';
+    const version = ++routerVersion;
+    cleanupParticles();
+    root.innerHTML = '<div class="loading">Cargando…</div>';
     await ensureAuth();
+    if (version !== routerVersion) return;
     const { segs, query } = parseHash();
 
     if (state.setupNeeded && segs[0] !== 'setup') return navigate('#/setup');
@@ -291,7 +288,13 @@
       case 'register': return viewRegister();
       case 'forgot': return viewForgot();
       case 'reset': return viewReset(query.token || '');
-      case 'app': return viewApp(segs.slice(1), query);
+      case 'app': {
+        await viewApp(segs.slice(1), query);
+        if (version !== routerVersion) return;
+        const title = qs('.main h1, .main h2, .main h3, .topbar-title');
+        if (title) { title.tabIndex = -1; title.focus(); }
+        return;
+      }
       default: return navigate('#/');
     }
   }
@@ -301,6 +304,7 @@
 
   // ---------------- shared auth chrome ----------------
   function authShell({ withHero, headline, lede, badge, body }) {
+    cleanupParticles();
     root.innerHTML = `
       <div class="auth-stage ${withHero ? 'with-hero' : ''}">
         ${withHero ? `
@@ -336,7 +340,8 @@
       </div>
     `;
     if (withHero) {
-      setTimeout(initParticles, 0);
+      // La decoración nunca debe impedir que el formulario se vincule.
+      try { initParticles(); } catch (err) { cleanupParticles(); }
     }
   }
 
@@ -344,6 +349,7 @@
     const canvas = document.getElementById('particles-bg');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     const btn = document.getElementById('pause-particles');
     let animationId;
     let particles = [];
@@ -351,6 +357,13 @@
     let isSuccess = false;
     let successTarget = { x: 0, y: 0 };
     
+    cleanupParticles = () => {
+      cancelAnimationFrame(animationId);
+      window.removeEventListener('resize', resize);
+      window._triggerLoginSuccess = null;
+      cleanupParticles = () => {};
+    };
+
     if (isPaused && btn) btn.style.display = 'none';
     
     function resize() {
@@ -427,13 +440,13 @@
       animationId = requestAnimationFrame(draw);
     }
     
-    if (!isPaused) draw();
-    else draw();
+    draw();
     
     if (btn) {
       btn.addEventListener('click', () => {
         isPaused = !isPaused;
         btn.setAttribute('aria-pressed', isPaused.toString());
+        cancelAnimationFrame(animationId);
         if (!isPaused) draw();
         btn.innerHTML = isPaused 
           ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Reproducir'
@@ -442,30 +455,28 @@
     }
 
     window._triggerLoginSuccess = (destId) => {
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return Promise.resolve();
-      return new Promise(resolve => {
-        isSuccess = true;
-        isPaused = false;
-        if (btn) btn.style.opacity = '0';
-        const destEl = document.querySelector(destId || '.medallion');
-        if (destEl) {
-          const rect = destEl.getBoundingClientRect();
-          const hero = canvas.closest('.hero');
-          if (hero) {
-            const heroRect = hero.getBoundingClientRect();
-            successTarget = {
-              x: rect.left - heroRect.left + rect.width / 2,
-              y: rect.top - heroRect.top + rect.height / 2
-            };
-          } else {
-            successTarget = { x: canvas.width / 2, y: canvas.height / 2 };
-          }
+      if (!canvas.isConnected || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      isSuccess = true;
+      isPaused = false;
+      if (btn) btn.style.opacity = '0';
+      const destEl = document.querySelector(destId || '.medallion');
+      if (destEl) {
+        const rect = destEl.getBoundingClientRect();
+        const hero = canvas.closest('.hero');
+        if (hero) {
+          const heroRect = hero.getBoundingClientRect();
+          successTarget = {
+            x: rect.left - heroRect.left + rect.width / 2,
+            y: rect.top - heroRect.top + rect.height / 2
+          };
         } else {
           successTarget = { x: canvas.width / 2, y: canvas.height / 2 };
         }
-        draw();
-        setTimeout(resolve, 600);
-      });
+      } else {
+        successTarget = { x: canvas.width / 2, y: canvas.height / 2 };
+      }
+      cancelAnimationFrame(animationId);
+      draw();
     };
   }
 
@@ -881,7 +892,14 @@
   }
 
   // ---------------- HU006 login ----------------
-  function viewLogin(query = new URLSearchParams()) {
+  function loginDestination(user, redirect) {
+    // parseHash ya decodifica los parámetros. Solo aceptar destinos internos.
+    const tutorOnly = /^#\/app\/inscripciones\/(nueva|estudiante-nuevo)(?:[/?]|$)/.test(redirect || '');
+    return typeof redirect === 'string' && redirect.startsWith('#/app/')
+      && (!tutorOnly || user.role === 'Tutor') ? redirect : '#/app/perfil';
+  }
+
+  function viewLogin(query = {}) {
     const rememberedEmail = localStorage.getItem('rememberedEmail') || '';
     authShell({
       withHero: true,
@@ -917,8 +935,10 @@
 
     qs('#login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fd = new FormData(e.target);
-      qs('#err').innerHTML = '';
+      const form = e.target;
+      const loginHash = window.location.hash;
+      const fd = new FormData(form);
+      qs('#err', form.parentElement).innerHTML = '';
       
       const submitBtn = qs('button[type="submit"]', e.target);
       const originalText = submitBtn.textContent;
@@ -934,43 +954,35 @@
       try {
         const deviceToken = localStorage.getItem('deviceToken');
         const data = await api('/auth/login', { method: 'POST', body: { email: fd.get('email'), password: fd.get('password'), deviceToken } });
-        
-        if (window._triggerLoginSuccess) {
-          await window._triggerLoginSuccess('.medallion');
-        }
 
         if (data.status === 'mfa_required') {
           state.pendingMfa = data;
+          state.pendingRedirect = query.redirect;
           navigate('#/mfa');
         } else if (data.status === 'must_change_password') {
+          state.pendingRedirect = query.redirect;
           navigate('#/force-change');
         } else {
           state.user = data.user;
-          const redirect = query.get('redirect');
-          navigate(redirect ? decodeURIComponent(redirect) : '#/app/perfil');
+          state.authChecked = true;
+          state.pendingRedirect = null;
+          const destination = loginDestination(data.user, query.redirect);
+          if (window.location.hash !== loginHash || !form.isConnected) return;
+          // La animación es opcional: no esperar su resultado ni propagar sus fallos.
+          try {
+            if (window._triggerLoginSuccess) {
+              Promise.resolve(window._triggerLoginSuccess('.medallion')).catch(() => {});
+            }
+          } catch (err) { /* continuar con la navegación */ }
+          navigate(destination);
         }
-        
-        setTimeout(() => {
-          const title = document.querySelector('h1, h2, h3, .topbar-title');
-          if (title) {
-            title.tabIndex = -1;
-            title.focus();
-          }
-        }, 100);
       } catch (err) {
+        if (!form.isConnected) return;
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
-        qs('#err').innerHTML = fieldErrorsBlock(err.errors);
-        
-        // Colocar el foco en el primer input con error, o en el input de email
-        setTimeout(() => {
-          const firstErrInput = qs('.field.error input, .field.error select');
-          if (firstErrInput) {
-            firstErrInput.focus();
-          } else {
-            qs('input[name="email"]').focus();
-          }
-        }, 50);
+        qs('#err', form.parentElement).innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+        const firstErrInput = qs('.field.error input, .field.error select', form);
+        (firstErrInput || qs('input[name="email"]', form)).focus();
       }
     });
   }
@@ -1027,7 +1039,10 @@
         }
         state.user = data.user;
         state.pendingMfa = null;
-        navigate('#/app/perfil');
+        state.authChecked = true;
+        const destination = loginDestination(data.user, state.pendingRedirect);
+        state.pendingRedirect = null;
+        navigate(destination);
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors);
       }
@@ -1061,8 +1076,11 @@
           body: { currentPassword: fd.get('currentPassword'), newPassword: fd.get('newPassword'), confirmNewPassword: fd.get('confirmNewPassword') },
         });
         state.user = data.user;
+        state.authChecked = true;
         toast('Contraseña actualizada.', 'ok');
-        navigate('#/app/perfil');
+        const destination = loginDestination(data.user, state.pendingRedirect);
+        state.pendingRedirect = null;
+        navigate(destination);
       } catch (err) {
         qs('#err').innerHTML = fieldErrorsBlock(err.errors);
       }

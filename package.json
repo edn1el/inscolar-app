@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "reset-data": "node lib/seed.js"
+    "reset-data": "node lib/seed.js",
+    "test:login": "node --test test/login.browser.cjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -14,5 +15,8 @@
     "express-session": "^1.18.0",
     "multer": "^2.3.0",
     "nodemailer": "^9.1.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }
