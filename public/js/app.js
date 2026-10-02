@@ -819,7 +819,7 @@
     qs('#resend').addEventListener('click', async () => {
       try {
         const data = await api('/auth/mfa/resend', { method: 'POST' });
-        toast('Código reenviado (modo de prueba: ' + data.devCode + ')', 'ok');
+        toast(data.devCode ? 'Código reenviado (modo de prueba: ' + data.devCode + ')' : 'Código reenviado a tu correo.', 'ok');
       } catch (err) { toast(err.message, 'err'); }
     });
 
@@ -1233,7 +1233,7 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Configuración
             </button>
             <button class="nav-item ${activeSection === 'manual' ? 'active' : ''}" data-nav="#/app/manual">${ICONS.check} Instrucciones</button>
-            <div class="sidebar-footer">v0.4 · Ambiente de pruebas</div>
+            <div class="sidebar-footer">v1.0</div>
           </div>
           <div class="main">${innerMain}</div>
         </div>
@@ -1557,9 +1557,12 @@
     startBtn && startBtn.addEventListener('click', async () => {
       const selectedMethod = qs('#mfa-method').value;
       const data = await api('/users/me/mfa/start', { method: 'POST', body: { method: selectedMethod } });
-      const methodLabel = selectedMethod === 'app' ? 'Escanea el código QR en tu app (simulado)' : 'Te hemos enviado un código';
+      const methodLabel = selectedMethod === 'app' ? 'Escanea el código QR en tu app (simulado)' : 'Te hemos enviado un código a tu correo';
+      const codeNotice = data.devCode
+        ? `<div class="notice"><strong>${methodLabel}</strong><br>Modo de prueba: tu código es <strong>${data.devCode}</strong></div>`
+        : `<div class="notice"><strong>${methodLabel}</strong><br>Revisa tu bandeja de entrada.</div>`;
       qs('#mfa-flow').innerHTML = `
-        <div class="notice"><strong>${methodLabel}</strong><br>Modo de prueba: tu código es <strong>${data.devCode}</strong></div>
+        ${codeNotice}
         <div id="mfa-confirm-err"></div>
         <div class="field"><label>Ingresa el código de 6 dígitos</label><input type="text" id="mfa-code" maxlength="6"></div>
         <div style="display:flex; gap:10px;">

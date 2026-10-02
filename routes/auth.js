@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { load, save, nextId } = require('../lib/db');
 const { isEmail, passwordRules, isCedula, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 const { logEvent } = require('../lib/audit');
+const { sendMail } = require('../lib/mailer');
 
 const router = express.Router();
 
@@ -73,7 +74,7 @@ router.post('/setup', (req, res) => {
 });
 
 // ---- login ----
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const db = load();
   const { email, password } = req.body || {};
   const user = findByEmail(db, email);
@@ -106,11 +107,17 @@ router.post('/login', (req, res) => {
       save(db);
       req.session.pendingUserId = user.id;
       req.session.pendingPurpose = 'mfa';
+      const sent = await sendMail(db, {
+        to: user.email,
+        subject: 'Inscolar: código de verificación',
+        text: `Tu código de verificación es: ${code}\nVence en 5 minutos.`,
+      });
       return res.json({
         status: 'mfa_required',
         method: user.mfaMethod,
         maskedEmail: user.email.replace(/^(.)(.*)(@.*)$/, (_, a, b, c) => a + '•'.repeat(Math.min(b.length, 3)) + c),
-        devCode: code, // sin servicio real de correo/SMS: se muestra en la respuesta para poder probar el flujo
+        // solo se expone el codigo en la respuesta si no se pudo mandar un correo real (modo de prueba)
+        devCode: sent.via === 'smtp' ? undefined : code,
       });
     }
   }
@@ -153,15 +160,21 @@ router.post('/mfa/verify', (req, res) => {
   res.json({ status: 'ok', user: publicUser(user), deviceToken: newDeviceToken });
 });
 
-router.post('/mfa/resend', (req, res) => {
+router.post('/mfa/resend', async (req, res) => {
   const db = load();
   const userId = req.session.pendingUserId;
   if (!userId || req.session.pendingPurpose !== 'mfa') return res.status(400).json({ error: 'No hay una verificación pendiente.' });
+  const user = db.users.find((u) => u.id === userId);
   const code = genCode();
   db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== userId);
   db.mfaCodes.push({ userId, code, expiresAt: new Date(Date.now() + MFA_TTL_MS).toISOString() });
   save(db);
-  res.json({ devCode: code });
+  const sent = await sendMail(db, {
+    to: user.email,
+    subject: 'Inscolar: código de verificación',
+    text: `Tu código de verificación es: ${code}\nVence en 5 minutos.`,
+  });
+  res.json({ devCode: sent.via === 'smtp' ? undefined : code });
 });
 
 // ---- cambio obligatorio de contraseña (tras temporal / reseteo admin) ----
@@ -236,7 +249,7 @@ router.post('/register', (req, res) => {
 });
 
 // ---- recuperar contraseña ----
-router.post('/forgot', (req, res) => {
+router.post('/forgot', async (req, res) => {
   const db = load();
   const { email } = req.body || {};
   const emailLower = String(email || '').toLowerCase();
@@ -265,11 +278,19 @@ router.post('/forgot', (req, res) => {
   db.resetTokens.push({ userId: user.id, token, expiresAt: new Date(now + RESET_TTL_MS).toISOString(), used: false });
   save(db);
 
+  const resetLink = `${req.protocol}://${req.get('host')}/#/reset?token=${encodeURIComponent(token)}`;
+  const sent = await sendMail(db, {
+    to: user.email,
+    subject: 'Inscolar: recuperar contraseña',
+    text: `Para restablecer tu contraseña entra a este enlace (vence en 15 minutos): ${resetLink}`,
+  });
+
   res.json({
     status: 'sent',
     attemptsUsed: attempts.count,
     attemptsMax: RESET_MAX_ATTEMPTS,
-    devToken: token, // sin servicio real de correo: se expone para poder probar el flujo end-to-end
+    // solo se expone el token en la respuesta si no se pudo mandar un correo real (modo de prueba)
+    devToken: sent.via === 'smtp' ? undefined : token,
   });
 });
 

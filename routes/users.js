@@ -7,6 +7,7 @@ const multer = require('multer');
 const { load, save, nextId } = require('../lib/db');
 const { requireAuth, requireAdminOnly, requireAdminOrSupport, requireCanManageRole, ROLES_QUE_SOPORTE_PUEDE_GESTIONAR } = require('../lib/middleware');
 const { notifyAdmins } = require('../lib/notify');
+const { sendMail } = require('../lib/mailer');
 const { logEvent } = require('../lib/audit');
 const { isEmail, passwordRules, isPhoneDigits, formatPhoneDO } = require('../lib/validate');
 
@@ -91,14 +92,22 @@ router.get('/me/mfa', (req, res) => {
   res.json({ enabled: req.currentUser.mfaEnabled, method: req.currentUser.mfaMethod });
 });
 
-router.post('/me/mfa/start', (req, res) => {
+router.post('/me/mfa/start', async (req, res) => {
   const db = req.db;
   const { method } = req.body || {};
   const code = String(Math.floor(100000 + Math.random() * 900000));
   db.mfaCodes = db.mfaCodes.filter((c) => c.userId !== req.currentUser.id);
   db.mfaCodes.push({ userId: req.currentUser.id, code, expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), pendingMethod: method || 'correo' });
   save(db);
-  res.json({ devCode: code });
+  // El metodo "app" (autenticador) es simulado en este prototipo: no se genero
+  // nunca un secreto TOTP real ni un QR real, asi que no tiene correo que mandar.
+  if (method === 'app') return res.json({ devCode: code });
+  const sent = await sendMail(db, {
+    to: req.currentUser.email,
+    subject: 'Inscolar: código de verificación',
+    text: `Tu código de verificación es: ${code}\nVence en 5 minutos.`,
+  });
+  res.json({ devCode: sent.via === 'smtp' ? undefined : code });
 });
 
 router.post('/me/mfa/confirm', (req, res) => {
