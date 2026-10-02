@@ -61,6 +61,25 @@
     setTimeout(() => el.remove(), 3800);
   }
 
+  function customConfirm(msg, btnAction, onConfirm) {
+    let c = document.getElementById('custom-modal-root');
+    if (!c) { c = document.createElement('div'); c.id = 'custom-modal-root'; document.body.appendChild(c); }
+    c.innerHTML = `
+      <div class="sidebar-backdrop visible" style="z-index:99999; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:100%; max-width:400px; padding:24px; position:relative; text-align:center; margin:0 16px;">
+          <p style="font-size:1.1rem; margin-bottom:24px; color:var(--c-ink); font-family:var(--font-sans);">${msg}</p>
+          <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="btn btn-ghost" id="c-cancel" style="width:auto;">Cancelar</button>
+            <button class="btn btn-primary" id="c-confirm" style="width:auto;">${btnAction || 'Confirmar'}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('c-cancel').onclick = () => c.innerHTML = '';
+    document.getElementById('c-confirm').onclick = () => { c.innerHTML = ''; onConfirm(); };
+  }
+
+
   function fieldErrorsBlock(errors) {
     if (!errors || !errors.length) return '';
     return `<div class="field-errors"><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
@@ -3673,10 +3692,10 @@
           btn.addEventListener('click', (e) => {
             const idx = parseInt(e.target.dataset.docIdx, 10);
             const docName = docsState[idx].nombre || ('Documento ' + (idx + 1));
-            if (confirm('¿Seguro que deseas quitar el requisito "' + docName + '"?')) {
+            customConfirm('¿Seguro que deseas quitar el requisito "' + escapeHtml(docName) + '"?', 'Sí, quitar', () => {
               docsState.splice(idx, 1);
               renderDocsEditor();
-            }
+            });
           });
         });
 
@@ -3691,10 +3710,10 @@
         const cancelBtn = qs('#btn-cancel-docs', container);
         if (cancelBtn) {
           cancelBtn.addEventListener('click', () => {
-            if (confirm('¿Seguro que deseas cancelar? Se perderán los cambios no guardados.')) {
+            customConfirm('¿Seguro que deseas cancelar? Se perderán los cambios no guardados.', 'Sí, cancelar', () => {
               docsState = JSON.parse(docsOriginal);
               renderDocsEditor();
-            }
+            });
           });
         }
 
