@@ -661,10 +661,10 @@
             if (typeof i.lat === 'number' && typeof i.lng === 'number') {
               const markerIcon = L.divIcon({
                 className: 'modern-pin',
-                html: `<svg viewBox="0 0 24 24" fill="var(--primary-color)" stroke="#fff" stroke-width="2" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform: scale(1.1);"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3" fill="#fff"></circle></svg>`,
+                html: `<svg viewBox="0 0 24 24" width="32" height="32" fill="var(--primary-color)" stroke="#fff" stroke-width="2" style="filter: drop-shadow(0 3px 5px rgba(0,0,0,0.4)); display: block;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3" fill="#fff"></circle></svg>`,
                 iconSize: [32, 32],
-                iconAnchor: [16, 32],
-                tooltipAnchor: [0, -32]
+                iconAnchor: [16, 31],
+                tooltipAnchor: [0, -31]
               });
               const marker = L.marker([i.lat, i.lng], { icon: markerIcon }).addTo(currentMap);
               
