@@ -2876,7 +2876,7 @@ tbody tr:last-child td {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 
 .search-map-wrapper {
