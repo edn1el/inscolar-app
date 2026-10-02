@@ -1220,6 +1220,11 @@ button.link:hover {
   display: flex;
   align-items: center;
   gap: 10px;
+  transition: opacity var(--t-base) ease;
+}
+
+.who:hover {
+  opacity: 0.8;
 }
 
 .avatar {
@@ -1830,6 +1835,7 @@ button.link:hover {
 
 .inst-hero-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-self: flex-end;
 }
@@ -2062,7 +2068,7 @@ button.link:hover {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--r-lg);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 table {
@@ -2681,7 +2687,9 @@ tbody tr:last-child td {
     display: flex;
   }
 
-  .topbar-breadcrumb {
+  .topbar-breadcrumb,
+  .who .stack,
+  .brand .stack {
     display: none;
   }
 
@@ -2711,6 +2719,25 @@ tbody tr:last-child td {
 
   .settings-grid {
     grid-template-columns: 1fr;
+  }
+
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .inst-hero-body {
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .inst-hero-overlay {
+    padding: 20px;
+  }
+  
+  .inst-hero-actions {
+    align-self: stretch;
+    justify-content: center;
   }
 
   .modal {
@@ -2747,10 +2774,6 @@ tbody tr:last-child td {
 
   .kpi-row {
     grid-template-columns: 1fr 1fr;
-  }
-
-  .who .stack {
-    display: none;
   }
 
   /* Solo avatar en 320px */
@@ -2977,5 +3000,48 @@ tbody tr:last-child td {
 @keyframes tooltipFadeIn {
   from { opacity: 0; margin-top: 8px; }
   to { opacity: 1; margin-top: 0; }
+}
+
+/* Mobile popup matching tooltip style */
+.leaflet-popup.modern-popup .leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 16px !important;
+  padding: 0 !important;
+  color: var(--text-color) !important;
+  font-family: var(--font-family) !important;
+  animation: tooltipFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  opacity: 0;
+}
+.leaflet-popup.modern-popup .leaflet-popup-content {
+  margin: 12px 16px !important;
+}
+
+[data-theme="dark"] .leaflet-popup.modern-popup .leaflet-popup-content-wrapper {
+  background: rgba(30, 41, 59, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+  color: #f1f5f9 !important;
+}
+
+.leaflet-popup.modern-popup .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .leaflet-popup.modern-popup .leaflet-popup-tip {
+  background: rgba(30, 41, 59, 0.85) !important;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 

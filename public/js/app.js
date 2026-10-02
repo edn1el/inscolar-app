@@ -61,6 +61,25 @@
     setTimeout(() => el.remove(), 3800);
   }
 
+  function customConfirm(msg, btnAction, onConfirm) {
+    let c = document.getElementById('custom-modal-root');
+    if (!c) { c = document.createElement('div'); c.id = 'custom-modal-root'; document.body.appendChild(c); }
+    c.innerHTML = `
+      <div class="sidebar-backdrop visible" style="z-index:99999; display:flex; align-items:center; justify-content:center;">
+        <div class="card" style="width:100%; max-width:400px; padding:24px; position:relative; text-align:center; margin:0 16px;">
+          <p style="font-size:1.1rem; margin-bottom:24px; color:var(--c-ink); font-family:var(--font-sans);">${msg}</p>
+          <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="btn btn-ghost" id="c-cancel" style="width:auto;">Cancelar</button>
+            <button class="btn btn-primary" id="c-confirm" style="width:auto;">${btnAction || 'Confirmar'}</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('c-cancel').onclick = () => c.innerHTML = '';
+    document.getElementById('c-confirm').onclick = () => { c.innerHTML = ''; onConfirm(); };
+  }
+
+
   function fieldErrorsBlock(errors) {
     if (!errors || !errors.length) return '';
     return `<div class="field-errors"><ul>${errors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}</ul></div>`;
@@ -208,7 +227,7 @@
 
   // ---------------- router ----------------
   function navigate(hash) { 
-    if (window._navInterceptor && window._navInterceptor() === false) return;
+    if (window._navInterceptor && window._navInterceptor(hash) === false) return;
     window.location.hash = hash; 
   }
 
@@ -240,7 +259,15 @@
   }
 
   async function router() {
-    root.innerHTML = '<div class="loading">Cargando…</div>';
+    const activeContent = document.querySelector('.main, .search-layout, .auth-layout, [style*="max-width:800px"]');
+    if (activeContent) {
+      activeContent.style.transition = 'opacity 0.2s ease, transform 0.2s ease';
+      activeContent.style.opacity = '0';
+      activeContent.style.transform = 'scale(0.98)';
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    root.innerHTML = '<div class="loading" style="animation: fadeUp 0.3s ease forwards;">Cargando…</div>';
     await ensureAuth();
     const { segs, query } = parseHash();
 
@@ -453,12 +480,13 @@
         const logoUrl = i.logo ? '/api/institutions/' + i.id + '/logo?v=' + encodeURIComponent(i.logo.uploadedAt) : null;
         
         root.innerHTML = `
-          <div class="top-nav" style="background:var(--c-surface); border-bottom:1px solid var(--c-border); padding:10px 20px; z-index: 10;">
+          <div style="height: 100vh; height: 100dvh; width: 100%; overflow-y: auto; overflow-x: hidden; background: var(--bg-body); animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0; padding-bottom: 50px;">
+          <div class="top-nav" style="background:var(--c-surface); border-bottom:1px solid var(--c-border); padding:10px 20px; z-index: 10; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
             <a href="#/buscar" class="btn btn-ghost btn-small">← Volver a resultados</a>
-            ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small" style="float:right">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>'}
+            ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small">Iniciar sesión</a>'}
           </div>
           
-          <div style="padding:20px; max-width:800px; margin:0 auto;">
+          <div style="padding:20px; max-width:800px; margin:0 auto; animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity:0;">
             <div class="inst-hero" style="${fondoUrl ? `background-image:url('${fondoUrl}')` : 'background:#e1ecf7;'} border-radius: 12px; margin-bottom: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
               <div class="inst-hero-overlay" style="border-radius: 12px; padding: 30px;">
                 <div class="inst-hero-body" style="display:flex; align-items:center; gap:20px;">
@@ -471,7 +499,7 @@
               </div>
             </div>
 
-            <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
+            <div class="chart-row" style="align-items:start;">
               <div class="chart-card">
                 <h3>Información general</h3>
                 <div class="two-col" style="margin-top: 15px;">
@@ -566,6 +594,7 @@
     let currentMap = null;
     let currentMarkers = [];
     let userCoords = null;
+    let latestBounds = null;
     const mapContainer = qs('#map-container');
     const mapWrapper = qs('.search-map-wrapper');
     const closeMapBtn = qs('#close-map-btn');
@@ -578,7 +607,12 @@
     toggleMapBtn.addEventListener('click', () => {
       mapWrapper.classList.remove('hidden-mobile');
       toggleMapBtn.style.display = 'none';
-      if (currentMap) currentMap.invalidateSize();
+      if (currentMap) {
+        currentMap.invalidateSize();
+        if (latestBounds && latestBounds.length > 0) {
+          currentMap.fitBounds(latestBounds, { animate: false, maxZoom: 15 });
+        }
+      }
     });
 
     async function initMap() {
@@ -670,11 +704,11 @@
               
               const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
-                <div style="display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
+                <div style="cursor:pointer; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
                   <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
                     <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
                   </div>
-                  <div style="flex:1;">
+                  <div style="flex:1; text-align:left;">
                     <strong style="color:var(--primary-color); font-size:14px; display:block; margin-bottom:4px; line-height:1.2;">${escapeHtml(i.nombre)}</strong>
                     <span style="font-size:10px; padding:2px 8px; background:var(--primary-color); color:#fff; border-radius:12px; font-weight:600;">${escapeHtml(i.tipo)}</span>
                     <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
@@ -682,20 +716,37 @@
                   </div>
                 </div>
               `;
-              marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip' });
               marker.instId = i.id;
               
-              marker.on('click', () => {
-                navigate('#/buscar/' + i.id);
-              });
+              const isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window);
+              if (isMobile) {
+                marker.bindPopup(detailsHtml, { className: 'modern-popup', closeButton: false, minWidth: 250, offset: [0, -15] });
+                marker.on('popupopen', function(e) {
+                  e.popup.getElement().addEventListener('click', function() {
+                    navigate('#/buscar/' + i.id);
+                  });
+                });
+              } else {
+                marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip' });
+                marker.on('click', () => {
+                  navigate('#/buscar/' + i.id);
+                });
+              }
               
               currentMarkers.push(marker);
               bounds.push([i.lat, i.lng]);
             }
           });
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          latestBounds = bounds;
           if (bounds.length > 0) {
-            currentMap.fitBounds(bounds, { animate: !prefersReduced });
+            if (mapContainer && mapContainer.offsetWidth > 0) {
+              currentMap.flyToBounds(bounds, { duration: 1.5, easeLinearity: 0.25, animate: !prefersReduced });
+            } else {
+              // Si el contenedor está oculto (mobile), no podemos hacer flyToBounds porque causará Invalid LatLng (NaN).
+              // Simplemente centramos el mapa de manera silenciosa, para que al abrirlo ya esté ahí.
+              // currentMap.fitBounds también falla si el contenedor es display:none, así que lo guardamos en latestBounds y lo centramos en el evento del toggleMapBtn.
+            }
           } else if (currentMap && qs('#map-container')) {
             qs('#map-container').insertAdjacentHTML('beforeend', '<div class="map-empty-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:var(--bg-body); opacity: 0.9; z-index:1000; display:flex; align-items:center; justify-content:center; color:var(--text-muted); text-align:center; padding:20px;">Las instituciones encontradas no tienen coordenadas registradas.</div>');
           }
@@ -718,6 +769,17 @@
       }
     }
 
+    const searchResults = qs('#search-results');
+    if (searchResults) {
+      searchResults.addEventListener('click', (e) => {
+        const a = e.target.closest('a[href^="#/buscar/"]');
+        if (a) {
+          e.preventDefault();
+          navigate(a.getAttribute('href'));
+        }
+      });
+    }
+
     const searchForm = qs('#search-form');
     searchForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -736,13 +798,67 @@
 
     qs('#btn-location').addEventListener('click', () => {
       if ('geolocation' in navigator) {
+        const layout = qs('.search-layout');
+        layout.insertAdjacentHTML('beforeend', `
+          <div id="loc-loader" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); backdrop-filter:blur(4px); z-index:9999; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.3s ease;">
+            <div id="loc-loader-box" style="background:var(--bg-card); padding:20px 30px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.1); border:1px solid var(--border-color); text-align:center; transform:translateY(10px); transition:transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);">
+              <div class="spinner" style="margin:0 auto 15px auto; width:30px; height:30px; border:3px solid var(--border-color); border-top-color:var(--primary-color); border-radius:50%; animation:spin 1s linear infinite;"></div>
+              <strong style="color:var(--text-color); font-size:15px; display:block;">Detectando tu ubicación...</strong>
+              <div style="font-size:13px; color:var(--text-muted); margin-top:5px;">Por favor, acepta el permiso del navegador.</div>
+            </div>
+          </div>
+        `);
+        setTimeout(() => {
+          const l = qs('#loc-loader');
+          if (l) {
+            l.style.opacity = '1';
+            qs('#loc-loader-box').style.transform = 'translateY(0)';
+          }
+        }, 10);
+
         qs('#btn-location').textContent = '📍 Obteniendo...';
-        navigator.geolocation.getCurrentPosition((pos) => {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+          await new Promise(r => setTimeout(r, 600)); // smooth delay
           userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           qs('#btn-location').textContent = '📍 Ubicación activa';
           qs('#btn-location').classList.replace('btn-secondary', 'btn-primary');
+          
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${userCoords.lat}&lon=${userCoords.lng}`);
+            const data = await res.json();
+            if (data && data.address) {
+              const stateStr = data.address.state;
+              const cityStr = data.address.city || data.address.town || data.address.county || data.address.village;
+              
+              const pKeys = Object.keys(MUNICIPIOS);
+              const matchedProv = pKeys.find(p => stateStr && stateStr.toLowerCase().includes(p.toLowerCase()));
+              if (matchedProv) {
+                const provSelect = qs('#s-prov');
+                provSelect.value = matchedProv;
+                provSelect.dispatchEvent(new Event('change'));
+                
+                const matchedMun = MUNICIPIOS[matchedProv].find(m => cityStr && cityStr.toLowerCase().includes(m.toLowerCase()));
+                if (matchedMun) {
+                  qs('#s-mun').value = matchedMun;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Reverse geocoding falló', e);
+          }
+          
+          const l = qs('#loc-loader');
+          if (l) {
+            l.style.opacity = '0';
+            setTimeout(() => l.remove(), 300);
+          }
           performSearch();
         }, (err) => {
+          const l = qs('#loc-loader');
+          if (l) {
+            l.style.opacity = '0';
+            setTimeout(() => l.remove(), 300);
+          }
           toast('Permiso denegado. Busca manualmente.', 'err');
           qs('#btn-location').textContent = '📍 Usar mi ubicación';
         });
@@ -1130,6 +1246,9 @@
     const esCalificacionesInstitucion = section === 'instituciones' && segs[2] === 'calificaciones';
     const esReportesInstitucion = section === 'instituciones' && segs[2] === 'reportes';
     
+    const esPeriodosInstitucion = section === 'instituciones' && segs[2] === 'periodos';
+    const esPropiaInstitucion = (state.user || {}).role === 'Personal de institución' && String((state.user || {}).institucionId) === String(segs[1]);
+
     // Solo Admin y Soporte ven Usuarios e Instituciones; Analíticas solo Admin
     if (section === 'usuarios' && !canSeeUsuarios()) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
@@ -1139,9 +1258,13 @@
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
-    if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion && !esCalificacionesInstitucion && !esReportesInstitucion) {
-      root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
-      return;
+    if (section === 'instituciones' && !isAdmin()) {
+      const publicInstSections = esCalendarioInstitucion || esDetalleInstitucion || esCalificacionesInstitucion || esReportesInstitucion;
+      const staffInstSections = esPropiaInstitucion && esPeriodosInstitucion;
+      if (!publicInstSections && !staffInstSections && !esPropiaInstitucion) {
+        root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
+        return;
+      }
     }
     if (section === 'notificaciones' && !(isAdmin() || (state.user || {}).role === 'Tutor')) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
@@ -1239,7 +1362,7 @@
               ${ICONS.contrast}
             </button>
             ${(admin || u.role === 'Tutor') ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
-            <span class="who"><span class="avatar" style="${topbarAvatarStyle}">${u.foto ? '' : initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></span>
+            <a href="#/app/perfil" class="who" style="text-decoration:none; color:inherit;"><span class="avatar" style="${topbarAvatarStyle}">${u.foto ? '' : initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></a>
             <button class="logout" id="logout-btn">Cerrar sesión</button>
           </div>
         </div>
@@ -1247,7 +1370,7 @@
           <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
           <div class="sidebar" id="sidebar">
             ${u.role === 'Personal de institución' && instName ? `
-            <div class="sidebar-inst-badge">
+            <div class="sidebar-inst-badge" style="cursor:pointer;" onclick="window.location.hash='#/app/instituciones/${u.institucionId}/detalle'">
               ${ICONS.building} <span>${instName}</span>
             </div>
             ` : ''}
@@ -1278,7 +1401,17 @@
             <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
             </button>
-            ` : (isTutor() || isStaff()) ? `
+            ` : isStaff() ? `
+            <div class="sec-label">Módulos</div>
+            <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
+            ${u.institucionId ? `<button class="nav-item ${activeSection === 'instituciones' ? 'active' : ''}" data-nav="#/app/instituciones/${u.institucionId}/detalle">${ICONS.building} Mi Institución</button>` : ''}
+            <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Inscripciones
+            </button>
+            <button class="nav-item ${activeSection === 'citas' ? 'active' : ''}" data-nav="#/app/citas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Citas
+            </button>
+            ` : isTutor() ? `
             <div class="sec-label">Módulos</div>
             <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
             <button class="nav-item ${activeSection === 'inscripciones' ? 'active' : ''}" data-nav="#/app/inscripciones">
@@ -1444,7 +1577,7 @@
     qs('.main').innerHTML = `
       <div class="page-head"><div><h2>Perfil de usuario</h2><div class="sub">Datos personales asociados a tu cuenta.</div></div>
       <button class="btn btn-primary btn-small" style="width:auto; padding:9px 18px;" data-nav="#/app/perfil/editar">Editar</button></div>
-      <div class="chart-row" style="grid-template-columns: 2fr 1fr;">
+      <div class="chart-row">
         <div class="chart-card">
           <div style="display:flex; align-items:center; gap:14px; margin-bottom:20px;">
             <div class="profile-avatar-wrap" id="foto-wrap" title="Cambiar foto de perfil">
@@ -1556,7 +1689,7 @@
     const mfa = await api('/users/me/mfa');
     qs('.main').innerHTML = `
       <div class="page-head"><h2>Seguridad</h2></div>
-      <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
+      <div class="chart-row" style="align-items:start;">
         <div class="chart-card">
           <h3>Cambiar contraseña</h3>
           <div id="pw-err"></div>
@@ -2305,13 +2438,19 @@
               <span class="estado-cell"><span class="dot" style="background:${active ? '#2e9e5b' : '#9aa0a6'}"></span>${institution.estado || 'Activo'}</span>
             </div>
           </div>
+          ${(isAdmin() || (state.user.role === 'Personal de institución' && String(state.user.institucionId) === String(institution.id))) ? `
+          <div class="inst-hero-actions">
+            <button class="btn btn-secondary btn-small" data-nav="#/app/instituciones/${institution.id}/editar">Editar detalles</button>
+            <button class="btn btn-secondary btn-small" data-nav="#/app/instituciones/${institution.id}/periodos">Ajustar periodos</button>
+          </div>
+          ` : ''}
         </div>
       </div>
       <div id="foto-err"></div>
       <div class="page-head" style="margin-top:16px;">
         <div class="sub">Detalle de la institución.</div>
       </div>
-      <div class="chart-row" style="grid-template-columns: 1fr 1fr; align-items:start;">
+      <div class="chart-row" style="align-items:start;">
         <div class="chart-card">
           <h3>Información general</h3>
           <div class="two-col">
@@ -2665,7 +2804,7 @@
     };
 
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      <button class="back-link" data-nav="${isAdmin() ? '#/app/instituciones' : '#/app/instituciones/' + (editing ? editing.id : id) + '/detalle'}">${ICONS.back} Volver a ${isAdmin() ? 'instituciones' : 'detalles'}</button>
       <div class="page-head"><h2>${editing ? 'Modificar institución' : 'Nueva institución'}</h2></div>
       <div class="chart-card" style="max-width:760px;">
         <div id="err"></div>
@@ -2767,8 +2906,11 @@
     let formChanged = false;
     qs('#inst-form').addEventListener('input', () => formChanged = true);
     qs('#btn-cancel').addEventListener('click', () => {
-      if (formChanged && !confirm('Tienes cambios sin guardar. ¿Seguro que deseas cancelar?')) return;
-      navigate('#/app/instituciones');
+      if (formChanged) {
+        customConfirm('Tienes cambios sin guardar. ¿Seguro que deseas cancelar?', 'Sí, cancelar', () => navigate('#/app/instituciones'));
+      } else {
+        navigate('#/app/instituciones');
+      }
     });
 
     qs('#inst-form').addEventListener('submit', async (e) => {
@@ -3242,7 +3384,7 @@
       api('/institutions/' + institucionId + '/periods'),
     ]);
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      <button class="back-link" data-nav="${isAdmin() ? '#/app/instituciones' : '#/app/instituciones/' + institucionId + '/detalle'}">${ICONS.back} Volver a ${isAdmin() ? 'instituciones' : 'detalles'}</button>
       <div class="page-head"><div><h2>Periodos \u2014 ${escapeHtml(nombre)}</h2><div class="sub">Ventanas de inscripci\u00f3n, env\u00edo de documentos y citas por ciclo escolar.</div></div>
         <button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/instituciones/${institucionId}/periodos/nueva">Nuevo ciclo</button>
       </div>
@@ -3268,12 +3410,13 @@
     bindShellEvents();
     qsa('[data-editar-periodo]').forEach((b) => b.addEventListener('click', () => navigate('#/app/instituciones/' + institucionId + '/periodos/' + b.dataset.editarPeriodo + '/editar')));
     qsa('[data-eliminar-periodo]').forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('\u00bfEliminar por completo la configuraci\u00f3n de este ciclo? Esta acci\u00f3n no se puede deshacer.')) return;
-      try {
-        await api('/institutions/' + institucionId + '/periods/' + b.dataset.eliminarPeriodo, { method: 'DELETE' });
-        toast('Configuraci\u00f3n eliminada.', 'ok');
-        renderPeriodosList(institucionId);
-      } catch (err) { toast(err.message, 'err'); }
+      customConfirm('\u00bfEliminar por completo la configuraci\u00f3n de este ciclo? Esta acci\u00f3n no se puede deshacer.', 'Sí, eliminar', async () => {
+        try {
+          await api('/institutions/' + institucionId + '/periods/' + b.dataset.eliminarPeriodo, { method: 'DELETE' });
+          toast('Configuraci\u00f3n eliminada.', 'ok');
+          renderPeriodosList(institucionId);
+        } catch (err) { toast(err.message, 'err'); }
+      });
     }));
   }
 
@@ -3322,7 +3465,7 @@
       return;
     }
     const u = state.user;
-    const canManage = isAdmin() || u.role === 'Soporte' || (u.role === 'Personal de institución' && u.institucionId === institucionId);
+    const canManage = isAdmin() || u.role === 'Soporte' || (u.role === 'Personal de institución' && String(u.institucionId) === String(institucionId));
 
     const now = new Date();
     function getStatus(range) {
@@ -3345,7 +3488,7 @@
       if (!iso) return '';
       const d = new Date(iso);
       const pad = (n) => n.toString().padStart(2, '0');
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
     };
 
     function renderHito(tipo, title, range, limit, occupied) {
@@ -3407,7 +3550,8 @@
     `;
 
     bindShellEvents();
-
+    const nivelesDisponibles = ['Inicial', 'Primaria', 'Secundaria'];
+    const formatosDisponibles = ['PDF', 'JPG', 'PNG'];
     let docsState = (period.documentosRequeridos || []).map(d => {
       if (typeof d === 'string') {
         return { id: Math.random().toString(36).substr(2, 9), nombre: d, niveles: nivelesDisponibles ? nivelesDisponibles.slice() : [], descripcion: '', formatos: formatosDisponibles ? formatosDisponibles.slice() : [], maxMb: 5 };
@@ -3416,9 +3560,13 @@
     });
     let docsOriginal = JSON.stringify(docsState);
 
-    window._navInterceptor = () => {
+    window._navInterceptor = (pendingHash) => {
       if (JSON.stringify(docsState) !== docsOriginal) {
-        return confirm('Tienes cambios sin guardar en los documentos. ¿Seguro que deseas salir?');
+        customConfirm('Tienes cambios sin guardar en los documentos. ¿Seguro que deseas salir?', 'Sí, salir', () => {
+          window._navInterceptor = null;
+          if (pendingHash) navigate(pendingHash);
+        });
+        return false;
       }
       return true;
     };
@@ -3552,10 +3700,10 @@
           btn.addEventListener('click', (e) => {
             const idx = parseInt(e.target.dataset.docIdx, 10);
             const docName = docsState[idx].nombre || ('Documento ' + (idx + 1));
-            if (confirm('¿Seguro que deseas quitar el requisito "' + docName + '"?')) {
+            customConfirm('¿Seguro que deseas quitar el requisito "' + escapeHtml(docName) + '"?', 'Sí, quitar', () => {
               docsState.splice(idx, 1);
               renderDocsEditor();
-            }
+            });
           });
         });
 
@@ -3570,10 +3718,10 @@
         const cancelBtn = qs('#btn-cancel-docs', container);
         if (cancelBtn) {
           cancelBtn.addEventListener('click', () => {
-            if (confirm('¿Seguro que deseas cancelar? Se perderán los cambios no guardados.')) {
+            customConfirm('¿Seguro que deseas cancelar? Se perderán los cambios no guardados.', 'Sí, cancelar', () => {
               docsState = JSON.parse(docsOriginal);
               renderDocsEditor();
-            }
+            });
           });
         }
 
@@ -3648,18 +3796,18 @@
 
         qs('#period-modal-container').innerHTML = `
           <div class="sidebar-backdrop visible" style="z-index:9999; display:flex; align-items:center; justify-content:center;">
-            <div class="card" style="width:480px; padding:24px; position:relative; z-index:10000; text-align:left;">
+            <div class="card" style="width:100%; max-width:480px; padding:24px; position:relative; z-index:10000; text-align:left; box-sizing:border-box; margin: 0 16px;">
               <h3 style="margin-top:0;">${range ? 'Editar' : 'Agregar'} ${title}</h3>
               <div id="hito-err"></div>
               <form id="hito-form">
                 <div class="two-col" style="margin-top:16px;">
                   <div class="field">
                     <label>Desde</label>
-                    <input type="datetime-local" name="desde" value="${toInput(range?.desde)}" required>
+                    <input type="date" name="desde" value="${toInput(range?.desde)}" required>
                   </div>
                   <div class="field">
                     <label>Hasta</label>
-                    <input type="datetime-local" name="hasta" value="${toInput(range?.hasta)}" required>
+                    <input type="date" name="hasta" value="${toInput(range?.hasta)}" required>
                   </div>
                 </div>
                 ${isCitas ? `
