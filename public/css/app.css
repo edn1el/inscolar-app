@@ -3115,6 +3115,14 @@ tbody tr:last-child td {
 .notification-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .settings-card { text-align:left; color:var(--text-color); font:inherit; }
 @media(max-width:600px) { .notif-item { flex-wrap:wrap; overflow-wrap:anywhere; } .notification-actions { width:100%; } }
+.analytics-filters { display:flex; align-items:end; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+.analytics-filters label { flex:1; min-width:140px; }
+.analytics-filters label select, .analytics-filters label input { width:100%; }
+#analytics-content section { margin:24px 0; }
+#analytics-content .chart-card { min-width:0; }
+#analytics-content .bar-label { overflow-wrap:anywhere; }
+#analytics-content table { width:100%; }
+@media(max-width:600px) { .analytics-filters button { width:100%; } #analytics-content .chart-row { grid-template-columns:1fr; } }
 .settings-menu-link { display:block; width:100%; padding:12px; text-align:left; color:var(--text-color); background:transparent; border:0; font:inherit; text-decoration:none; cursor:pointer; }
 .settings-menu-link:hover, .settings-menu-link:focus-visible { background:var(--bg-body); }
 @media(max-width:600px) { #settings-menu-btn { font-size:12px; padding:6px; } }

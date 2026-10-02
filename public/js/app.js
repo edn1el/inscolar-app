@@ -1338,7 +1338,7 @@
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
-    if (section === 'analiticas' && !isAdmin()) {
+    if (section === 'analiticas' && !(isAdmin() || isAudit())) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -1511,6 +1511,7 @@
             </button>
             ` : (u.role === 'Auditoría') ? `
             <div class="sec-label">Módulos</div>
+            <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">${ICONS.building} Analíticas</button>
             <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
             <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
@@ -5033,112 +5034,47 @@
   }
 
   async function renderAnaliticas() {
-    const s = await api('/analytics/summary');
-    const emailsData = isAdmin() ? await api('/emails') : { emails: [] };
-    const maxRol = Math.max(1, ...s.porRol.map((r) => r.count));
-
-    qs('.main').innerHTML = `
-      <div class="page-head"><div><h2>Analíticas</h2><div class="sub">Indicadores y tendencias del sistema.</div></div></div>
-      <div class="kpi-row">
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.users}</div><div class="kpi-num">${s.totalUsuarios}</div><div class="kpi-label">Usuarios totales</div><div class="kpi-delta">${s.nuevosEstaSemana} esta semana</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.check}</div><div class="kpi-num">${s.activos}</div><div class="kpi-label">Cuentas activas</div><div class="kpi-delta">${Math.round((s.activos / Math.max(1, s.totalUsuarios)) * 100)}% del total</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.totalInstituciones}</div><div class="kpi-label">Instituciones vinculadas</div><div class="kpi-delta">${s.porProvincia.length} provincias</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.shield}</div><div class="kpi-num">${s.mfaActivo}</div><div class="kpi-label">Cuentas con MFA activo</div><div class="kpi-delta">${s.tutores} tutores registrados</div></div>
-      </div>
-      <div class="chart-card map-card">
-        <h3>Instituciones por provincia</h3>
-        <div class="map-wrap">
-          ${renderProvinceMap(s.porProvincia)}
-          <div class="map-tooltip" id="map-tooltip"></div>
-        </div>
-        <div class="map-legend"><span>Menos</span><span class="map-legend-scale"></span><span>Más</span></div>
-        <div class="help">Selecciona una provincia para ver sus instituciones.</div>
-      </div>
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Usuarios por rol</h3>
-          ${s.porRol.map((r) => `<div class="bar-row"><span class="bar-label">${escapeHtml(r.role)}</span><span class="bar-track"><span class="bar-fill" data-w="${(r.count / maxRol) * 100}"></span></span><span class="bar-value">${r.count}</span></div>`).join('')}
-        </div>
-        <div class="chart-card">
-          <h3>Actividad reciente</h3>
-          ${s.actividadReciente.length ? s.actividadReciente.map((n) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(n.createdAt)}</span><span style="flex:1;">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)} — por ${escapeHtml(n.actorNombre)}</span></div>`).join('') : '<div class="help">Sin actividad reciente.</div>'}
-        </div>
-        <div class="chart-card">
-          <h3>Correos enviados recientemente</h3>
-          <p class="help" style="margin-bottom:12px;">HU062: incluye envíos reales por SMTP (si está configurado) y simulados.</p>
-          ${emailsData.emails.length ? emailsData.emails.slice(0, 8).map((e) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(e.sentAt)}</span><span style="flex:1;">${escapeHtml(e.subject)} → ${escapeHtml(e.to)} <span style="color:var(--ink-soft);font-size:.76rem;">(${escapeHtml(e.via)})</span></span></div>`).join('') : '<div class="help">Sin correos registrados todavía.</div>'}
-        </div>
-      </div>
-
-      <div class="kpi-row">
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.inscripciones.total}</div><div class="kpi-label">Solicitudes de inscripción</div><div class="kpi-delta">${s.inscripciones.pendientes} pendientes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.check}</div><div class="kpi-num">${s.documentos.total}</div><div class="kpi-label">Documentos recibidos</div><div class="kpi-delta">${s.documentos.pendientes} pendientes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.users}</div><div class="kpi-num">${s.citas.total}</div><div class="kpi-label">Citas agendadas</div><div class="kpi-delta">${s.citas.pendientes} pendientes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.shield}</div><div class="kpi-num">${s.promedioCalificaciones !== null ? '★ ' + s.promedioCalificaciones : '—'}</div><div class="kpi-label">Calificación promedio</div><div class="kpi-delta">${s.totalCalificaciones} calificaciones · ${s.totalReportes} reportes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.bell}</div><div class="kpi-num">${s.notificacionesLeidas}/${s.totalNotificaciones}</div><div class="kpi-label">Notificaciones leídas</div><div class="kpi-delta">${s.totalCorreosEnviados} correos enviados</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.tasaRecuperacion}%</div><div class="kpi-label">Tasa de recuperación de contraseña</div><div class="kpi-delta">${s.totalResetsUsados} de ${s.totalResetsGenerados} solicitudes</div></div>
-      </div>
-
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Inscripciones por estado</h3>
-          ${barRows([
-            { label: 'Aprobadas', count: s.inscripciones.aprobadas },
-            { label: 'Rechazadas', count: s.inscripciones.rechazadas },
-            { label: 'Pendientes', count: s.inscripciones.pendientes },
-          ], (i) => i.label, (i) => i.count, 'Sin solicitudes de inscripción todavía.')}
-        </div>
-        <div class="chart-card">
-          <h3>Documentos por estado</h3>
-          ${barRows([
-            { label: 'Aceptados', count: s.documentos.aceptados },
-            { label: 'Rechazados', count: s.documentos.rechazados },
-            { label: 'Pendientes', count: s.documentos.pendientes },
-          ], (i) => i.label, (i) => i.count, 'Sin documentos subidos todavía.')}
-        </div>
-      </div>
-
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Citas por estado</h3>
-          ${barRows([
-            { label: 'Aceptadas', count: s.citas.confirmadas },
-            { label: 'Canceladas', count: s.citas.canceladas },
-            { label: 'Pendientes', count: s.citas.pendientes },
-          ], (i) => i.label, (i) => i.count, 'Sin citas agendadas todavía.')}
-        </div>
-        <div class="chart-card">
-          <h3>Citas por institución (top 5)</h3>
-          ${barRows(s.citasPorInstitucion, (i) => i.nombre, (i) => i.count, 'Sin citas agendadas todavía.')}
-        </div>
-      </div>
-
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Usuarios registrados por año</h3>
-          ${barRows(s.porAnio, (i) => String(i.anio), (i) => i.count, 'Sin datos todavía.')}
-        </div>
-        <div class="chart-card">
-          <h3>Distribución geográfica de usuarios</h3>
-          <div class="help">Solo el personal de institución tiene una provincia asociada (vía su institución).</div>
-          ${barRows(s.usuariosPorProvincia, (i) => i.provincia, (i) => i.count, 'Sin personal de institución vinculado a una provincia todavía.')}
-        </div>
-      </div>
-
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Instituciones mejor calificadas</h3>
-          ${barRows(s.institucionesMejorCalificadas, (i) => `${i.nombre} (★${i.promedio})`, (i) => i.total, 'Sin calificaciones todavía.')}
-        </div>
-        <div class="chart-card">
-          <h3>Reportes por motivo</h3>
-          ${barRows(s.reportesPorMotivo, (i) => i.motivo, (i) => i.count, 'Sin reportes todavía.')}
-        </div>
-      </div>
-    `;
-    bindShellEvents();
-    requestAnimationFrame(() => { setTimeout(() => qsa('.bar-fill').forEach((el) => { el.style.width = el.dataset.w + '%'; }), 60); });
-    bindProvinceMapEvents();
+    const main=qs('.main');let revision=0,busy=false;
+    main.innerHTML=`<div class="page-head"><div><h2>Analíticas</h2><div class="sub">HU067–HU095 · métricas calculadas sobre el almacenamiento del prototipo.</div></div></div>
+      <form id="analytics-filters" class="analytics-filters">
+      <label>Desde <input type="date" name="desde"></label><label>Hasta <input type="date" name="hasta"></label>
+      <label>Institución <select name="institucionId"><option value="">Todas</option></select></label>
+      <button class="btn btn-primary" type="submit">Actualizar panel</button></form>
+      <div id="analytics-content" aria-live="polite"></div>`;
+    const form=qs('#analytics-filters',main),content=qs('#analytics-content',main);
+    const table=(rows,label,value,title)=>`<details><summary>Ver tabla: ${escapeHtml(title)}</summary><div class="table-wrap"><table><caption>${escapeHtml(title)}</caption><thead><tr><th scope="col">Categoría</th><th scope="col">Valor</th></tr></thead><tbody>${rows.map(row=>`<tr><th scope="row">${escapeHtml(label(row))}</th><td>${value(row)===null?'Sin datos':escapeHtml(value(row))}</td></tr>`).join('')}</tbody></table></div></details>`;
+    const chart=(title,rows,label,value,unit='cantidad')=>`<div class="chart-card"><h3>${escapeHtml(title)}</h3><p class="help">Unidad: ${unit}</p>${rows.length?barRows(rows.filter(row=>value(row)!==null),label,value):'<p>Sin datos</p>'}${rows.some(row=>value(row)===null)?'<p>Sin datos para categorías sin observaciones.</p>':''}${table(rows,label,value,title)}</div>`;
+    const card=(label,value,detail='')=>`<div class="kpi-card" data-metric="${escapeHtml(label)}"><div class="kpi-num">${value===null?'Sin datos':escapeHtml(value)}</div><div class="kpi-label">${escapeHtml(label)}</div>${detail?`<p class="help">${escapeHtml(detail)}</p>`:''}</div>`;
+    const states=(values,labels)=>Object.entries(labels).map(([key,label])=>({label,count:values[key]}));
+    async function load(auto=false){
+      if(auto&&(busy||document.hidden))return;
+      const current=++revision;busy=true;form.querySelector('button').disabled=true;
+      const params=new URLSearchParams();new FormData(form).forEach((v,k)=>{if(v)params.set(k,v);});
+      content.innerHTML='<div class="loading" role="status">Consultando métricas…</div>';
+      try{
+        const s=await api('/analytics/summary?'+params);if(!main.isConnected||current!==revision)return;
+        const selected=form.elements.institucionId.value;
+        form.elements.institucionId.innerHTML='<option value="">Todas</option>'+s.institucionesDisponibles.map(i=>`<option value="${escapeHtml(i.id)}">${escapeHtml(i.nombre)}</option>`).join('');form.elements.institucionId.value=selected;
+        content.innerHTML=`<p role="status">Periodo: ${escapeHtml(s.filters.desde||'Inicio del registro')} — ${escapeHtml(s.filters.hasta||'Actualidad')}. Zona horaria: ${s.filters.zonaHoraria}. Actualizado: ${fmtDate(s.actualizadoAt)}.</p>
+          <p class="help">Cada registro se filtra por su fecha de creación (documentos: carga; correos enviados: aceptación). Sin fechas, se incluye todo el historial disponible. La institución filtra los datos vinculados; usuarios y recuperaciones se limitan a cuentas directamente vinculadas.</p>
+          <section aria-labelledby="analytics-users"><h3 id="analytics-users">Analíticas de usuarios</h3><div class="kpi-row">
+          ${card('Usuarios totales',s.totalUsuarios)}${card('Tasa de recuperación de contraseña',s.tasaRecuperacion===null?null:s.tasaRecuperacion+'%',`${s.totalResetsUsados} completadas / ${s.totalResetsGenerados} solicitudes registradas desde la incorporación del historial`)}
+          </div><div class="chart-row">${chart('Usuarios por rol',s.porRol,r=>r.role,r=>r.count)}${chart('Usuarios registrados por año',s.porAnio,r=>r.anio,r=>r.count)}${chart('Usuarios por provincia',s.usuariosPorProvincia,r=>r.provincia,r=>r.count)}</div><p class="help">La provincia usa ubicación propia si existe, o la institución vinculada. Otros usuarios figuran como Sin información.</p></section>
+          <section aria-labelledby="analytics-institutions"><h3 id="analytics-institutions">Analíticas de instituciones</h3><div class="kpi-row">
+          ${card('Instituciones registradas',s.totalInstituciones)}${card('Calificación promedio',s.promedioCalificaciones,'Estrellas: suma de calificaciones / cantidad de calificaciones del periodo')}${card('Promedio de reportes por institución',s.promedioReportes,`${s.totalReportes} reportes / ${s.denominadorReportes} instituciones del ámbito; incluye instituciones sin reportes`)}
+          </div><div class="chart-row">${chart('Instituciones por provincia',s.porProvincia,r=>r.provincia,r=>r.count)}${chart('Calificación por provincia',s.calificacionesPorProvincia,r=>r.provincia,r=>r.promedio,'estrellas (1–5)')}${chart('Reportes por provincia',s.reportesPorProvincia,r=>r.provincia,r=>r.count)}</div></section>
+          <section aria-labelledby="analytics-enrollments"><h3 id="analytics-enrollments">Solicitudes de inscripción</h3><div class="kpi-row">${card('Solicitudes totales',s.inscripciones.total)}${card('Solicitudes aceptadas',s.inscripciones.aprobadas)}${card('Solicitudes rechazadas',s.inscripciones.rechazadas)}${card('Solicitudes pendientes',s.inscripciones.pendientes,'Enviada, En revisión y Documentos pendientes')}</div><div class="chart-row">${chart('Solicitudes por estado',states(s.inscripciones,{aprobadas:'Aceptadas',rechazadas:'Rechazadas',pendientes:'Pendientes',abandonadas:'Abandonadas',canceladas:'Canceladas',borradores:'Borradores'}),r=>r.label,r=>r.count)}</div></section>
+          <section aria-labelledby="analytics-documents"><h3 id="analytics-documents">Documentos</h3><div class="kpi-row">${card('Documentos subidos',s.documentos.total,'Incluye versiones anteriores y cargas en borradores identificables')}${card('Documentos aprobados',s.documentos.aceptados)}${card('Documentos rechazados',s.documentos.rechazados)}${card('Documentos pendientes',s.documentos.pendientes)}</div><div class="chart-row">${chart('Documentos por estado',states(s.documentos,{aceptados:'Aprobados',rechazados:'Rechazados',pendientes:'Pendientes'}),r=>r.label,r=>r.count)}</div></section>
+          <section aria-labelledby="analytics-appointments"><h3 id="analytics-appointments">Citas</h3><div class="kpi-row">${card('Citas agendadas',s.citas.total)}${card('Citas aceptadas',s.citas.confirmadas)}${card('Citas rechazadas',s.citas.rechazadas)}${card('Citas pendientes',s.citas.pendientes)}</div><div class="chart-row">${chart('Citas por estado',states(s.citas,{confirmadas:'Aceptadas',rechazadas:'Rechazadas',pendientes:'Pendientes',canceladas:'Canceladas'}),r=>r.label,r=>r.count)}${chart('Citas por institución',s.citasPorInstitucion,r=>r.nombre,r=>r.count)}</div></section>
+          <section aria-labelledby="analytics-communications"><h3 id="analytics-communications">Comunicaciones</h3><div class="kpi-row">${card('Correos enviados',s.totalCorreosEnviados,'Mensajes únicos aceptados por proveedor; no confirma entrega')}${card('Correos pendientes',s.correosPendientes,'Incluye falta de configuración SMTP')}${card('Intentos de correo fallidos',s.correosFallidos)}${card('Correos con resultado incierto',s.correosInciertos,'Requieren conciliación antes de reenviar')}${card('Registros de correo simulados',s.correosSimulados,'No se cuentan como enviados')}${card('Notificaciones leídas',s.notificacionesLeidas,`${s.totalNotificaciones} avisos por destinatario en el periodo`)}</div></section>`;
+        qsa('.bar-fill',content).forEach(el=>{el.style.width=el.dataset.w+'%';});
+      }catch(err){if(!main.isConnected||current!==revision)return;content.innerHTML=`<div class="notice err" role="alert">No se pudieron consultar las métricas. ${escapeHtml(err.message)}</div><button class="btn btn-secondary" id="analytics-retry">Reintentar</button>`;qs('#analytics-retry',content).addEventListener('click',()=>load());}
+      finally{if(current===revision){busy=false;form.querySelector('button').disabled=false;}}
+    }
+    form.addEventListener('submit',e=>{e.preventDefault();load();});
+    const refresh=()=>load(true),timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);
+    window._analyticsCleanup=()=>{revision++;clearInterval(timer);window.removeEventListener('focus',refresh);};
+    await load();
   }
 
   // ---------------- Auditoria ----------------

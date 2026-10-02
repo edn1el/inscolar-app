@@ -18,3 +18,7 @@ La suite del login se ejecuta con `npm run test:login`. La matriz F2 y smoke deb
 - Las citas de F5.5 usan America/Santo_Domingo (UTC−4) en servicio, calendario y resumen. El editor general de periodos anterior conserva su conversión local.
 - Las suites test:f54 y test:f55 verifican esas fases con backend JSON aislado. La suite de review sigue verificando regresiones de F5.1–F5.3, incluidos contactos obligatorios, documentos y bloqueo de periodos cerrados.
 - Pendiente una auditoría completa de contraste y lectores de pantalla; el control de foco se aplica al componente compartido de confirmación.
+
+## Fases 6 y 7
+
+`npm run test:f67` comprueba comunicaciones, outbox, métricas y pantallas con fixtures aislados. Requiere Chromium como las suites existentes. Correo: el proveedor de prueba es controlado; no implica envío SMTP real. Contratos y límites en `docs/phase-06-07-communications-analytics.md`.

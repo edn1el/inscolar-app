@@ -87,3 +87,5 @@ Verificación adicional: las cinco etapas permiten cancelar sin abandonar, muest
 Para pruebas manuales se abrió únicamente en la base temporal del servidor 3107 el Colegio San Rafael, ciclo 2026–2027, inscripción y documentos del 1 de octubre al 31 de diciembre de 2026, con límite de 20 cupos de 1ro de Primaria. Esa configuración de demostración no está incluida en el repositorio ni modifica el archivo pendiente data/db.json.
 
 La integración final de fase 5 añade validación y snapshot de cédula/contacto del tutor, bloquea envíos por API que omitan documentos exigidos o usen un periodo cerrado y permite solicitar cita desde el expediente. F5.5 y el recorrido integrado están documentados en phase-05-05-appointments.md.
+
+Integración F6/F7: los eventos de solicitudes y decisiones documentales pasan por el servicio compartido de notificaciones y su bandeja de correo. Consultar `phase-06-07-communications-analytics.md` para preferencias, resultados verificables y limitaciones actuales.
