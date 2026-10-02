@@ -284,6 +284,9 @@
   async function router() {
     root.innerHTML = '<div class="loading">Cargando…</div>';
     await ensureAuth();
+    // Pausa chiquita a proposito: que la pantalla de carga se note al cambiar
+    // de modulo, en vez de que el cambio sea instantaneo.
+    await new Promise((resolve) => setTimeout(resolve, 350));
     const { segs, query } = parseHash();
 
     if (state.setupNeeded && segs[0] !== 'setup') return navigate('#/setup');
@@ -335,9 +338,6 @@
             </a><br>
             <span class="footer-min-edu">Ministerio de Educación &middot; República Dominicana<br>Soporte: (809) 555-0110</span>
           </div>
-          <button id="pause-particles" class="pause-particles-btn" aria-label="Pausar animación" aria-pressed="false">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg> Pausar
-          </button>
           <canvas class="particles-canvas" id="particles-bg" aria-hidden="true"></canvas>
         </div>
         <div class="panel"><div class="card">${body}</div></div>
@@ -359,15 +359,14 @@
     const canvas = document.getElementById('particles-bg');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const btn = document.getElementById('pause-particles');
     let animationId;
     let particles = [];
+    // Respeta la preferencia de "reducir movimiento" del sistema operativo,
+    // pero ya no hay boton para pausarla manualmente: siempre esta activa.
     let isPaused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let isSuccess = false;
     let successTarget = { x: 0, y: 0 };
-    
-    if (isPaused && btn) btn.style.display = 'none';
-    
+
     function resize() {
       const hero = canvas.closest('.hero');
       if (!hero) return;
@@ -442,19 +441,7 @@
       animationId = requestAnimationFrame(draw);
     }
     
-    if (!isPaused) draw();
-    else draw();
-    
-    if (btn) {
-      btn.addEventListener('click', () => {
-        isPaused = !isPaused;
-        btn.setAttribute('aria-pressed', isPaused.toString());
-        if (!isPaused) draw();
-        btn.innerHTML = isPaused 
-          ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Reproducir'
-          : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg> Pausar';
-      });
-    }
+    draw();
 
     window._triggerLoginSuccess = (destId) => {
       return new Promise(resolve => {
@@ -464,8 +451,7 @@
         // Efecto global de desvanecimiento suave para toda la vista
         const authStage = document.querySelector('.auth-stage');
         if (authStage) authStage.classList.add('fade-out-success');
-        
-        if (btn) btn.style.opacity = '0';
+
         const destEl = document.querySelector(destId || '.medallion');
         if (destEl) {
           const rect = destEl.getBoundingClientRect();
