@@ -6,6 +6,13 @@ const router = express.Router();
 router.use(requireAuth);
 
 const ADMIN_ROLES = ['Administrador', 'Soporte'];
+// Admin/Soporte ven todo; el personal de institución ve las calificaciones y los reportes
+// de SU institución (el expediente es visible para el autor y el personal autorizado).
+// El tutor solo ve lo que él mismo escribió.
+function puedeVerTodoDeLaInstitucion(u, institucionId) {
+  return ADMIN_ROLES.includes(u.role) || (u.role === 'Personal de institución' && u.institucionId === institucionId);
+}
+
 const MOTIVOS_REPORTE = ['Trato inadecuado', 'Información incorrecta', 'Cobros indebidos', 'Otro'];
 
 // Un tutor solo puede calificar/reportar una institucion con la que haya tenido
@@ -32,7 +39,7 @@ router.get('/institutions/:id/ratings', (req, res) => {
   if (!institucion) return res.status(404).json({ error: 'Institución no encontrada.' });
 
   let list = db.ratings.filter((r) => r.institucionId === institucion.id);
-  if (!ADMIN_ROLES.includes(u.role)) {
+  if (!puedeVerTodoDeLaInstitucion(u, institucion.id)) {
     list = list.filter((r) => r.tutorId === u.id);
   }
   list = list.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -91,7 +98,7 @@ router.get('/institutions/:id/reports', (req, res) => {
   if (!institucion) return res.status(404).json({ error: 'Institución no encontrada.' });
 
   let list = db.reports.filter((rp) => rp.institucionId === institucion.id);
-  if (!ADMIN_ROLES.includes(u.role)) {
+  if (!puedeVerTodoDeLaInstitucion(u, institucion.id)) {
     list = list.filter((rp) => rp.tutorId === u.id);
   }
   list = list.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

@@ -623,7 +623,7 @@
                 <div class="rating-hero">
                   ${i.totalCalificaciones ? `<span class="rating-hero-num">${Number(i.calificacionPromedio).toFixed(1)}</span>
                   <span class="rating-hero-stars" aria-label="${Number(i.calificacionPromedio).toFixed(1)} de 5 estrellas">${[1, 2, 3, 4, 5].map((n) => `<svg viewBox="0 0 24 24" class="${n <= Math.round(i.calificacionPromedio) ? 'on' : ''}" aria-hidden="true"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>`).join('')}</span>
-                  <span class="help">${i.totalCalificaciones} calificación${i.totalCalificaciones === 1 ? '' : 'es'} de tutores</span>`
+                  <span class="help">${i.totalCalificaciones} ${i.totalCalificaciones === 1 ? 'calificación' : 'calificaciones'} de tutores</span>`
                   : '<p class="help">Todavía nadie ha calificado esta institución.</p>'}
                 </div>
               </section>
@@ -1280,6 +1280,9 @@
     const canSeeInscripciones = isAdmin() || ['Tutor', 'Personal de institución'].includes(role());
     const esCalendarioInstitucion = section === 'instituciones' && segs[2] === 'calendario';
     const esDetalleInstitucion = section === 'instituciones' && segs[2] === 'detalle';
+    // Calificaciones y reportes: cualquier rol entra; el servidor decide qué ve cada uno
+    // (Admin/Soporte y el personal de esa institución todo, el tutor solo lo suyo).
+    const esOpinionesInstitucion = section === 'instituciones' && ['calificaciones', 'reportes'].includes(segs[2]);
     // Solo Admin y Soporte ven Usuarios e Instituciones; Analíticas solo Admin
     if (section === 'usuarios' && !canSeeUsuarios()) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
@@ -1290,8 +1293,8 @@
       return;
     }
     // El personal de institución gestiona los periodos de SU institución (HU034-HU045, hallazgo FUN-06).
-    const esPeriodosDeSuInstitucion = section === 'instituciones' && isStaff() && segs[1] === (state.user || {}).institucionId && ['periodos', 'editar'].includes(segs[2]);
-    if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion && !esPeriodosDeSuInstitucion) {
+    const esPeriodosDeSuInstitucion = section === 'instituciones' && isStaff() && segs[1] === (state.user || {}).institucionId && ['periodos', 'editar', 'calificaciones', 'reportes'].includes(segs[2]);
+    if (section === 'instituciones' && !isAdmin() && !esCalendarioInstitucion && !esDetalleInstitucion && !esPeriodosDeSuInstitucion && !esOpinionesInstitucion) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -2532,7 +2535,7 @@
         <div class="chart-card">
           <h3>Calificación y actividad</h3>
           <p style="font-size:1.3rem; margin-bottom:6px;">${calificacionLabel(institution.calificacionPromedio, institution.totalCalificaciones)}</p>
-          <p class="help" style="margin-bottom:18px;">Basado en ${institution.totalCalificaciones} calificación${institution.totalCalificaciones === 1 ? '' : 'es'}.</p>
+          <p class="help" style="margin-bottom:18px;">Basado en ${institution.totalCalificaciones} ${institution.totalCalificaciones === 1 ? 'calificación' : 'calificaciones'}.</p>
           <div style="display:flex; flex-wrap:wrap; gap:8px;">
             ${state.user && state.user.role === 'Tutor' ? `<button class="btn btn-primary" style="width:auto; padding:9px 16px;" data-nav="#/app/calificar/${institution.id}">Calificar institución</button>` : ''}
             <button class="btn btn-secondary" style="width:auto; padding:9px 16px;" data-nav="#/app/instituciones/${institution.id}/calificaciones">Ver calificaciones</button>
@@ -2630,9 +2633,9 @@
       api('/institutions/' + institucionId + '/ratings'),
     ]);
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      ${isAdmin() ? `<button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>` : `<button class="back-link" data-nav="#/app/instituciones/${institucionId}/detalle">${ICONS.back} Volver a la institución</button>`}
       <div class="page-head">
-        <div><h2>Calificaciones — ${escapeHtml(nombre)}</h2><div class="sub">${total ? `Promedio: ★ ${promedio.toFixed(1)} de ${total} calificación${total === 1 ? '' : 'es'}.` : 'Todavía no tiene calificaciones.'}</div></div>
+        <div><h2>Calificaciones — ${escapeHtml(nombre)}</h2><div class="sub">${total ? `Promedio: ★ ${promedio.toFixed(1)} de ${total} ${total === 1 ? 'calificación' : 'calificaciones'}.` : 'Todavía no tiene calificaciones.'}</div></div>
         ${state.user && state.user.role === 'Tutor' ? `<button class="btn btn-primary" style="width:auto; padding:10px 18px;" data-nav="#/app/calificar/${institucionId}">Calificar institución</button>` : ''}
       </div>
       <div class="notif-list">
@@ -2656,7 +2659,7 @@
       api('/institutions/' + institucionId + '/reports'),
     ]);
     qs('.main').innerHTML = `
-      <button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>
+      ${isAdmin() ? `<button class="back-link" data-nav="#/app/instituciones">${ICONS.back} Volver a instituciones</button>` : `<button class="back-link" data-nav="#/app/instituciones/${institucionId}/detalle">${ICONS.back} Volver a la institución</button>`}
       <div class="page-head"><div><h2>Reportes — ${escapeHtml(nombre)}</h2><div class="sub">${total} reporte${total === 1 ? '' : 's'} registrado${total === 1 ? '' : 's'}.</div></div></div>
       <div class="notif-list">
         ${reports.length ? reports.map((rp) => `
