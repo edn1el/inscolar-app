@@ -685,7 +685,7 @@
               
               const fotoUrl = i.foto ? `/api/institutions/${i.id}/foto?v=${encodeURIComponent(i.foto.uploadedAt)}` : '/assets/brand/inscolar-symbol-primary.svg';
               const detailsHtml = `
-                <a href="#/buscar/${i.id}" style="text-decoration:none; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
+                <div style="cursor:pointer; display:flex; flex-direction:row; gap:12px; min-width: 250px; align-items:center;">
                   <div style="width:60px; height:60px; border-radius:12px; overflow:hidden; flex-shrink:0; background:var(--bg-body); border:1px solid rgba(0,0,0,0.1);">
                     <img src="${fotoUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/assets/brand/inscolar-symbol-primary.svg';">
                   </div>
@@ -695,17 +695,24 @@
                     <div style="font-size:12px; margin-top:6px; color:var(--text-color); opacity:0.8;">📍 ${escapeHtml(i.municipio || '')}</div>
                     <div style="font-size:12px; margin-top:4px; font-weight:bold; color:#eab308;">⭐ ${i.calificacionPromedio !== null ? Number(i.calificacionPromedio).toFixed(1) : 'Nuevo'}</div>
                   </div>
-                </a>
+                </div>
               `;
-              marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip', interactive: true });
               marker.instId = i.id;
               
-              marker.on('click', () => {
-                const isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window);
-                if (!isMobile) {
+              const isMobile = window.matchMedia('(max-width: 768px)').matches || ('ontouchstart' in window);
+              if (isMobile) {
+                marker.bindPopup(detailsHtml, { className: 'modern-popup', closeButton: false, minWidth: 250, offset: [0, -15] });
+                marker.on('popupopen', function(e) {
+                  e.popup.getElement().addEventListener('click', function() {
+                    navigate('#/buscar/' + i.id);
+                  });
+                });
+              } else {
+                marker.bindTooltip(detailsHtml, { direction: 'top', className: 'modern-tooltip' });
+                marker.on('click', () => {
                   navigate('#/buscar/' + i.id);
-                }
-              });
+                });
+              }
               
               currentMarkers.push(marker);
               bounds.push([i.lat, i.lng]);
