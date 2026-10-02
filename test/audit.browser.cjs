@@ -25,6 +25,29 @@ test('F8: auditoría real, permisos, filtros, detalle y recuperación',{timeout:
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});const ctx=await browser.newContext({storageState:await admin.storageState(),viewport:{width:375,height:812},colorScheme:'dark'});const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await t.test('visor móvil/teclado, filtros, página, detalle y cierre devuelven foco',async()=>{await page.goto(base+'/#/app/auditoria?actorId=Sistema&accion=Cita%20cancelada');await expect(page.locator('#audit-next')).toBeEnabled();await page.locator('#audit-next').focus();await page.keyboard.press('Enter');await expect(page.locator('.table-footer')).toContainText('Página 2 de 2');const button=page.locator('[data-audit-detail]').first();await button.click();await expect(page.locator('#audit-detail section')).toBeFocused();await page.locator('#audit-detail-close').click();await expect(button).toBeFocused();await page.locator('[name=desde]').fill('2026-10-02');await page.locator('[name=hasta]').fill('2026-10-02');await page.getByRole('button',{name:'Aplicar filtros'}).click();await expect(page.locator('.table-footer')).toContainText('de 13');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:path.join(dir,'audit-mobile.png')});});
   await t.test('error del almacén ofrece reintento sin presentar cero como éxito',async()=>{const file=dbp+'.audit.json',bytes=fs.readFileSync(file);fs.writeFileSync(file,'invalid json');try{assert.equal((await admin.get('/api/logs')).status(),503);await page.locator('#audit-refresh').click();await expect(page.locator('#audit-retry')).toBeVisible();}finally{fs.writeFileSync(file,bytes);}await page.locator('#audit-retry').click();await expect(page.locator('#audit-filters')).toBeVisible();assert.deepEqual(errors,[]);});
+  await t.test('cabecera compacta, tarjetas etiquetadas y CTA legible en móvil claro/oscuro',async()=>{
+   for(const theme of ['light','dark'])for(const width of [320,375,600]){
+    await page.setViewportSize({width,height:812});await page.evaluate(theme=>{localStorage.setItem('ins-theme',theme);document.documentElement.toggleAttribute('data-theme',theme==='dark');if(theme==='dark')document.documentElement.setAttribute('data-theme','dark');},theme);
+    await page.goto(base+'/#/app/auditoria');await expect(page.locator('#audit-filters')).toBeVisible();await page.evaluate(()=>window.scrollTo(0,0));
+    await expect(page.locator('.topbar .who')).toBeHidden();await expect(page.locator('#logout-btn')).toBeHidden();await expect(page.locator('#settings-menu-btn')).toBeVisible();
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    const bounds=await page.locator('.topbar').boundingBox();assert.ok(bounds.width<=width);
+    await page.locator('#settings-menu-btn').click();await expect(page.locator('#settings-menu a').filter({hasText:'Mi perfil'})).toBeVisible();await page.locator('#settings-logout').focus();await page.keyboard.press('Escape');await expect(page.locator('#settings-menu-btn')).toBeFocused();
+    assert.ok(await page.locator('.audit-table tbody tr').first().locator('td[data-label]').count()>=6);
+    await page.evaluate(()=>{const div=document.createElement('div');div.className='leaflet-container';div.id='contrast-test';div.innerHTML='<a class="btn btn-primary enroll-cta" href="#/login">Inscribir estudiante</a>';document.body.append(div);});
+    const colors=await page.locator('#contrast-test a').evaluate(el=>{const s=getComputedStyle(el);return [s.color,s.backgroundColor];});assert.deepEqual(colors,['rgb(255, 255, 255)','rgb(169, 17, 50)']);await page.locator('#contrast-test').evaluate(el=>el.remove());
+    await page.screenshot({path:path.join(dir,'audit-'+theme+'-'+width+'.png')});
+   }
+  });
+  await t.test('catálogo público, fotos servidas y ficha de Loyola con fuente y CTA legible',async()=>{
+   const {catalog}=require('../lib/institution-catalog');
+   const list=await(await admin.get('/api/institutions')).json();assert.equal(list.total,30);
+   for(const i of catalog){const response=await admin.get(i.photo.url);assert.equal(response.status(),200);assert.ok(response.headers()['content-type'].startsWith('image/'));assert.ok((await response.body()).length>1000);}
+   const detail=await(await admin.get('/api/institutions/i004')).json();assert.equal(detail.institution.nombre,'Colegio Loyola');assert.equal(detail.institution.provincia,'Distrito Nacional');assert.ok(detail.institution.photo.url);
+   await page.setViewportSize({width:375,height:812});await page.goto(base+'/#/buscar/i004');await expect(page.getByRole('heading',{name:'Colegio Loyola',exact:true})).toBeVisible();await expect(page.getByRole('link',{name:'Fuente institucional',exact:true})).toHaveAttribute('href','https://loyola.edu.do/ubicacion/');
+   await expect(page.getByRole('link',{name:'Inscribir estudiante',exact:true})).toBeVisible();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+   await expect.poll(()=>page.locator('.inst-hero').evaluate(async el=>{const url=getComputedStyle(el).backgroundImage.slice(5,-2);const img=new Image();img.src=url;try{await img.decode();return img.naturalWidth>0;}catch{return false;}})).toBe(true);await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));await page.screenshot({path:path.join(dir,'institution-mobile.png')});
+  });
   console.log('F8 navegador: '+dir);
  }finally{if(browser)await browser.close();for(const c of contexts)await c.dispose();server.kill();await once(server,'exit');for(const [f,b] of preserved)assert.deepEqual(fs.readFileSync(path.join(root,f)),b);}
 });
