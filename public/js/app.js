@@ -3570,6 +3570,7 @@
     const tooltip = qs('#map-tooltip');
     const wrap = qs('.map-wrap');
     if (!tooltip || !wrap) return;
+    let activeTouchTile = null;
     qsa('.prov-tile').forEach((tile) => {
       const name = tile.dataset.provincia;
       const count = tile.dataset.count;
@@ -3580,13 +3581,44 @@
         tooltip.style.top = (y - rect.top) + 'px';
         tooltip.classList.add('show');
       };
+      const goToProvince = () => navigate('#/app/instituciones?provincia=' + encodeURIComponent(name));
+
+      // en desktop el mouseover muestra el tooltip y el clic navega
       tile.addEventListener('mousemove', (e) => show(e.clientX, e.clientY));
       tile.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
       tile.addEventListener('focus', () => { const r = tile.getBoundingClientRect(); show(r.left + r.width / 2, r.top); });
       tile.addEventListener('blur', () => tooltip.classList.remove('show'));
-      tile.addEventListener('click', () => navigate('#/app/instituciones?provincia=' + encodeURIComponent(name)));
-      tile.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('#/app/instituciones?provincia=' + encodeURIComponent(name)); } });
+
+      // en celular no hay hover, asi que el primer toque muestra el tooltip
+      // (igual que pasar el mouse) y el segundo toque en la misma provincia
+      // navega, como si fuera el clic
+      tile.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        if (activeTouchTile === tile) {
+          tooltip.classList.remove('show');
+          activeTouchTile = null;
+          goToProvince();
+        } else {
+          show(touch.clientX, touch.clientY);
+          activeTouchTile = tile;
+        }
+      }, { passive: false });
+
+      tile.addEventListener('click', (e) => {
+        if (activeTouchTile) return; // ya se manejo arriba en touchstart
+        goToProvince();
+      });
+      tile.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goToProvince(); } });
     });
+
+    // tocar fuera de una provincia (pero dentro del mapa) cierra el tooltip
+    wrap.addEventListener('touchstart', (e) => {
+      if (!e.target.closest('.prov-tile')) {
+        tooltip.classList.remove('show');
+        activeTouchTile = null;
+      }
+    }, { passive: true });
   }
 
   // ---------------- Analíticas ----------------
@@ -3616,7 +3648,7 @@
           <div class="map-tooltip" id="map-tooltip"></div>
         </div>
         <div class="map-legend"><span>Menos</span><span class="map-legend-scale"></span><span>Más</span></div>
-        <div class="help">Selecciona una provincia para ver sus instituciones.</div>
+        <div class="help">Pasa el cursor o toca una provincia para ver cuántas instituciones tiene. Toca de nuevo (o haz clic) para ver el listado.</div>
       </div>
       <div class="chart-row">
         <div class="chart-card">
