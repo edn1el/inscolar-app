@@ -450,7 +450,7 @@
         const logoUrl = i.logo ? '/api/institutions/' + i.id + '/logo?v=' + encodeURIComponent(i.logo.uploadedAt) : null;
         
         root.innerHTML = `
-          <div class="top-nav" style="background:#fff; border-bottom:1px solid var(--border-color); padding:10px 20px; z-index: 10;">
+          <div class="top-nav" style="background:var(--c-surface); border-bottom:1px solid var(--c-border); padding:10px 20px; z-index: 10;">
             <a href="#/buscar" class="btn btn-ghost btn-small">← Volver a resultados</a>
             ${state.user ? '<a href="#/app/perfil" class="btn btn-ghost btn-small" style="float:right">Volver al panel</a>' : '<a href="#/login" class="btn btn-primary btn-small" style="float:right">Iniciar sesión</a>'}
           </div>
@@ -538,9 +538,9 @@
             <button type="button" class="btn btn-ghost btn-small mobile-only-btn" id="btn-toggle-map" style="width:100%; margin-bottom:15px; display:none;">${ICONS.map} Mostrar mapa</button>
             <button type="submit" class="btn btn-primary btn-block">Aplicar filtros</button>
           </form>
-          <div id="search-results" style="margin-top:20px; overflow-y:auto; flex:1;"></div>
+          <div id="search-results" style="margin-top:20px;"></div>
         </div>
-        <div class="search-map-wrapper">
+        <div class="search-map-wrapper hidden-mobile">
           <div class="search-map" id="map-container"></div>
           <button id="close-map-btn" class="btn mobile-close-map">${ICONS.close}</button>
         </div>
@@ -549,14 +549,14 @@
 
     const provSelect = qs('#s-prov');
     const munSelect = qs('#s-mun');
-    const provincias = Object.keys(window.DR_PROVINCES || {}).sort();
+    const provincias = Object.keys(MUNICIPIOS || {}).sort();
     provincias.forEach(p => provSelect.insertAdjacentHTML('beforeend', `<option value="${p}">${p}</option>`));
     
     provSelect.addEventListener('change', () => {
       munSelect.innerHTML = '<option value="">Todos</option>';
       const p = provSelect.value;
-      if (p && window.DR_PROVINCES[p]) {
-        window.DR_PROVINCES[p].forEach(m => munSelect.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`));
+      if (p && MUNICIPIOS[p]) {
+        MUNICIPIOS[p].forEach(m => munSelect.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`));
       }
     });
 
@@ -627,8 +627,15 @@
         currentMarkers.forEach(m => m.remove());
         currentMarkers = [];
         
+        const mc = qs('#map-container');
+        const emptyOver = mc ? mc.querySelector('.map-empty-overlay') : null;
+        if (emptyOver) emptyOver.remove();
+
         if (!data.institutions || data.institutions.length === 0) {
           qs('#search-results').innerHTML = '<div class="notice">No se encontraron instituciones.</div>';
+          if (currentMap && mc) {
+            mc.insertAdjacentHTML('beforeend', '<div class="map-empty-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:var(--bg-body); opacity: 0.9; z-index:1000; display:flex; align-items:center; justify-content:center; color:var(--text-muted); text-align:center; padding:20px;">No hay resultados para mostrar en el mapa</div>');
+          }
           return;
         }
 
@@ -669,6 +676,8 @@
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           if (bounds.length > 0) {
             currentMap.fitBounds(bounds, { animate: !prefersReduced });
+          } else if (currentMap && qs('#map-container')) {
+            qs('#map-container').insertAdjacentHTML('beforeend', '<div class="map-empty-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:var(--bg-body); opacity: 0.9; z-index:1000; display:flex; align-items:center; justify-content:center; color:var(--text-muted); text-align:center; padding:20px;">Las instituciones encontradas no tienen coordenadas registradas.</div>');
           }
         }
 
@@ -3217,7 +3226,7 @@
               <td>${p.citas ? `${rangeLabel(p.citas)}${p.citas.limiteCitas ? ' \u00b7 m\u00e1x. ' + p.citas.limiteCitas : ''}` : 'No configurado'}</td>
               <td>${p.documentosRequeridos && p.documentosRequeridos.length ? p.documentosRequeridos.length + ' tipo(s)' : 'Lista por defecto'}</td>
               <td><span class="actions-cell">
-                <button class="neutral" data-editar-periodo="${p.id}">Configurar</button>
+                <button class="neutral" data-editar-periodo="${p.id}">Ver ciclo</button>
                 <button class="danger" data-eliminar-periodo="${p.id}">Eliminar</button>
               </span></td>
             </tr>`).join('') : `<tr><td colspan="6"><div class="empty-state">No hay ciclos configurados todav\u00eda. Sin un ciclo configurado no se aplican restricciones de fecha.</div></td></tr>`}
@@ -3278,87 +3287,218 @@
     ]);
     const period = periods.find((p) => p.id === periodId);
     if (!period) {
-      qs('.main').innerHTML = '<div class="empty-state">No se encontr\u00f3 esa configuraci\u00f3n de periodo.</div>';
+      qs('.main').innerHTML = '<div class="empty-state">No se encontró esa configuración de periodo.</div>';
       return;
     }
-    const toInput = (iso) => iso ? new Date(iso).toISOString().slice(0, 10) : '';
+    const u = state.user;
+    const canManage = isAdmin() || u.role === 'Soporte' || (u.role === 'Personal de institución' && u.institucionId === institucionId);
+
+    const now = new Date();
+    function getStatus(range) {
+      if (!range || !range.desde || !range.hasta) return { label: 'No configurado', class: 'status-gray' };
+      const d = new Date(range.desde);
+      const h = new Date(range.hasta);
+      if (now < d) return { label: 'Próximo', class: 'status-blue' };
+      if (now > h) return { label: 'Finalizado', class: 'status-gray' };
+      return { label: 'Activo', class: 'status-green' };
+    }
+
+    const fmtDt = (iso) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString('es-DO', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+             d.toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+    };
+
+    const toInput = (iso) => {
+      if (!iso) return '';
+      const d = new Date(iso);
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    function renderHito(tipo, title, range, limit) {
+      const st = getStatus(range);
+      const dates = range ? `<div style="margin-top:8px; font-size:14px; color:var(--text-color);">Desde: <strong>${fmtDt(range.desde)}</strong><br>Hasta: <strong>${fmtDt(range.hasta)}</strong></div>` : '';
+      const extras = limit ? `<div style="margin-top:4px; font-size:13px; color:var(--help-color);">Límite de citas: ${limit}</div>` : '';
+      const actions = canManage ? `
+        <div style="margin-top:12px; display:flex; gap:8px;">
+          <button class="btn btn-ghost" style="padding:6px 12px; font-size:13px;" data-edit-hito="${tipo}">${range ? 'Editar' : 'Agregar'}</button>
+          ${range ? `<button class="btn btn-ghost danger" style="padding:6px 12px; font-size:13px;" data-delete-hito="${tipo}">Eliminar</button>` : ''}
+        </div>
+      ` : '';
+
+      return `
+        <div style="display:flex; gap:16px; margin-bottom:24px; position:relative;">
+          <div style="width:16px; display:flex; flex-direction:column; align-items:center;">
+            <div style="width:12px; height:12px; border-radius:50%; background:var(--${st.class === 'status-green' ? 'success' : st.class === 'status-blue' ? 'primary' : 'border'}-color); margin-top:6px;"></div>
+            <div style="flex:1; width:2px; background:var(--border-color); margin-top:8px;"></div>
+          </div>
+          <div class="chart-card" style="flex:1; margin:0;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <h3 style="margin:0; font-size:16px;">${title}</h3>
+              <span class="badge ${st.class}">${st.label}</span>
+            </div>
+            ${dates}
+            ${extras}
+            ${actions}
+          </div>
+        </div>
+      `;
+    }
 
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="#/app/instituciones/${institucionId}/periodos">${ICONS.back} Volver a periodos</button>
-      <div class="page-head"><h2>Configurar ciclo ${escapeHtml(period.cicloEscolar)} \u2014 ${escapeHtml(nombre)}</h2></div>
-      <div id="err"></div>
-      <form id="period-form">
-        <div class="chart-card" style="max-width:640px; margin-bottom:16px;">
-          <h3>Periodo de inscripci\u00f3n</h3>
-          <div class="two-col">
-            <div class="field"><label>Desde</label><input type="date" name="ins-desde" value="${toInput(period.inscripcion && period.inscripcion.desde)}"></div>
-            <div class="field"><label>Hasta</label><input type="date" name="ins-hasta" value="${toInput(period.inscripcion && period.inscripcion.hasta)}"></div>
-          </div>
-          <div class="help">Deja ambas fechas vac\u00edas para no aplicar restricci\u00f3n.</div>
-          ${period.inscripcion ? `<button type="button" class="danger" style="width:auto; padding:8px 14px; margin-top:8px;" data-quitar="inscripcion">Quitar este periodo</button>` : ''}
-        </div>
-        <div class="chart-card" style="max-width:640px; margin-bottom:16px;">
-          <h3>Periodo de env\u00edo de documentos</h3>
-          <div class="two-col">
-            <div class="field"><label>Desde</label><input type="date" name="doc-desde" value="${toInput(period.documentos && period.documentos.desde)}"></div>
-            <div class="field"><label>Hasta</label><input type="date" name="doc-hasta" value="${toInput(period.documentos && period.documentos.hasta)}"></div>
-          </div>
-          ${period.documentos ? `<button type="button" class="danger" style="width:auto; padding:8px 14px; margin-top:8px;" data-quitar="documentos">Quitar este periodo</button>` : ''}
-        </div>
-        <div class="chart-card" style="max-width:640px; margin-bottom:16px;">
-          <h3>Periodo para agendar citas</h3>
-          <div class="two-col">
-            <div class="field"><label>Desde</label><input type="date" name="cit-desde" value="${toInput(period.citas && period.citas.desde)}"></div>
-            <div class="field"><label>Hasta</label><input type="date" name="cit-hasta" value="${toInput(period.citas && period.citas.hasta)}"></div>
-          </div>
-          <div class="field"><label>L\u00edmite de citas en este periodo (opcional)</label><input type="number" min="1" name="cit-limite" value="${period.citas && period.citas.limiteCitas ? period.citas.limiteCitas : ''}"></div>
-          ${period.citas ? `<button type="button" class="danger" style="width:auto; padding:8px 14px; margin-top:8px;" data-quitar="citas">Quitar este periodo</button>` : ''}
-        </div>
-        <div class="chart-card" style="max-width:640px; margin-bottom:16px;">
-          <h3>Documentos requeridos para inscripci\u00f3n</h3>
-          <div class="help">Si no seleccionas ninguno, se usa la lista por defecto al subir documentos.</div>
+      <div class="page-head"><h2>Ciclo ${escapeHtml(period.cicloEscolar)} &mdash; ${escapeHtml(nombre)}</h2></div>
+      
+      <div style="max-width:640px; padding-left:8px; margin-top:20px;">
+        ${renderHito('inscripcion', 'Periodo de inscripción', period.inscripcion)}
+        ${renderHito('documentos', 'Periodo de envío de documentos', period.documentos)}
+        ${renderHito('citas', 'Periodo para agendar citas', period.citas, period.citas?.limiteCitas)}
+      </div>
+
+      <div class="chart-card" style="margin-top:20px; max-width:640px;">
+        <h3>Documentos requeridos para inscripción</h3>
+        <form id="docs-req-form">
+          <div class="help" style="margin-bottom:12px;">Si no seleccionas ninguno, se usa la lista por defecto al subir documentos.</div>
           ${tiposDocumentoDisponibles.map((t) => `
-            <label style="display:flex; align-items:center; gap:8px; margin:6px 0;">
-              <input type="checkbox" name="doc-req" value="${escapeHtml(t)}" ${period.documentosRequeridos && period.documentosRequeridos.includes(t) ? 'checked' : ''}>
+            <label style="display:flex; align-items:center; gap:8px; margin:8px 0; font-size:14px; cursor:${canManage ? 'pointer' : 'default'};">
+              <input type="checkbox" name="doc-req" value="${escapeHtml(t)}" ${(period.documentosRequeridos || []).includes(t) ? 'checked' : ''} ${!canManage ? 'disabled' : ''}>
               ${escapeHtml(t)}
             </label>
           `).join('')}
-        </div>
-        <div style="display:flex; gap:10px;">
-          <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Guardar cambios</button>
-          <button class="btn btn-ghost" style="width:auto; padding:12px 22px;" type="button" data-nav="#/app/instituciones/${institucionId}/periodos">Cancelar</button>
-        </div>
-      </form>
+          ${canManage ? `
+          <div id="docs-err" style="margin-top:10px;"></div>
+          <button type="submit" class="btn btn-primary" style="margin-top:12px; width:auto; padding:8px 16px;">Guardar documentos</button>
+          ` : ''}
+        </form>
+      </div>
+
+      <div id="period-modal-container"></div>
     `;
+
     bindShellEvents();
 
-    qsa('[data-quitar]').forEach((b) => b.addEventListener('click', async () => {
-      try {
-        await api('/institutions/' + institucionId + '/periods/' + periodId + '/' + b.dataset.quitar, { method: 'DELETE' });
-        toast('Periodo eliminado.', 'ok');
-        renderPeriodoForm(institucionId, periodId);
-      } catch (err) { toast(err.message, 'err'); }
-    }));
+    if (canManage) {
+      qs('#docs-req-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        qs('#docs-err').innerHTML = '';
+        const fd = new FormData(e.target);
+        const btn = qs('#docs-req-form button');
+        btn.disabled = true;
+        try {
+          await api('/institutions/' + institucionId + '/periods/' + periodId, { method: 'PUT', body: { documentosRequeridos: fd.getAll('doc-req') } });
+          toast('Documentos requeridos actualizados.', 'ok');
+          renderPeriodoForm(institucionId, periodId);
+        } catch (err) {
+          qs('#docs-err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+        } finally {
+          btn.disabled = false;
+        }
+      });
 
-    qs('#period-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      qs('#err').innerHTML = '';
-      const fd = new FormData(e.target);
-      const v = (k) => fd.get(k) || '';
-      const body = {
-        inscripcion: { desde: v('ins-desde'), hasta: v('ins-hasta') },
-        documentos: { desde: v('doc-desde'), hasta: v('doc-hasta') },
-        citas: { desde: v('cit-desde'), hasta: v('cit-hasta'), limiteCitas: v('cit-limite') },
-        documentosRequeridos: fd.getAll('doc-req'),
-      };
-      try {
-        await api('/institutions/' + institucionId + '/periods/' + periodId, { method: 'PUT', body });
-        toast('Configuraci\u00f3n guardada.', 'ok');
-        navigate('#/app/instituciones/' + institucionId + '/periodos');
-      } catch (err) {
-        qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
-      }
-    });
+      qsa('[data-edit-hito]').forEach(b => b.addEventListener('click', () => {
+        const tipo = b.dataset.editHito;
+        const isCitas = tipo === 'citas';
+        const range = period[tipo];
+        const title = tipo === 'inscripcion' ? 'Periodo de inscripción' : 
+                      tipo === 'documentos' ? 'Periodo de envío de documentos' : 
+                      'Periodo para agendar citas';
+
+        qs('#period-modal-container').innerHTML = `
+          <div class="sidebar-backdrop visible" style="z-index:9999; display:flex; align-items:center; justify-content:center;">
+            <div class="card" style="width:480px; padding:24px; position:relative; z-index:10000; text-align:left;">
+              <h3 style="margin-top:0;">${range ? 'Editar' : 'Agregar'} ${title}</h3>
+              <div id="hito-err"></div>
+              <form id="hito-form">
+                <div class="two-col" style="margin-top:16px;">
+                  <div class="field">
+                    <label>Desde</label>
+                    <input type="datetime-local" name="desde" value="${toInput(range?.desde)}" required>
+                  </div>
+                  <div class="field">
+                    <label>Hasta</label>
+                    <input type="datetime-local" name="hasta" value="${toInput(range?.hasta)}" required>
+                  </div>
+                </div>
+                ${isCitas ? `
+                <div class="field">
+                  <label>Límite de citas (opcional)</label>
+                  <input type="number" min="1" name="limiteCitas" value="${range?.limiteCitas || ''}">
+                </div>
+                ` : ''}
+                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:24px;">
+                  <button type="button" class="btn btn-ghost" style="width:auto;" id="hito-cancel">Cancelar</button>
+                  <button type="submit" class="btn btn-primary" style="width:auto;">Guardar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        `;
+
+        qs('#hito-cancel').addEventListener('click', () => qs('#period-modal-container').innerHTML = '');
+        
+        const form = qs('#hito-form');
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          qs('#hito-err').innerHTML = '';
+          const fd = new FormData(form);
+          const d = fd.get('desde');
+          const h = fd.get('hasta');
+          if (new Date(h) <= new Date(d)) {
+            qs('#hito-err').innerHTML = fieldErrorsBlock(['La fecha de cierre debe ser posterior a la fecha de inicio.']);
+            return;
+          }
+
+          const body = { [tipo]: { desde: new Date(d).toISOString(), hasta: new Date(h).toISOString() } };
+          if (isCitas) body[tipo].limiteCitas = fd.get('limiteCitas') || null;
+
+          const submitBtn = form.querySelector('button[type="submit"]');
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Guardando...';
+
+          try {
+            await api('/institutions/' + institucionId + '/periods/' + periodId, { method: 'PUT', body });
+            toast('Periodo guardado.', 'ok');
+            qs('#period-modal-container').innerHTML = '';
+            renderPeriodoForm(institucionId, periodId);
+          } catch (err) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar';
+            qs('#hito-err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+          }
+        });
+      }));
+
+      qsa('[data-delete-hito]').forEach(b => b.addEventListener('click', () => {
+        const tipo = b.dataset.deleteHito;
+        const range = period[tipo];
+        const title = tipo === 'inscripcion' ? 'Periodo de inscripción' : 
+                      tipo === 'documentos' ? 'Periodo de envío de documentos' : 
+                      'Periodo para agendar citas';
+        const typeStr = tipo === 'inscripcion' ? 'solicitudes de inscripción' :
+                        tipo === 'documentos' ? 'documentos enviados' : 'citas agendadas';
+                        
+        showConfirmModal({
+          title: `¿Eliminar ${title.toLowerCase()}?`,
+          bodyHtml: `
+            <p>Esta acción no se puede deshacer.</p>
+            <div style="background:var(--bg-color); padding:12px; border-radius:6px; margin:16px 0; font-size:14px;">
+              <strong>Desde:</strong> ${fmtDt(range.desde)}<br>
+              <strong>Hasta:</strong> ${fmtDt(range.hasta)}
+            </div>
+            <p class="help">Si el periodo ya tiene <strong>${typeStr}</strong> asociadas, el sistema no permitirá su eliminación para evitar pérdida de datos. Los usuarios que hayan programado algo durante este tiempo podrían verse afectados.</p>
+          `,
+          confirmText: 'Sí, eliminar',
+          danger: true,
+          onConfirm: async () => {
+            await api('/institutions/' + institucionId + '/periods/' + periodId + '/' + tipo, { method: 'DELETE' });
+            toast('Periodo eliminado.', 'ok');
+            renderPeriodoForm(institucionId, periodId);
+          }
+        });
+      }));
+    }
   }
 
   // ---------------- Citas ----------------
