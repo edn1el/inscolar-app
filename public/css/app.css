@@ -3108,3 +3108,25 @@ tbody tr:last-child td {
   .appointment-calendar .calendar-daynum { font-size:.85rem; }
   .calendar-appointment, .calendar-available { font-size:.65rem; }
 }
+
+/* Communication settings and notification actions share existing controls. */
+.preference-option { display:flex; align-items:center; gap:12px; padding:10px 0; }
+.preference-option input { width:auto; flex:none; }
+.notification-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.settings-card { text-align:left; color:var(--text-color); font:inherit; }
+@media(max-width:600px) { .notif-item { flex-wrap:wrap; overflow-wrap:anywhere; } .notification-actions { width:100%; } }
+.analytics-filters { display:flex; align-items:end; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+.analytics-filters label { flex:1; min-width:140px; }
+.analytics-filters label select, .analytics-filters label input { width:100%; }
+#analytics-content section { margin:24px 0; }
+#analytics-content .chart-card { min-width:0; }
+#analytics-content .bar-label { overflow-wrap:anywhere; }
+#analytics-content table { width:100%; }
+@media(max-width:600px) { .analytics-filters button { width:100%; } #analytics-content .chart-row { grid-template-columns:1fr; } }
+.settings-menu-link { display:block; width:100%; padding:12px; text-align:left; color:var(--text-color); background:transparent; border:0; font:inherit; text-decoration:none; cursor:pointer; }
+.settings-menu-link:hover, .settings-menu-link:focus-visible { background:var(--bg-body); }
+@media(max-width:600px) { #settings-menu-btn { font-size:12px; padding:6px; } }
+/* Status and communication content is immediately visible, without reveal animations. */
+.notif-list .notif-item, .notif-panel .notif-item, #analytics-content .kpi-card { animation:none; }
+.settings-menu-icon { display:none; }
+@media(max-width:600px) { .settings-menu-label { display:none; } .settings-menu-icon { display:block; } #settings-menu-btn { width:32px; height:32px; padding:6px; } }

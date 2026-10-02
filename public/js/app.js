@@ -34,6 +34,11 @@
     bell && bell.setAttribute('aria-expanded', 'false');
   });
 
+  ['click','focusin'].forEach(type=>document.addEventListener(type,e=>{
+    const menu=qs('#settings-menu'),button=qs('#settings-menu-btn');
+    if(menu&&!menu.hidden&&!menu.contains(e.target)&&!button?.contains(e.target)){menu.hidden=true;button?.setAttribute('aria-expanded','false');}
+  }));
+
   async function api(path, opts) {
     opts = opts || {};
     const isFormData = opts.body instanceof FormData;
@@ -282,6 +287,8 @@
 
   async function router() {
     if (window._wizardNavigation && window._wizardNavigation() === false) return;
+    if (window._notificationCleanup) { window._notificationCleanup(); window._notificationCleanup=null; }
+    if (window._analyticsCleanup) { window._analyticsCleanup(); window._analyticsCleanup=null; }
     if (window._enrollmentCleanup) { window._enrollmentCleanup(); window._enrollmentCleanup=null; }
     if (window._wizardCleanup) { window._wizardCleanup(); window._wizardCleanup = null; }
     const version = ++routerVersion;
@@ -1331,7 +1338,7 @@
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
-    if (section === 'analiticas' && !isAdmin()) {
+    if (section === 'analiticas' && !(isAdmin() || isAudit())) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -1343,7 +1350,7 @@
         return;
       }
     }
-    if (section === 'notificaciones' && !(isAdmin() || (state.user || {}).role === 'Tutor')) {
+    if (section === 'notificaciones' && !state.user) {
       root.innerHTML = appShellWrap('<div class="empty-state">No tienes permiso para ver esta sección.</div>', 'perfil');
       return;
     }
@@ -1365,8 +1372,8 @@
     }
 
     let unread = 0;
-    if (isAdmin() || isTutor()) {
-      try { const n = await api('/notifications'); unread = n.unreadCount; } catch (e) {}
+    if (state.user) {
+      try { const n = await api('/notifications?page=1&limit=6'); unread = n.unreadCount; } catch (e) { unread = null; }
     }
 
     let contentHtml = '<div class="loading">Cargando…</div>';
@@ -1395,6 +1402,7 @@
       else if (section === 'calificar' && segs[1]) await renderCalificarForm(segs[1]);
       else if (section === 'reportar' && segs[1]) await renderReportarForm(segs[1]);
       else if (section === 'inscripciones' && segs[1] === 'estudiante-nuevo') await renderEstudianteForm();
+      else if (section === 'inscripciones' && segs[1] === 'borradores' && segs[3] === 'detalle') await renderDraftNotice(segs[2]);
       else if (section === 'inscripciones' && segs[1] === 'nueva') await renderInscripcionForm();
       else if (section === 'inscripciones' && segs[1] === 'comprobante' && segs[2]) await renderComprobanteInscripcion(segs[2]);
       else if (section === 'inscripciones' && segs[2] === 'detalle') await renderInscripcionDetalle(segs[1]);
@@ -1424,7 +1432,7 @@
     const sectionNames = {
       'usuarios': 'Usuarios', 'instituciones': 'Instituciones',
       'inscripciones': 'Inscripciones', 'citas': 'Citas', 'analiticas': 'Analíticas',
-      'auditoria': 'Auditoría', 'perfil': 'Mi perfil', 'seguridad': 'Seguridad',
+      'auditoria': 'Auditoría', 'notificaciones':'Notificaciones', 'perfil': 'Mi perfil', 'seguridad': 'Seguridad',
       'configuracion': 'Configuración', 'manual': 'Instrucciones'
     };
     const currentName = sectionNames[activeSection] || 'Inicio';
@@ -1441,8 +1449,15 @@
             <button class="theme-toggle" id="theme-toggle" title="Cambiar tema">
               ${ICONS.contrast}
             </button>
-            ${(admin || u.role === 'Tutor') ? `<div class="notif-wrap"><button class="bell" id="bell-btn" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>` : ''}
+            <div class="notif-wrap"><button class="bell" id="bell-btn" aria-label="Notificaciones${unread === null ? ': contador no disponible' : ': '+(unread||0)+' no leídas'}" aria-haspopup="true" aria-expanded="false">${ICONS.bell}${unread ? `<span class="dot">${unread}</span>` : ''}</button><div class="notif-panel" id="notif-panel" hidden></div></div>
             <a href="#/app/perfil" class="who" style="text-decoration:none; color:inherit;"><span class="avatar" style="${topbarAvatarStyle}">${u.foto ? '' : initials(u.nombre)}</span><span class="stack"><div class="w1">${escapeHtml(u.nombre || '')}</div><div class="w2">${escapeHtml(u.role || '')}</div></span></a>
+            <div class="notif-wrap"><button class="btn btn-ghost btn-small" id="settings-menu-btn" aria-label="Configuración" aria-expanded="false" aria-controls="settings-menu"><svg class="settings-menu-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4M5 5l3 3m8 8l3 3M5 19l3-3m8-8l3-3"/></svg><span class="settings-menu-label">Configuración</span></button>
+              <div class="notif-panel" id="settings-menu" hidden aria-label="Menú de configuración">
+                <a class="settings-menu-link" href="#/app/seguridad">Cambiar contraseña y preferencias</a>
+                <button class="settings-menu-link" id="settings-email">Cambiar correo electrónico</button>
+                <a class="settings-menu-link" href="#/app/manual">Manual de instrucciones</a>
+                <button class="settings-menu-link" id="settings-logout">Cerrar sesión</button>
+              </div></div>
             <button class="logout" id="logout-btn">Cerrar sesión</button>
           </div>
         </div>
@@ -1496,6 +1511,7 @@
             </button>
             ` : (u.role === 'Auditoría') ? `
             <div class="sec-label">Módulos</div>
+            <button class="nav-item ${activeSection === 'analiticas' ? 'active' : ''}" data-nav="#/app/analiticas">${ICONS.building} Analíticas</button>
             <button class="nav-item" data-nav="#/buscar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Buscar Instituciones</button>
             <button class="nav-item ${activeSection === 'auditoria' ? 'active' : ''}" data-nav="#/app/auditoria">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="M9 15l3-3 3 3"/></svg> Auditoría
@@ -1582,6 +1598,16 @@
       navigate('#/login');
     });
     }
+    const settingsButton=qs('#settings-menu-btn'),settingsMenu=qs('#settings-menu');
+    if(settingsButton&&settingsMenu&&!settingsButton.dataset.bound){
+      settingsButton.dataset.bound='1';
+      const close=()=>{settingsMenu.hidden=true;settingsButton.setAttribute('aria-expanded','false');};
+      settingsButton.addEventListener('click',()=>{settingsMenu.hidden=!settingsMenu.hidden;settingsButton.setAttribute('aria-expanded',String(!settingsMenu.hidden));});
+      settingsMenu.addEventListener('keydown',e=>{if(e.key==='Escape'){close();settingsButton.focus();}});
+      qs('#settings-email').addEventListener('click',()=>{toast('El correo de tu cuenta lo actualiza un administrador autorizado desde Usuarios.','ok');close();});
+      qs('#settings-logout').addEventListener('click',()=>{close();qs('#logout-btn').click();});
+    }
+
     const bellBtn = qs('#bell-btn');
     const notifPanel = qs('#notif-panel');
     // bindShellEvents() se llama dos veces por render (una vez en viewApp al armar
@@ -1596,59 +1622,29 @@
         notifPanel.innerHTML = '';
         bellBtn.setAttribute('aria-expanded', 'false');
       };
-      const updateBellDot = (count) => {
-        const existing = qs('.dot', bellBtn);
-        if (count > 0) {
-          if (existing) existing.textContent = count;
-          else bellBtn.insertAdjacentHTML('beforeend', `<span class="dot">${count}</span>`);
-        } else if (existing) {
-          existing.remove();
-        }
+      const renderPanel = (data) => {
+        if (!notifPanel.isConnected || notifPanel.hidden) return;
+        notifPanel.innerHTML = `<div class="notif-panel-head" role="status">Notificaciones · ${data.unreadCount} no leídas</div>
+          ${notificationCards(data.notifications, 'panel')}
+          <div class="notif-panel-foot"><button type="button" id="notif-panel-viewall">Ver todas</button></div>`;
+        bindNotificationActions(notifPanel, loadPanel);
+        qs('#notif-panel-viewall', notifPanel).addEventListener('click', () => {closePanel();navigate('#/app/notificaciones');});
       };
-      const renderPanel = (notifications) => {
-        const recent = notifications.slice(0, 6);
-        notifPanel.innerHTML = `
-          <div class="notif-panel-head">Notificaciones</div>
-          ${recent.length ? recent.map((n) => `
-            <div class="notif-item ${n.read ? '' : 'unread'}">
-              <div>
-                <div class="t1">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)}</div>
-                <div class="t2">${n.anterior || n.nuevo ? `Campo ${escapeHtml(n.campo)}: ${escapeHtml(n.anterior || '—')} → ${escapeHtml(n.nuevo || '—')}. ` : ''}Realizado por ${escapeHtml(n.actorNombre)}.</div>
-                <div class="t3">${fmtDate(n.createdAt)}</div>
-              </div>
-              ${!n.read ? `<button class="btn btn-ghost btn-small" data-panel-read="${n.id}">Marcar leída</button>` : ''}
-            </div>
-          `).join('') : '<div class="notif-panel-empty">No hay notificaciones.</div>'}
-          <div class="notif-panel-foot"><button type="button" id="notif-panel-viewall">Ver todas</button></div>
-        `;
-        qsa('[data-panel-read]', notifPanel).forEach((b) => b.addEventListener('mousedown', async (e) => {
-          e.preventDefault();
-          await api('/notifications/' + b.dataset.panelRead + '/read', { method: 'POST' });
-          const { notifications: fresh } = await api('/notifications');
-          renderPanel(fresh);
-          updateBellDot(fresh.filter((n) => !n.read).length);
-        }));
-        const viewAllBtn = qs('#notif-panel-viewall', notifPanel);
-        viewAllBtn && viewAllBtn.addEventListener('mousedown', (e) => {
-          e.preventDefault();
-          closePanel();
-          navigate('#/app/notificaciones');
-        });
+      const loadPanel = async () => {
+        notifPanel.innerHTML='<div class="notif-panel-empty" role="status">Cargando…</div>';
+        try {const data=await api('/notifications?page=1&limit=6');updateNotificationBadge(data.unreadCount);renderPanel(data);}
+        catch(err){if(!notifPanel.isConnected||notifPanel.hidden)return;notifPanel.innerHTML='<div class="notice err" role="alert">No se pudieron cargar las notificaciones.</div><button class="btn btn-secondary" id="notif-retry">Reintentar</button>';qs('#notif-retry',notifPanel).addEventListener('click',loadPanel);}
       };
-
-      bellBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!notifPanel.hidden) { closePanel(); return; }
-        notifPanel.hidden = false;
-        bellBtn.setAttribute('aria-expanded', 'true');
-        notifPanel.innerHTML = '<div class="notif-panel-empty">Cargando…</div>';
-        try {
-          const { notifications } = await api('/notifications');
-          renderPanel(notifications);
-        } catch (err) {
-          notifPanel.innerHTML = '<div class="notif-panel-empty">No se pudieron cargar.</div>';
-        }
+      bellBtn.addEventListener('click', () => {
+        if (!notifPanel.hidden) {closePanel();return;}
+        notifPanel.hidden=false;bellBtn.setAttribute('aria-expanded','true');loadPanel();
       });
+      notifPanel.addEventListener('keydown', e=>{if(e.key==='Escape'){closePanel();bellBtn.focus();}});
+      const refreshCount=async()=>{try{const data=await api('/notifications?page=1&limit=1');if(bellBtn.isConnected)updateNotificationBadge(data.unreadCount);}catch{if(bellBtn.isConnected){bellBtn.setAttribute('aria-label','Notificaciones: contador no disponible');qs('.dot',bellBtn)?.remove();}}};
+      const timer=setInterval(refreshCount,30000);
+      window.addEventListener('focus',refreshCount);
+      window._notificationCleanup=()=>{clearInterval(timer);window.removeEventListener('focus',refreshCount);};
+
     }
   }
 
@@ -1803,12 +1799,8 @@
           }
         </div>
         <div class="chart-card">
-          <h3>Preferencias de notificaciones</h3>
-          <p class="help" style="margin-bottom:16px;">Recibe un correo electrónico cada vez que haya una actualización importante en tu cuenta, tus solicitudes o tus citas.</p>
-          <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-            <input type="checkbox" id="notif-email-toggle" ${state.user && state.user.notifyByEmail !== false ? 'checked' : ''}>
-            Recibir notificaciones por correo electrónico
-          </label>
+          <h3>Preferencias de correo</h3>
+          <div id="email-preferences" role="region" aria-label="Preferencias de correo"></div>
         </div>
       </div>
     `;
@@ -1860,18 +1852,26 @@
       });
     });
 
-    const notifToggle = qs('#notif-email-toggle');
-    notifToggle && notifToggle.addEventListener('change', async () => {
-      const checked = notifToggle.checked;
-      try {
-        const data = await api('/users/me/notification-prefs', { method: 'PUT', body: { notifyByEmail: checked } });
-        state.user = data.user;
-        toast(checked ? 'Notificaciones por correo activadas.' : 'Notificaciones por correo desactivadas.', 'ok');
-      } catch (err) {
-        notifToggle.checked = !checked;
-        toast(err.message || 'No se pudo actualizar la preferencia.', 'err');
-      }
-    });
+    await renderEmailPreferences();
+  }
+
+  async function renderEmailPreferences() {
+    const host=qs('#email-preferences');if(!host)return;
+    host.innerHTML='<p role="status">Cargando preferencias…</p>';
+    try {
+      const data=await api('/users/me/notification-prefs');if(!host.isConnected)return;
+      host.innerHTML=`<p class="help">Estas opciones solo afectan a futuros correos. Los avisos internos permanecen disponibles. Recordatorios y mantenimiento requieren eventos configurados; no hay recordatorios automáticos programados.</p>
+        <form id="email-prefs-form">${Object.entries(data.types).filter(([k])=>k!=='accounts'||isAdmin()).map(([key,label])=>`<label class="preference-option"><input type="checkbox" name="${key}" ${data.preferences[key]?'checked':''}> ${escapeHtml(label)}</label>`).join('')}
+        <div id="email-prefs-result" role="status" aria-live="polite"></div><button class="btn btn-primary" type="submit">Guardar cambios</button></form>`;
+      qs('#email-prefs-form',host).addEventListener('submit',async e=>{
+        e.preventDefault();const button=e.target.querySelector('button'),result=qs('#email-prefs-result',host);
+        const preferences=Object.fromEntries(Array.from(e.target.querySelectorAll('input')).map(input=>[input.name,input.checked]));
+        button.disabled=true;result.textContent='Guardando…';
+        try {const saved=await api('/users/me/notification-prefs',{method:'PUT',body:{preferences}});state.user=saved.user;result.textContent='Preferencias guardadas.';}
+        catch(err){result.textContent='No se pudieron guardar. Tus cambios se conservan; pulsa Guardar cambios para reintentar.';}
+        finally{button.disabled=false;}
+      });
+    }catch(err){if(!host.isConnected)return;host.innerHTML='<p role="alert">No se pudieron cargar las preferencias.</p><button class="btn btn-secondary" id="prefs-retry">Reintentar</button>';qs('#prefs-retry',host).addEventListener('click',renderEmailPreferences);}
   }
 
   // ---------------- HU065 menu de configuracion ----------------
@@ -1893,11 +1893,11 @@
       <div class="page-head"><div><h2>Configuración</h2><div class="sub">Accesos rápidos a los ajustes de tu cuenta${admin ? ' y del sistema' : ''}.</div></div></div>
       <div class="settings-grid">
         ${cards.map((c) => `
-          <div class="settings-card" data-nav="${c.href}">
+          <button type="button" class="settings-card" data-nav="${c.href}">
             <div class="kpi-icon">${c.icon}</div>
             <h3>${escapeHtml(c.title)}</h3>
             <p>${escapeHtml(c.desc)}</p>
-          </div>
+          </button>
         `).join('')}
       </div>
     `;
@@ -1917,7 +1917,7 @@
         <ul>
           <li>¿Olvidaste tu contraseña? Usa el enlace "¿Olvidaste tu contraseña?" en la pantalla de inicio de sesión.</li>
           <li>Puedes cambiar tu contraseña y activar/desactivar el MFA desde <a href="#/app/seguridad">Seguridad</a>.</li>
-          <li>Desde <a href="#/app/seguridad">Seguridad</a> también puedes activar o desactivar el envío de notificaciones por correo electrónico.</li>
+          <li>Desde <a href="#/app/seguridad">Seguridad</a> puedes elegir cada tipo de correo y pulsar Guardar cambios. Los avisos internos no se desactivan.</li>
           <li>Tus datos personales se editan desde <a href="#/app/perfil">Mi perfil</a>.</li>
         </ul>
       `,
@@ -1929,9 +1929,9 @@
         html: `
           <ol>
             <li>Ve a <a href="#/app/inscripciones">Inscripciones</a> y, si es la primera vez, agrega primero al estudiante.</li>
-            <li>Presiona "Nueva inscripción", elige la institución y el ciclo escolar, y confirma.</li>
-            <li>Sube los documentos solicitados desde el botón "Documentos" de la inscripción.</li>
-            <li>El estado (Pendiente, Aprobada o Rechazada) se actualiza en la misma lista, y recibirás una notificación (y un correo, si lo tienes activado) cuando la institución decida.</li>
+            <li>Presiona "Nueva inscripción", elige la institución y el ciclo escolar, completa el contacto y carga los documentos exigidos antes de revisar el resumen y enviar.</li>
+            <li>Si un documento se rechaza, abre el detalle, consulta el motivo, carga el reemplazo y pulsa "Enviar correcciones". El formato y tamaño permitidos se indican en cada requisito.</li>
+            <li>El estado (Enviada, En revisión, Documentos pendientes, Aceptada o Rechazada) se actualiza en la misma lista, y recibirás una notificación (y un correo si tu preferencia lo permite y el proveedor está configurado) cuando la institución decida.</li>
             <li>Solo los borradores expiran después de 20 minutos de inactividad; recibirás un aviso a los 10 minutos.</li>
           </ol>
         `,
@@ -1940,13 +1940,13 @@
         titulo: 'Agendar una cita',
         html: `
           <p>Desde <a href="#/app/citas">Citas</a> puedes solicitar una cita con una institución eligiendo fecha y hora disponibles. Antes de elegir la fecha, puedes revisar el enlace "Ver calendario de citas de esta institución" en el formulario para ver qué días ya tienen citas agendadas.</p>
-          <p>La institución puede confirmar la cita, rechazarla (si todavía está Pendiente) o cancelarla (si ya estaba Confirmada); en cualquier caso, se te notificará el cambio.</p>
+          <p>Elige una franja disponible y confirma el resumen. La cita Pendiente ocupa cupo. La institución puede aceptarla o rechazarla con motivo; tú o el personal autorizado pueden cancelarla o reprogramarla. Reprogramar devuelve la cita a Pendiente y conserva el horario anterior si falla. Las horas se muestran en America/Santo_Domingo (UTC−4).</p>
         `,
       });
       secciones.push({
         titulo: 'Calificar y reportar una institución',
         html: `
-          <p>Una vez tengas una inscripción aprobada o una cita confirmada con una institución, podrás calificarla (1 a 5 estrellas) o reportar un problema desde los botones que aparecen junto a esa inscripción o cita.</p>
+          <p>Una vez tengas una inscripción aceptada o una cita aceptada con una institución, podrás calificarla (1 a 5 estrellas) o reportar un problema desde los botones que aparecen junto a esa inscripción o cita.</p>
         `,
       });
     }
@@ -1967,7 +1967,7 @@
       secciones.push({
         titulo: 'Configurar ciclos y periodos de inscripción',
         html: `
-          <p>Desde la ficha de tu institución (menú Instituciones) puedes definir los periodos habilitados para cada ciclo escolar, con sus fechas de inicio y cierre. Mientras no definas un periodo, las inscripciones se aceptan sin restricción de fecha.</p>
+          <p>Desde la ficha de tu institución (menú Instituciones) puedes definir los periodos habilitados para cada ciclo escolar, con sus fechas de inicio y cierre. Sin un periodo de inscripción abierto no se admiten envíos. Configura cupos de inscripción por grado y, para citas, franjas explícitas con capacidad; son capacidades independientes.</p>
         `,
       });
     }
@@ -4892,30 +4892,52 @@
     });
   }
 
-  // ---------------- HU017 notificaciones ----------------
-  async function renderNotificaciones() {
-    const { notifications } = await api('/notifications');
-    qs('.main').innerHTML = `
-      <div class="page-head"><div><h2>Notificaciones</h2><div class="sub">Actividad y cambios recientes relacionados con tu cuenta.</div></div></div>
-      <div class="notif-list">
-        ${notifications.length ? notifications.map((n) => `
-          <div class="notif-item ${n.read ? '' : 'unread'}">
-            <div>
-              <div class="t1">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)}</div>
-              <div class="t2">${n.anterior || n.nuevo ? `Campo ${escapeHtml(n.campo)}: ${escapeHtml(n.anterior || '—')} → ${escapeHtml(n.nuevo || '—')}. ` : ''}Realizado por ${escapeHtml(n.actorNombre)}.</div>
-              <div class="t3">${fmtDate(n.createdAt)}</div>
-            </div>
-            ${n.entityId ? `<button class="btn btn-secondary btn-small" data-nav="${escapeHtml(n.url || '#/app/inscripciones/'+encodeURIComponent(n.entityId)+'/detalle')}">${n.url?.startsWith('#/app/citas/')?'Ver cita':'Ver solicitud'}</button>` : ''}
-            ${!n.read ? `<button class="btn btn-ghost btn-small" data-read="${n.id}">Marcar leída</button>` : ''}
-          </div>
-        `).join('') : '<div class="empty-state">No hay notificaciones.</div>'}
-      </div>
-    `;
-    bindShellEvents();
-    qsa('[data-read]').forEach((b) => b.addEventListener('click', async () => {
-      await api('/notifications/' + b.dataset.read + '/read', { method: 'POST' });
-      renderNotificaciones();
+  async function renderDraftNotice(id){
+    const {draft}=await api('/drafts/'+encodeURIComponent(id)+'/summary');
+    qs('.main').innerHTML=`<div class="page-head"><h2>Borrador ${escapeHtml(draft.id)}</h2></div><div class="chart-card"><p>Estado: <strong>${escapeHtml(draft.estado)}</strong></p><p>${escapeHtml(draft.institucionNombre)}</p><p>Creado: ${fmtDate(draft.createdAt)}</p><p>Un borrador abandonado no se envió a la institución. Las solicitudes enviadas conservan su estado y no expiran por inactividad.</p><button class="btn btn-secondary" data-nav="#/app/inscripciones">Volver a inscripciones</button></div>`;bindShellEvents();
+  }
+  function updateNotificationBadge(count) {
+    const bell=qs('#bell-btn');if(!bell)return;
+    bell.setAttribute('aria-label',`Notificaciones: ${count} no leídas`);
+    let dot=qs('.dot',bell);
+    if(count){if(!dot){bell.insertAdjacentHTML('beforeend','<span class="dot" aria-hidden="true"></span>');dot=qs('.dot',bell);}dot.textContent=count;}else dot?.remove();
+  }
+  function notificationCards(items,prefix='center') {
+    return items.length?items.map(n=>`<article class="notif-item ${n.read?'':'unread'}">
+      <div><div class="t1">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)}</div>
+      <div class="t2">${escapeHtml(n.action||'')} ${escapeHtml(n.anterior||'—')} → <strong>${escapeHtml(n.nuevo||'Actualizado')}</strong></div>
+      ${n.motivo?`<p>Motivo: ${escapeHtml(n.motivo)}</p>`:''}
+      <div class="t3">${fmtDate(n.createdAt)} · ${n.read?'Leída':'No leída'}</div></div>
+      <div class="notification-actions">${n.url?`<button class="btn btn-secondary btn-small" data-notification-target="${escapeHtml(n.id)}">${n.url.startsWith('#/app/citas/')?'Ver cita':'Ver solicitud'}</button>`:''}
+      ${!n.read?`<button class="btn btn-ghost btn-small" data-${prefix}-read="${escapeHtml(n.id)}" data-notification-read="${escapeHtml(n.id)}">Marcar leída</button>`:''}</div>
+    </article>`).join(''):'<div class="empty-state">No hay notificaciones.</div>';
+  }
+  function bindNotificationActions(host,reload) {
+    qsa('[data-notification-read]',host).forEach(button=>button.addEventListener('click',async()=>{
+      button.disabled=true;
+      try{const result=await api('/notifications/'+encodeURIComponent(button.dataset.notificationRead)+'/read',{method:'POST'});updateNotificationBadge(result.unreadCount);await reload();}
+      catch(err){button.disabled=false;toast('No se pudo guardar la lectura. Intenta de nuevo.','err');}
     }));
+    qsa('[data-notification-target]',host).forEach(button=>button.addEventListener('click',async()=>{
+      button.disabled=true;
+      try{const {url}=await api('/notifications/'+encodeURIComponent(button.dataset.notificationTarget)+'/target');navigate(url);}
+      catch(err){toast(err.message||'El detalle no está disponible.','err');button.disabled=false;}
+    }));
+  }
+  async function renderNotificaciones(page=1) {
+    const main=qs('.main');main.innerHTML='<div class="loading" role="status">Cargando notificaciones…</div>';
+    try{
+      const data=await api(`/notifications?page=${page}&limit=20`);if(!main.isConnected)return;
+      updateNotificationBadge(data.unreadCount);
+      main.innerHTML=`<div class="page-head"><div><h2>Notificaciones</h2><div class="sub" role="status">${data.unreadCount} no leídas · ${data.total} avisos</div></div><button class="btn btn-secondary" id="notifications-refresh">Actualizar</button></div>
+      <div class="notif-list">${notificationCards(data.notifications)}</div>
+      <div class="pagination">Página ${data.page} de ${Math.max(1,Math.ceil(data.total/data.limit))}
+      <button class="btn btn-secondary" id="notifications-prev" ${page<=1?'disabled':''}>Anterior</button><button class="btn btn-secondary" id="notifications-next" ${page*data.limit>=data.total?'disabled':''}>Siguiente</button></div>`;
+      bindNotificationActions(main,()=>renderNotificaciones(page));
+      qs('#notifications-refresh',main).addEventListener('click',()=>renderNotificaciones(page));
+      qs('#notifications-prev',main).addEventListener('click',()=>renderNotificaciones(page-1));
+      qs('#notifications-next',main).addEventListener('click',()=>renderNotificaciones(page+1));
+    }catch(err){if(!main.isConnected)return;main.innerHTML='<div class="notice err" role="alert">No se pudieron cargar las notificaciones.</div><button class="btn btn-secondary" id="notifications-retry">Reintentar</button>';qs('#notifications-retry',main).addEventListener('click',()=>renderNotificaciones(page));}
   }
 
   // ---------------- Mapa interactivo de provincias ----------------
@@ -5012,112 +5034,47 @@
   }
 
   async function renderAnaliticas() {
-    const s = await api('/analytics/summary');
-    const emailsData = isAdmin() ? await api('/emails') : { emails: [] };
-    const maxRol = Math.max(1, ...s.porRol.map((r) => r.count));
-
-    qs('.main').innerHTML = `
-      <div class="page-head"><div><h2>Analíticas</h2><div class="sub">Indicadores y tendencias del sistema.</div></div></div>
-      <div class="kpi-row">
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.users}</div><div class="kpi-num">${s.totalUsuarios}</div><div class="kpi-label">Usuarios totales</div><div class="kpi-delta">${s.nuevosEstaSemana} esta semana</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.check}</div><div class="kpi-num">${s.activos}</div><div class="kpi-label">Cuentas activas</div><div class="kpi-delta">${Math.round((s.activos / Math.max(1, s.totalUsuarios)) * 100)}% del total</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.totalInstituciones}</div><div class="kpi-label">Instituciones vinculadas</div><div class="kpi-delta">${s.porProvincia.length} provincias</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.shield}</div><div class="kpi-num">${s.mfaActivo}</div><div class="kpi-label">Cuentas con MFA activo</div><div class="kpi-delta">${s.tutores} tutores registrados</div></div>
-      </div>
-      <div class="chart-card map-card">
-        <h3>Instituciones por provincia</h3>
-        <div class="map-wrap">
-          ${renderProvinceMap(s.porProvincia)}
-          <div class="map-tooltip" id="map-tooltip"></div>
-        </div>
-        <div class="map-legend"><span>Menos</span><span class="map-legend-scale"></span><span>Más</span></div>
-        <div class="help">Selecciona una provincia para ver sus instituciones.</div>
-      </div>
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Usuarios por rol</h3>
-          ${s.porRol.map((r) => `<div class="bar-row"><span class="bar-label">${escapeHtml(r.role)}</span><span class="bar-track"><span class="bar-fill" data-w="${(r.count / maxRol) * 100}"></span></span><span class="bar-value">${r.count}</span></div>`).join('')}
-        </div>
-        <div class="chart-card">
-          <h3>Actividad reciente</h3>
-          ${s.actividadReciente.length ? s.actividadReciente.map((n) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(n.createdAt)}</span><span style="flex:1;">${escapeHtml(n.campo)} · ${escapeHtml(n.userNombre)} — por ${escapeHtml(n.actorNombre)}</span></div>`).join('') : '<div class="help">Sin actividad reciente.</div>'}
-        </div>
-        <div class="chart-card">
-          <h3>Correos enviados recientemente</h3>
-          <p class="help" style="margin-bottom:12px;">HU062: incluye envíos reales por SMTP (si está configurado) y simulados.</p>
-          ${emailsData.emails.length ? emailsData.emails.slice(0, 8).map((e) => `<div class="bar-row" style="align-items:flex-start;"><span style="width:150px;flex:none;color:var(--ink-soft);font-size:.76rem;">${fmtDate(e.sentAt)}</span><span style="flex:1;">${escapeHtml(e.subject)} → ${escapeHtml(e.to)} <span style="color:var(--ink-soft);font-size:.76rem;">(${escapeHtml(e.via)})</span></span></div>`).join('') : '<div class="help">Sin correos registrados todavía.</div>'}
-        </div>
-      </div>
-
-      <div class="kpi-row">
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.inscripciones.total}</div><div class="kpi-label">Solicitudes de inscripción</div><div class="kpi-delta">${s.inscripciones.pendientes} pendientes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.check}</div><div class="kpi-num">${s.documentos.total}</div><div class="kpi-label">Documentos recibidos</div><div class="kpi-delta">${s.documentos.pendientes} pendientes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.users}</div><div class="kpi-num">${s.citas.total}</div><div class="kpi-label">Citas agendadas</div><div class="kpi-delta">${s.citas.pendientes} pendientes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.shield}</div><div class="kpi-num">${s.promedioCalificaciones !== null ? '★ ' + s.promedioCalificaciones : '—'}</div><div class="kpi-label">Calificación promedio</div><div class="kpi-delta">${s.totalCalificaciones} calificaciones · ${s.totalReportes} reportes</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.bell}</div><div class="kpi-num">${s.notificacionesLeidas}/${s.totalNotificaciones}</div><div class="kpi-label">Notificaciones leídas</div><div class="kpi-delta">${s.totalCorreosEnviados} correos enviados</div></div>
-        <div class="kpi-card"><div class="kpi-icon">${ICONS.building}</div><div class="kpi-num">${s.tasaRecuperacion}%</div><div class="kpi-label">Tasa de recuperación de contraseña</div><div class="kpi-delta">${s.totalResetsUsados} de ${s.totalResetsGenerados} solicitudes</div></div>
-      </div>
-
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Inscripciones por estado</h3>
-          ${barRows([
-            { label: 'Aprobadas', count: s.inscripciones.aprobadas },
-            { label: 'Rechazadas', count: s.inscripciones.rechazadas },
-            { label: 'Pendientes', count: s.inscripciones.pendientes },
-          ], (i) => i.label, (i) => i.count, 'Sin solicitudes de inscripción todavía.')}
-        </div>
-        <div class="chart-card">
-          <h3>Documentos por estado</h3>
-          ${barRows([
-            { label: 'Aceptados', count: s.documentos.aceptados },
-            { label: 'Rechazados', count: s.documentos.rechazados },
-            { label: 'Pendientes', count: s.documentos.pendientes },
-          ], (i) => i.label, (i) => i.count, 'Sin documentos subidos todavía.')}
-        </div>
-      </div>
-
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Citas por estado</h3>
-          ${barRows([
-            { label: 'Aceptadas', count: s.citas.confirmadas },
-            { label: 'Canceladas', count: s.citas.canceladas },
-            { label: 'Pendientes', count: s.citas.pendientes },
-          ], (i) => i.label, (i) => i.count, 'Sin citas agendadas todavía.')}
-        </div>
-        <div class="chart-card">
-          <h3>Citas por institución (top 5)</h3>
-          ${barRows(s.citasPorInstitucion, (i) => i.nombre, (i) => i.count, 'Sin citas agendadas todavía.')}
-        </div>
-      </div>
-
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Usuarios registrados por año</h3>
-          ${barRows(s.porAnio, (i) => String(i.anio), (i) => i.count, 'Sin datos todavía.')}
-        </div>
-        <div class="chart-card">
-          <h3>Distribución geográfica de usuarios</h3>
-          <div class="help">Solo el personal de institución tiene una provincia asociada (vía su institución).</div>
-          ${barRows(s.usuariosPorProvincia, (i) => i.provincia, (i) => i.count, 'Sin personal de institución vinculado a una provincia todavía.')}
-        </div>
-      </div>
-
-      <div class="chart-row">
-        <div class="chart-card">
-          <h3>Instituciones mejor calificadas</h3>
-          ${barRows(s.institucionesMejorCalificadas, (i) => `${i.nombre} (★${i.promedio})`, (i) => i.total, 'Sin calificaciones todavía.')}
-        </div>
-        <div class="chart-card">
-          <h3>Reportes por motivo</h3>
-          ${barRows(s.reportesPorMotivo, (i) => i.motivo, (i) => i.count, 'Sin reportes todavía.')}
-        </div>
-      </div>
-    `;
-    bindShellEvents();
-    requestAnimationFrame(() => { setTimeout(() => qsa('.bar-fill').forEach((el) => { el.style.width = el.dataset.w + '%'; }), 60); });
-    bindProvinceMapEvents();
+    const main=qs('.main');let revision=0,busy=false;
+    main.innerHTML=`<div class="page-head"><div><h2>Analíticas</h2><div class="sub">HU067–HU095 · métricas calculadas sobre el almacenamiento del prototipo.</div></div></div>
+      <form id="analytics-filters" class="analytics-filters">
+      <label>Desde <input type="date" name="desde"></label><label>Hasta <input type="date" name="hasta"></label>
+      <label>Institución <select name="institucionId"><option value="">Todas</option></select></label>
+      <button class="btn btn-primary" type="submit">Actualizar panel</button></form>
+      <div id="analytics-content" aria-live="polite"></div>`;
+    const form=qs('#analytics-filters',main),content=qs('#analytics-content',main);
+    const table=(rows,label,value,title)=>`<details><summary>Ver tabla: ${escapeHtml(title)}</summary><div class="table-wrap"><table><caption>${escapeHtml(title)}</caption><thead><tr><th scope="col">Categoría</th><th scope="col">Valor</th></tr></thead><tbody>${rows.map(row=>`<tr><th scope="row">${escapeHtml(label(row))}</th><td>${value(row)===null?'Sin datos':escapeHtml(value(row))}</td></tr>`).join('')}</tbody></table></div></details>`;
+    const chart=(title,rows,label,value,unit='cantidad')=>`<div class="chart-card"><h3>${escapeHtml(title)}</h3><p class="help">Unidad: ${unit}</p>${rows.length?barRows(rows.filter(row=>value(row)!==null),label,value):'<p>Sin datos</p>'}${rows.some(row=>value(row)===null)?'<p>Sin datos para categorías sin observaciones.</p>':''}${table(rows,label,value,title)}</div>`;
+    const card=(label,value,detail='')=>`<div class="kpi-card" data-metric="${escapeHtml(label)}"><div class="kpi-num">${value===null?'Sin datos':escapeHtml(value)}</div><div class="kpi-label">${escapeHtml(label)}</div>${detail?`<p class="help">${escapeHtml(detail)}</p>`:''}</div>`;
+    const states=(values,labels)=>Object.entries(labels).map(([key,label])=>({label,count:values[key]}));
+    async function load(auto=false){
+      if(auto&&(busy||document.hidden))return;
+      const current=++revision;busy=true;form.querySelector('button').disabled=true;
+      const params=new URLSearchParams();new FormData(form).forEach((v,k)=>{if(v)params.set(k,v);});
+      content.innerHTML='<div class="loading" role="status">Consultando métricas…</div>';
+      try{
+        const s=await api('/analytics/summary?'+params);if(!main.isConnected||current!==revision)return;
+        const selected=form.elements.institucionId.value;
+        form.elements.institucionId.innerHTML='<option value="">Todas</option>'+s.institucionesDisponibles.map(i=>`<option value="${escapeHtml(i.id)}">${escapeHtml(i.nombre)}</option>`).join('');form.elements.institucionId.value=selected;
+        content.innerHTML=`<p role="status">Periodo: ${escapeHtml(s.filters.desde||'Inicio del registro')} — ${escapeHtml(s.filters.hasta||'Actualidad')}. Zona horaria: ${s.filters.zonaHoraria}. Actualizado: ${fmtDate(s.actualizadoAt)}.</p>
+          <p class="help">Cada registro se filtra por su fecha de creación (documentos: carga; correos enviados: aceptación). Sin fechas, se incluye todo el historial disponible. La institución filtra los datos vinculados; usuarios y recuperaciones se limitan a cuentas directamente vinculadas.</p>
+          <section aria-labelledby="analytics-users"><h3 id="analytics-users">Analíticas de usuarios</h3><div class="kpi-row">
+          ${card('Usuarios totales',s.totalUsuarios)}${card('Tasa de recuperación de contraseña',s.tasaRecuperacion===null?null:s.tasaRecuperacion+'%',`${s.totalResetsUsados} completadas / ${s.totalResetsGenerados} solicitudes registradas desde la incorporación del historial`)}
+          </div><div class="chart-row">${chart('Usuarios por rol',s.porRol,r=>r.role,r=>r.count)}${chart('Usuarios registrados por año',s.porAnio,r=>r.anio,r=>r.count)}${chart('Usuarios por provincia',s.usuariosPorProvincia,r=>r.provincia,r=>r.count)}</div><p class="help">La provincia usa ubicación propia si existe, o la institución vinculada. Otros usuarios figuran como Sin información.</p></section>
+          <section aria-labelledby="analytics-institutions"><h3 id="analytics-institutions">Analíticas de instituciones</h3><div class="kpi-row">
+          ${card('Instituciones registradas',s.totalInstituciones)}${card('Calificación promedio',s.promedioCalificaciones,'Estrellas: suma de calificaciones / cantidad de calificaciones del periodo')}${card('Promedio de reportes por institución',s.promedioReportes,`${s.totalReportes} reportes / ${s.denominadorReportes} instituciones del ámbito; incluye instituciones sin reportes`)}
+          </div><div class="chart-row">${chart('Instituciones por provincia',s.porProvincia,r=>r.provincia,r=>r.count)}${chart('Calificación por provincia',s.calificacionesPorProvincia,r=>r.provincia,r=>r.promedio,'estrellas (1–5)')}${chart('Reportes por provincia',s.reportesPorProvincia,r=>r.provincia,r=>r.count)}</div></section>
+          <section aria-labelledby="analytics-enrollments"><h3 id="analytics-enrollments">Solicitudes de inscripción</h3><div class="kpi-row">${card('Solicitudes totales',s.inscripciones.total)}${card('Solicitudes aceptadas',s.inscripciones.aprobadas)}${card('Solicitudes rechazadas',s.inscripciones.rechazadas)}${card('Solicitudes pendientes',s.inscripciones.pendientes,'Enviada, En revisión y Documentos pendientes')}</div><div class="chart-row">${chart('Solicitudes por estado',states(s.inscripciones,{aprobadas:'Aceptadas',rechazadas:'Rechazadas',pendientes:'Pendientes',abandonadas:'Abandonadas',canceladas:'Canceladas',borradores:'Borradores'}),r=>r.label,r=>r.count)}</div></section>
+          <section aria-labelledby="analytics-documents"><h3 id="analytics-documents">Documentos</h3><div class="kpi-row">${card('Documentos subidos',s.documentos.total,'Incluye versiones anteriores y cargas en borradores identificables')}${card('Documentos aprobados',s.documentos.aceptados)}${card('Documentos rechazados',s.documentos.rechazados)}${card('Documentos pendientes',s.documentos.pendientes)}</div><div class="chart-row">${chart('Documentos por estado',states(s.documentos,{aceptados:'Aprobados',rechazados:'Rechazados',pendientes:'Pendientes'}),r=>r.label,r=>r.count)}</div></section>
+          <section aria-labelledby="analytics-appointments"><h3 id="analytics-appointments">Citas</h3><div class="kpi-row">${card('Citas agendadas',s.citas.total)}${card('Citas aceptadas',s.citas.confirmadas)}${card('Citas rechazadas',s.citas.rechazadas)}${card('Citas pendientes',s.citas.pendientes)}</div><div class="chart-row">${chart('Citas por estado',states(s.citas,{confirmadas:'Aceptadas',rechazadas:'Rechazadas',pendientes:'Pendientes',canceladas:'Canceladas'}),r=>r.label,r=>r.count)}${chart('Citas por institución',s.citasPorInstitucion,r=>r.nombre,r=>r.count)}</div></section>
+          <section aria-labelledby="analytics-communications"><h3 id="analytics-communications">Comunicaciones</h3><div class="kpi-row">${card('Correos enviados',s.totalCorreosEnviados,'Mensajes únicos aceptados por proveedor; no confirma entrega')}${card('Correos pendientes',s.correosPendientes,'Incluye falta de configuración SMTP')}${card('Intentos de correo fallidos',s.correosFallidos)}${card('Correos con resultado incierto',s.correosInciertos,'Requieren conciliación antes de reenviar')}${card('Registros de correo simulados',s.correosSimulados,'No se cuentan como enviados')}${card('Notificaciones leídas',s.notificacionesLeidas,`${s.totalNotificaciones} avisos por destinatario en el periodo`)}</div></section>`;
+        qsa('.bar-fill',content).forEach(el=>{el.style.width=el.dataset.w+'%';});
+      }catch(err){if(!main.isConnected||current!==revision)return;content.innerHTML=`<div class="notice err" role="alert">No se pudieron consultar las métricas. ${escapeHtml(err.message)}</div><button class="btn btn-secondary" id="analytics-retry">Reintentar</button>`;qs('#analytics-retry',content).addEventListener('click',()=>load());}
+      finally{if(current===revision){busy=false;form.querySelector('button').disabled=false;}}
+    }
+    form.addEventListener('submit',e=>{e.preventDefault();load();});
+    const refresh=()=>load(true),timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);
+    window._analyticsCleanup=()=>{revision++;clearInterval(timer);window.removeEventListener('focus',refresh);};
+    await load();
   }
 
   // ---------------- Auditoria ----------------

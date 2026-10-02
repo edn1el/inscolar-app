@@ -262,7 +262,9 @@ router.post('/forgot', (req, res) => {
 
   const token = crypto.randomBytes(16).toString('hex');
   db.resetTokens = db.resetTokens.filter((t) => t.userId !== user.id);
-  db.resetTokens.push({ userId: user.id, token, expiresAt: new Date(now + RESET_TTL_MS).toISOString(), used: false });
+  const requestId=crypto.randomUUID();
+  db.resetTokens.push({ userId: user.id, token, requestId, expiresAt: new Date(now + RESET_TTL_MS).toISOString(), used: false });
+  db.recoveryRequests.push({id:requestId,userId:user.id,createdAt:new Date(now).toISOString(),completedAt:null});
   save(db);
 
   res.json({
@@ -292,6 +294,8 @@ router.post('/reset', (req, res) => {
   user.passwordHistory = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   user.passwordHash = bcrypt.hashSync(newPassword, 10);
   entry.used = true;
+  const recovery=db.recoveryRequests.find(r=>r.id===entry.requestId);
+  if(recovery)recovery.completedAt=new Date().toISOString();
   save(db);
   res.json({ status: 'ok' });
 });

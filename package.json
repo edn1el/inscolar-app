@@ -10,7 +10,8 @@
     "test:login": "node --test test/login.browser.cjs",
     "test:review": "node --test test/review.browser.cjs",
     "test:f54": "node --test test/enrollments.browser.cjs",
-    "test:f55": "node --test test/appointments.browser.cjs"
+    "test:f55": "node --test test/appointments.browser.cjs",
+    "test:f67": "node --test test/communications.test.cjs test/analytics.test.cjs test/phases67.browser.cjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

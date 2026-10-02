@@ -20,6 +20,10 @@ function publicEnrollment(e, db, u) { return service.dto(e, db, u); }
 // La expiración la determina el servidor, sin parámetros públicos de prueba.
 const DRAFT_EXPIRE_MINS = 20;
 
+function notifyAbandonedDraft(db,d,motive){
+ const recipient=db.users.find(u=>u.id===d.tutorId);
+ require('../lib/notify').notifyUser(db,{recipient,type:'enrollment',campo:`Borrador ${d.id}`,anterior:'Borrador',nuevo:'Abandonada',actor:{id:null,nombre:'Sistema'},eventId:`draft-abandoned:${d.id}`,entityId:d.id,resourceKind:'draft',institucionId:d.data?.institucionId,motivo:motive});
+}
 function sweepExpiredDrafts(db) {
   if (!db.drafts) db.drafts = [];
   const now = Date.now();
@@ -27,6 +31,7 @@ function sweepExpiredDrafts(db) {
   for (const d of db.drafts) {
     if (!d.estado && d.expiresAt <= now) {
       d.estado = 'Abandonada';
+      notifyAbandonedDraft(db,d,'El borrador finalizó tras 20 minutos de inactividad.');
       service.releaseDraftReservations(db,d);
       logEvent(db, { actor: null, accion: 'Borrador abandonado por inactividad', entidad: 'Borrador', entidadId: d.id });
       changed = true;
@@ -55,6 +60,14 @@ router.post('/drafts', (req, res) => {
   db.drafts.push(draft);
   save(db);
   res.json({ draft });
+});
+
+router.get('/drafts/:id/summary',(req,res)=>{
+ sweepExpiredDrafts(req.db);
+ const d=(req.db.drafts||[]).find(d=>d.id===req.params.id);
+ if(!d)return res.status(404).json({error:'Borrador no disponible.'});
+ if(req.currentUser.id!==d.tutorId)return res.status(403).json({error:'No autorizado.'});
+ res.json({draft:{id:d.id,estado:d.estado||'Borrador',createdAt:new Date(d.createdAt).toISOString(),institucionNombre:req.db.institutions.find(i=>i.id===d.data?.institucionId)?.nombre||'Sin institución seleccionada'}});
 });
 
 router.get('/drafts/:id', (req, res) => {
@@ -103,6 +116,7 @@ router.delete('/drafts/:id', (req, res) => {
   
   // Borrar
   draft.estado = 'Abandonada';
+  notifyAbandonedDraft(db,draft,'Saliste del proceso antes de enviar la solicitud.');
   service.releaseDraftReservations(db,draft);
   save(db);
   res.json({ status: 'ok' });

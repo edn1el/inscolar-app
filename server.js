@@ -53,5 +53,6 @@ app.get(/^(?!\/api).*/, (req, res) => {
 });
 
 app.listen(PORT, () => {
+  require('./lib/mailer').startWorker();
   console.log(`\nInscolar (prototipo) corriendo en http://localhost:${PORT}\n`);
 });
