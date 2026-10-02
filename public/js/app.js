@@ -3105,172 +3105,330 @@
     const [{ students }, { institutions }] = await Promise.all([api('/students'), api('/institutions')]);
     const activas = institutions.filter((i) => (i.estado || 'Activo') === 'Activo');
     const ciclos = cicloOptions();
-    let selectedInst = null;
-    let step = 1;
+    
+    const query = new URLSearchParams(window.location.hash.split('?')[1] || '');
+    const preInstId = query.get('inst');
+    const u = state.user || {};
+    
+    let wState = {
+      step: 1,
+      studentId: students.length ? students[0].id : 'new',
+      newStudent: { nombre: '', fechaNacimiento: '' },
+      tutorName: u.nombre || '',
+      tutorPhone: u.telefono || '',
+      institucionId: preInstId || '',
+      gradoSolicitado: GRADOS[0],
+      cicloEscolar: ciclos[0],
+      periodosValidos: [],
+      documentos: []
+    };
 
-    async function renderStep() {
-      if (step === 1) {
-        qs('.main').innerHTML = `
-          <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
-          <div class="page-head" style="margin-bottom:10px;"><h2>Paso 1: Seleccionar institución</h2></div>
-          <p class="lede" style="margin-bottom:20px;">Explora el mapa y selecciona la escuela donde deseas inscribir al estudiante.</p>
-          
-          <div class="search-layout" style="height: 60vh; min-height: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--border-color); display:flex; flex-direction:row;">
-            <div class="search-sidebar" style="width: 350px; padding: 15px; border-right: 1px solid var(--border-color); background: var(--bg-card); display:flex; flex-direction:column; gap:10px;">
-              <input type="text" id="map-filter" placeholder="Buscar por nombre..." class="search-input" style="padding:10px; border:1px solid var(--border-color); border-radius:8px; width:100%;">
-              <div id="inst-list" style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;"></div>
-            </div>
-            <div class="search-map" id="enroll-map-container" style="flex:1; background:var(--bg-body); position:relative;"></div>
-          </div>
-        `;
-        bindShellEvents();
+    window._navInterceptor = (pendingHash) => {
+      customConfirm('Tienes una inscripción en progreso. ¿Seguro que deseas salir? Perderás los datos no guardados.', 'Sí, salir', () => {
+        window._navInterceptor = null;
+        if (pendingHash) navigate(pendingHash);
+      });
+      return false;
+    };
 
-        const listContainer = qs('#inst-list');
-        const filterInput = qs('#map-filter');
-        let markers = [];
-        let mapObj = null;
-
-        if (typeof L === 'undefined') {
-          qs('#enroll-map-container').innerHTML = '<div class="loading" style="padding:20px">Cargando mapa...</div>';
-          await new Promise((resolve) => {
-            const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
-            const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = resolve; document.head.appendChild(script);
-          });
-        }
-
-          const mapEl = qs('#enroll-map-container');
-        if (mapEl) {
-          mapEl.innerHTML = '';
-          mapObj = L.map(mapEl).setView([18.7357, -70.1627], 8);
-          const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-          
-          const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mapObj);
-          
-          if (isDark) {
-            // Apply CSS filter to OSM tiles for a dark mode effect
-            tileLayer.on('add', () => {
-              const tilePane = mapEl.querySelector('.leaflet-tile-pane');
-              if (tilePane) {
-                tilePane.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
-              }
-            });
-          }
-
-          // Custom Marker Icon (Premium visual)
-          const createIcon = (color) => L.divIcon({
-            className: 'custom-pin',
-            html: `<svg viewBox="0 0 24 24" fill="${color}" width="32" height="32" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform-origin:bottom; transition:transform 0.2s;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
-            iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
-          });
-
-          const defaultIcon = createIcon('var(--primary-color)');
-          const hoverIcon = createIcon('var(--c-amber)');
-
-          const renderList = (query = '') => {
-            const filtered = activas.filter(i => i.nombre.toLowerCase().includes(query.toLowerCase()));
-            listContainer.innerHTML = filtered.map(i => `
-              <div class="inst-item" data-id="${i.id}" style="padding:12px; border:1px solid var(--border-color); border-radius:8px; cursor:pointer; transition:all 0.2s; background:var(--bg-card);">
-                <div style="font-weight:600; color:var(--primary-color);">${escapeHtml(i.nombre)}</div>
-                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">${escapeHtml(i.municipio||'')}</div>
-              </div>
-            `).join('');
-
-            markers.forEach(m => m.remove());
-            markers = [];
-            const bounds = [];
-            
-            filtered.forEach(i => {
-              if (i.lat && i.lng) {
-                const m = L.marker([i.lat, i.lng], { icon: defaultIcon }).addTo(mapObj);
-                const popupContent = document.createElement('div');
-                popupContent.innerHTML = `<strong>${escapeHtml(i.nombre)}</strong><br><button class="btn btn-primary btn-small" style="margin-top:8px; width:100%;">Seleccionar</button>`;
-                popupContent.querySelector('button').addEventListener('click', () => { selectedInst = i; step = 2; renderStep(); });
-                m.bindPopup(popupContent);
-                m.instId = i.id;
-                
-                m.on('mouseover', () => m.setIcon(hoverIcon));
-                m.on('mouseout', () => m.setIcon(defaultIcon));
-                m.on('click', () => {
-                  qsa('.inst-item').forEach(el => el.style.borderColor = 'var(--border-color)');
-                  const card = qs(`.inst-item[data-id="${i.id}"]`);
-                  if (card) { card.style.borderColor = 'var(--c-amber)'; card.scrollIntoView({behavior:'smooth', block:'nearest'}); }
-                });
-
-                markers.push(m);
-                bounds.push([i.lat, i.lng]);
-              }
-            });
-            if (bounds.length > 0) mapObj.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
-
-            qsa('.inst-item').forEach(card => {
-              card.addEventListener('mouseenter', () => {
-                const mk = markers.find(x => x.instId === card.dataset.id);
-                if (mk) { mk.setIcon(hoverIcon); mk.setZIndexOffset(1000); }
-              });
-              card.addEventListener('mouseleave', () => {
-                const mk = markers.find(x => x.instId === card.dataset.id);
-                if (mk) { mk.setIcon(defaultIcon); mk.setZIndexOffset(0); }
-              });
-              card.addEventListener('click', () => {
-                selectedInst = activas.find(x => x.id === card.dataset.id);
-                step = 2;
-                renderStep();
-              });
-            });
-          };
-
-          renderList();
-          filterInput.addEventListener('input', (e) => renderList(e.target.value));
-        }
-
-      } else if (step === 2) {
-        qs('.main').innerHTML = `
-          <button class="back-link" id="btn-back-step">${ICONS.back} Volver al mapa</button>
-          <div class="page-head"><h2>Paso 2: Datos de inscripción</h2></div>
-          <div class="chart-card" style="max-width:560px;">
-            <div style="background:var(--bg-body); padding:15px; border-radius:8px; margin-bottom:20px; display:flex; align-items:center; gap:15px; border:1px solid var(--border-color);">
-              <div style="width:48px; height:48px; border-radius:8px; background:var(--primary-color); color:#fff; display:flex; align-items:center; justify-content:center;">${ICONS.building}</div>
-              <div>
-                <div style="font-weight:600; font-size:16px;">${escapeHtml(selectedInst.nombre)}</div>
-                <div style="font-size:13px; color:var(--text-muted);">${escapeHtml(selectedInst.provincia)}</div>
-              </div>
-            </div>
-            <div id="err"></div>
-            <form id="enroll-form">
-              <input type="hidden" name="institucionId" value="${selectedInst.id}">
-              <div class="field"><label>Estudiante</label>
-                <select name="studentId">${students.map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`).join('')}</select>
-              </div>
-              <div class="two-col">
-                <div class="field"><label>Grado solicitado</label>
-                  <select name="gradoSolicitado">${GRADOS.map((g) => `<option>${escapeHtml(g)}</option>`).join('')}</select>
-                </div>
-                <div class="field"><label>Ciclo escolar</label>
-                  <select name="cicloEscolar">${ciclos.map((c) => `<option>${c}</option>`).join('')}</select>
-                </div>
-              </div>
-              <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Enviar solicitud</button>
-              </div>
-            </form>
-          </div>
-        `;
-        qs('#btn-back-step').addEventListener('click', () => { step = 1; renderStep(); });
-        
-        qs('#enroll-form').addEventListener('submit', async (e) => {
-          e.preventDefault();
-          const fd = new FormData(e.target);
-          qs('#err').innerHTML = '';
-          try {
-            await api('/enrollments', { method: 'POST', body: Object.fromEntries(fd.entries()) });
-            toast('Solicitud enviada.', 'ok');
-            navigate('#/app/inscripciones');
-          } catch (err) {
-            qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
-          }
-        });
+    async function fetchConfigAndCheck() {
+      if (!wState.institucionId) return;
+      try {
+         const res = await api('/institutions/' + wState.institucionId + '/periods?cicloEscolar=' + encodeURIComponent(wState.cicloEscolar));
+         wState.periodosValidos = res.periods || [];
+      } catch(e) {
+         wState.periodosValidos = [];
       }
     }
+
+    async function renderStep() {
+       let html = '';
+       const steps = ['Estudiante', 'Tutor', 'Institución', 'Documentos', 'Revisión'];
+       const stepperHtml = `
+         <div class="stepper" style="display:flex; justify-content:space-between; margin-bottom:20px; font-size:12px; font-weight:bold; color:var(--text-muted);">
+           ${steps.map((name, i) => `<div style="${wState.step === i+1 ? 'color:var(--primary-color); border-bottom:2px solid var(--primary-color);' : ''} padding-bottom:4px;">${i+1}. ${name}</div>`).join('')}
+         </div>
+       `;
+       
+       let backBtn = `<button class="back-link" id="btn-back-step">${ICONS.back} ${wState.step === 1 ? 'Cancelar inscripción' : 'Paso anterior'}</button>`;
+       
+       if (wState.step === 1) {
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 1: Datos del Estudiante</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:560px;">
+             <form id="step-form">
+               <div class="field"><label>Selecciona un estudiante</label>
+                 <select name="studentId" id="student-sel">
+                   ${students.map(s => `<option value="${s.id}" ${wState.studentId === s.id ? 'selected' : ''}>${escapeHtml(s.nombre)}</option>`).join('')}
+                   <option value="new" ${wState.studentId === 'new' ? 'selected' : ''}>+ Registrar nuevo estudiante</option>
+                 </select>
+               </div>
+               <div id="new-student-fields" style="display:${wState.studentId === 'new' ? 'block' : 'none'}; border-top:1px solid var(--c-border); padding-top:15px; margin-top:15px;">
+                 <div class="field"><label>Nombre completo</label><input type="text" name="new_nombre" value="${escapeHtml(wState.newStudent.nombre)}" ${wState.studentId==='new'?'required':''}></div>
+                 <div class="field"><label>Fecha de nacimiento</label><input type="date" name="new_fecha" value="${wState.newStudent.fechaNacimiento}" ${wState.studentId==='new'?'required':''}></div>
+               </div>
+               <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
+             </form>
+           </div>
+         `;
+       } else if (wState.step === 2) {
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 2: Tutor y Contacto</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:560px;">
+             <div class="help" style="margin-bottom:15px;">Estos datos se usarán para contactarte sobre esta solicitud (no modifican tu perfil permanentemente aquí).</div>
+             <form id="step-form">
+               <div class="field"><label>Nombre del tutor</label><input type="text" name="tutorName" value="${escapeHtml(wState.tutorName)}" required></div>
+               <div class="field"><label>Teléfono de contacto</label><input type="tel" name="tutorPhone" value="${escapeHtml(wState.tutorPhone)}" required></div>
+               <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
+             </form>
+           </div>
+         `;
+       } else if (wState.step === 3) {
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 3: Institución, Periodo y Grado</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:560px;">
+             <form id="step-form">
+               <div class="field"><label>Institución</label>
+                 <select name="institucionId" id="inst-sel" required>
+                   <option value="">Selecciona una institución...</option>
+                   ${activas.map(i => `<option value="${i.id}" ${wState.institucionId === i.id ? 'selected' : ''}>${escapeHtml(i.nombre)}</option>`).join('')}
+                 </select>
+               </div>
+               <div id="inst-card"></div>
+               <div class="two-col">
+                 <div class="field"><label>Grado solicitado</label>
+                   <select name="gradoSolicitado">${GRADOS.map(g => `<option ${wState.gradoSolicitado===g?'selected':''}>${escapeHtml(g)}</option>`).join('')}</select>
+                 </div>
+                 <div class="field"><label>Ciclo escolar</label>
+                   <select name="cicloEscolar">${ciclos.map(c => `<option ${wState.cicloEscolar===c?'selected':''}>${c}</option>`).join('')}</select>
+                 </div>
+               </div>
+               <div id="period-msg" style="margin-bottom:15px;"></div>
+               <div style="margin-top:20px;"><button class="btn btn-primary" id="btn-next-3" type="submit">Continuar</button></div>
+             </form>
+           </div>
+         `;
+       } else if (wState.step === 4) {
+         let reqDocs = [];
+         if (wState.periodosValidos.length > 0 && wState.periodosValidos[0].documentosRequeridos) {
+            reqDocs = wState.periodosValidos[0].documentosRequeridos;
+         } else {
+            reqDocs = TIPOS_DOCUMENTO.map(t => ({ tipo: t, formatos: ['PDF','JPG','PNG'], maxSizeMB: 5 }));
+         }
+         
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 4: Documentos</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:600px;">
+             <p class="help" style="margin-bottom:15px;">Adjunta los documentos requeridos por la institución para este grado.</p>
+             <form id="step-form">
+               ${reqDocs.map((req, idx) => `
+                 <div class="field" style="border:1px solid var(--c-border); padding:12px; border-radius:8px; margin-bottom:12px;">
+                   <label style="margin-bottom:4px;">${escapeHtml(req.tipo || req)}</label>
+                   <div style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Formatos permitidos: ${(req.formatos||['PDF','JPG','PNG']).join(', ')} · Tamaño máximo: ${req.maxSizeMB||5} MB</div>
+                   <input type="file" name="doc_${idx}" accept=".pdf,.jpg,.jpeg,.png" required>
+                 </div>
+               `).join('')}
+               ${reqDocs.length === 0 ? '<div class="empty-state">No se requieren documentos adicionales.</div>' : ''}
+               <div style="margin-top:20px;"><button class="btn btn-primary" type="submit">Continuar</button></div>
+             </form>
+           </div>
+         `;
+       } else if (wState.step === 5) {
+         const selectedInstObj = activas.find(i => i.id === wState.institucionId) || {};
+         html = `
+           ${backBtn}
+           <div class="page-head"><h2>Paso 5: Revisión y Envío</h2></div>
+           ${stepperHtml}
+           <div class="card" style="max-width:600px;">
+             <h3 style="margin-top:0;">Resumen de la solicitud</h3>
+             <table class="table" style="margin-top:15px;">
+               <tbody>
+                 <tr><td style="font-weight:bold; width:150px;">Estudiante</td><td>${wState.studentId === 'new' ? escapeHtml(wState.newStudent.nombre) : escapeHtml(students.find(s=>s.id===wState.studentId)?.nombre)}</td></tr>
+                 <tr><td style="font-weight:bold;">Tutor</td><td>${escapeHtml(wState.tutorName)} (${escapeHtml(wState.tutorPhone)})</td></tr>
+                 <tr><td style="font-weight:bold;">Institución</td><td>${escapeHtml(selectedInstObj.nombre)}</td></tr>
+                 <tr><td style="font-weight:bold;">Grado / Ciclo</td><td>${escapeHtml(wState.gradoSolicitado)} · ${wState.cicloEscolar}</td></tr>
+                 <tr><td style="font-weight:bold;">Documentos</td><td>${wState.documentos.length} archivo(s) seleccionados</td></tr>
+               </tbody>
+             </table>
+             <div id="err" style="margin-top:15px;"></div>
+             <div style="margin-top:20px; display:flex; gap:10px;">
+               <button class="btn btn-primary" id="btn-submit-final" style="padding:12px 24px;">Confirmar y Enviar Solicitud</button>
+             </div>
+           </div>
+         `;
+       }
+       
+       qs('.main').innerHTML = html;
+       bindShellEvents();
+       
+       const form = qs('#step-form');
+       if (form) {
+         form.addEventListener('submit', async (e) => {
+           e.preventDefault();
+           const fd = new FormData(form);
+           
+           if (wState.step === 1) {
+             wState.studentId = fd.get('studentId');
+             if (wState.studentId === 'new') {
+               wState.newStudent.nombre = fd.get('new_nombre');
+               wState.newStudent.fechaNacimiento = fd.get('new_fecha');
+             }
+             wState.step = 2; renderStep();
+           } else if (wState.step === 2) {
+             wState.tutorName = fd.get('tutorName');
+             wState.tutorPhone = fd.get('tutorPhone');
+             wState.step = 3; renderStep();
+           } else if (wState.step === 3) {
+             wState.institucionId = fd.get('institucionId');
+             wState.gradoSolicitado = fd.get('gradoSolicitado');
+             wState.cicloEscolar = fd.get('cicloEscolar');
+             
+             const btn = qs('#btn-next-3');
+             btn.disabled = true; btn.textContent = 'Verificando...';
+             await fetchConfigAndCheck();
+             
+             if (wState.periodosValidos.length === 0) {
+               qs('#period-msg').innerHTML = '<div class="alert error" style="margin-bottom:15px;">No hay un periodo de inscripción abierto para esta institución y ciclo.</div>';
+               btn.disabled = false; btn.textContent = 'Continuar';
+               return;
+             }
+             wState.step = 4; renderStep();
+           } else if (wState.step === 4) {
+             wState.documentos = Array.from(fd.entries()).filter(([k,v]) => v instanceof File && v.size > 0);
+             wState.step = 5; renderStep();
+           }
+         });
+       }
+
+       const btnBack = qs('#btn-back-step');
+       if (btnBack) {
+         btnBack.addEventListener('click', () => {
+           if (wState.step === 1) {
+             window._navInterceptor = null;
+             navigate('#/app/inscripciones');
+           } else {
+             wState.step--;
+             renderStep();
+           }
+         });
+       }
+
+       if (wState.step === 1) {
+         const sel = qs('#student-sel');
+         sel.addEventListener('change', () => {
+           qs('#new-student-fields').style.display = sel.value === 'new' ? 'block' : 'none';
+           qs('[name="new_nombre"]').required = sel.value === 'new';
+           qs('[name="new_fecha"]').required = sel.value === 'new';
+         });
+       }
+
+       if (wState.step === 3) {
+         const ensureLeaflet = async () => {
+            if (typeof L !== 'undefined') return;
+            await new Promise((resolve) => {
+              const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(css);
+              const script = document.createElement('script'); script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; script.onload = resolve; document.head.appendChild(script);
+            });
+         };
+         
+         const renderInstCard = async () => {
+           const id = qs('#inst-sel').value;
+           const inst = activas.find(i => i.id === id);
+           const c = qs('#inst-card');
+           if (!inst) { c.innerHTML = ''; return; }
+           c.innerHTML = `
+             <div style="background:var(--bg-body); padding:15px; border-radius:8px; margin-bottom:15px; border:1px solid var(--border-color);">
+               <div style="display:flex; align-items:center; gap:15px; margin-bottom:${inst.lat ? '15px' : '0'};">
+                 <div style="width:40px; height:40px; border-radius:8px; background:var(--primary-color); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">${ICONS.building}</div>
+                 <div>
+                   <div style="font-weight:bold;">${escapeHtml(inst.nombre)}</div>
+                   <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(inst.direccion || '')} · ${escapeHtml(inst.municipio || '')}, ${escapeHtml(inst.provincia || '')}</div>
+                 </div>
+               </div>
+               ${inst.lat && inst.lng ? `<div id="mini-map" style="height:150px; border-radius:8px; background:#e0e0e0; z-index:1;"></div>` : ''}
+             </div>
+           `;
+           if (inst.lat && inst.lng) {
+             await ensureLeaflet();
+             const mapEl = qs('#mini-map');
+             if (mapEl) {
+               const m = L.map(mapEl, {zoomControl:false, dragging:false, scrollWheelZoom:false}).setView([inst.lat, inst.lng], 14);
+               const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+               const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(m);
+               if (isDark) {
+                 tileLayer.on('add', () => {
+                   const tp = mapEl.querySelector('.leaflet-tile-pane');
+                   if (tp) tp.style.filter = 'invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%)';
+                 });
+               }
+               
+               const createIcon = (color) => L.divIcon({
+                 className: 'custom-pin',
+                 html: `<svg viewBox="0 0 24 24" fill="${color}" width="32" height="32" style="filter:drop-shadow(0 4px 6px rgba(0,0,0,0.3)); transform-origin:bottom; transition:transform 0.2s;"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>`,
+                 iconSize: [32, 32], iconAnchor: [16, 32], popupAnchor: [0, -32]
+               });
+               L.marker([inst.lat, inst.lng], { icon: createIcon('var(--primary-color)') }).addTo(m);
+             }
+           }
+         };
+         qs('#inst-sel').addEventListener('change', renderInstCard);
+         renderInstCard();
+       }
+
+       if (wState.step === 5) {
+         qs('#btn-submit-final').addEventListener('click', async (e) => {
+           const btn = e.target;
+           if (btn.disabled) return;
+           btn.disabled = true;
+           btn.textContent = 'Enviando...';
+           qs('#err').innerHTML = '';
+           
+           try {
+             let finalStudentId = wState.studentId;
+             if (wState.studentId === 'new') {
+                const sres = await api('/students', { method: 'POST', body: wState.newStudent });
+                finalStudentId = sres.student.id;
+             }
+             
+             const payload = {
+               studentId: finalStudentId,
+               institucionId: wState.institucionId,
+               gradoSolicitado: wState.gradoSolicitado,
+               cicloEscolar: wState.cicloEscolar
+             };
+             
+             const eres = await api('/enrollments', { method: 'POST', body: payload });
+             
+             // Upload documents simulation (in a real backend we'd POST FormData)
+             window._navInterceptor = null;
+             
+             qs('.main').innerHTML = `
+               <div class="card" style="max-width:500px; margin:40px auto; text-align:center;">
+                 <div style="width:64px; height:64px; background:#2e9e5b; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 20px;">
+                   ${ICONS.check}
+                 </div>
+                 <h2 style="margin-bottom:10px;">¡Solicitud enviada!</h2>
+                 <p class="lede" style="margin-bottom:20px;">Tu solicitud de inscripción ha sido enviada exitosamente a la institución. Su estado actual es <strong>Enviada</strong>.</p>
+                 <button class="btn btn-primary" onclick="window.location.hash='#/app/inscripciones'">Ver mis inscripciones</button>
+               </div>
+             `;
+           } catch(err) {
+             btn.disabled = false;
+             btn.textContent = 'Confirmar y Enviar Solicitud';
+             qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
+           }
+         });
+       }
+    }
+    
     await renderStep();
   }
 
