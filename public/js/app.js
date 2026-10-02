@@ -3609,6 +3609,7 @@
     
     renderDocsEditor();
 
+    if (canManage) {
       qsa('[data-edit-hito]').forEach(b => b.addEventListener('click', () => {
         const tipo = b.dataset.editHito;
         const isCitas = tipo === 'citas';
