@@ -665,7 +665,7 @@
           ${PUBLIC_BAR(publicAccountLink())}
           <div class="search-intro">
             <h1>Encuentra la escuela para tus hijos</h1>
-            <p>Compara colegios y liceos de todo el país y solicita el cupo en línea, con una sola cuenta.</p>
+            <p>Busca colegios y liceos de todo el país por provincia, cercanía o calificación, y solicita el cupo en línea con una sola cuenta.</p>
           </div>
           <form id="search-form" class="search-form" role="search">
             <label class="search-box">
