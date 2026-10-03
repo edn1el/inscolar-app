@@ -12,24 +12,7 @@ const router = express.Router();
 router.use(requireAuth);
 
 const STAFF_ROLES = ['Administrador', 'Soporte'];
-const UPLOADS_DIR = path.join(__dirname, '..', 'data', 'uploads');
-const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_MIME = ['application/pdf', 'image/jpeg', 'image/png'];
-
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const safeExt = path.extname(file.originalname).slice(0, 10).replace(/[^a-zA-Z0-9.]/g, '');
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`);
-  },
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: MAX_SIZE },
-  fileFilter: (req, file, cb) => cb(null, ALLOWED_MIME.includes(file.mimetype)),
-});
+const { upload, UPLOADS_DIR, MAX_SIZE, ALLOWED_MIME } = require('../lib/document-upload');
 
 function canSeeEnrollment(db, u, enrollment) {
   if (STAFF_ROLES.includes(u.role)) return true;
@@ -42,6 +25,7 @@ function publicDocument(d) {
   return {
     id: d.id,
     enrollmentId: d.enrollmentId,
+    tipoDocumento: d.tipoDocumento || null,
     nombreArchivo: d.nombreArchivo,
     mimeType: d.mimeType,
     size: d.size,

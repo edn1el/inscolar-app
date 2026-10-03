@@ -4,6 +4,7 @@ const { requireAuth } = require('../lib/middleware');
 const { notifyUser } = require('../lib/notify');
 const { logEvent } = require('../lib/audit');
 const { findPeriod, withinRange } = require('../lib/periods');
+const { upload, borrarArchivos, mensajeError } = require('../lib/document-upload');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -58,6 +59,23 @@ function publicEnrollment(e, db) {
     estudianteNombre: student ? student.nombre : '—',
     institucionNombre: institucion ? institucion.nombre : '—',
     tutorNombre: tutor ? tutor.nombre : '—',
+    documentos: resumenDocumentos(e, db),
+  };
+}
+
+// Estado de los documentos requeridos de una solicitud: cuántos exige la institución,
+// cuántos están entregados (pendientes o aceptados) y cuántos aceptados.
+function resumenDocumentos(e, db) {
+  const period = findPeriod(db, e.institucionId, e.cicloEscolar);
+  const requeridos = period && Array.isArray(period.documentosRequeridos) ? period.documentosRequeridos : [];
+  const docs = (db.documents || []).filter((d) => d.enrollmentId === e.id);
+  const ultimo = (t) => docs.filter((d) => d.tipoDocumento === t).slice(-1)[0];
+  const estados = requeridos.map((t) => ({ tipo: t, estado: ultimo(t) ? ultimo(t).estado : 'Falta' }));
+  return {
+    requeridos: requeridos.length,
+    entregados: estados.filter((x) => x.estado === 'Pendiente' || x.estado === 'Aceptado').length,
+    aceptados: estados.filter((x) => x.estado === 'Aceptado').length,
+    total: docs.length,
   };
 }
 
@@ -115,7 +133,14 @@ router.get('/enrollments', (req, res) => {
   res.json({ total: list.length, enrollments: list.map((e) => publicEnrollment(e, db)) });
 });
 
-router.post('/enrollments', (req, res) => {
+// HU046: la solicitud se envía junto con los documentos que la institución exige
+// para ese ciclo (HU044). Cada archivo llega como documento_<n> con su tipo en tipo_<n>.
+router.post('/enrollments', (req, res, next) => {
+  upload.any()(req, res, (err) => {
+    if (err) { borrarArchivos(req.files); return res.status(400).json({ errors: [mensajeError(err)] }); }
+    next();
+  });
+}, (req, res) => {
   const db = req.db;
   sweepAbandonedEnrollments(db);
   const u = req.currentUser;
@@ -136,13 +161,26 @@ router.post('/enrollments', (req, res) => {
   )) {
     errors.push('Ya existe una solicitud activa para este estudiante en esa institución y ciclo.');
   }
+  let requeridos = [];
   if (institucion && cicloEscolar) {
     const period = findPeriod(db, institucion.id, cicloEscolar);
     if (period && !withinRange(period.inscripcion)) {
       errors.push(`El periodo de inscripción del ciclo ${cicloEscolar} para esta institución no está abierto actualmente.`);
     }
+    requeridos = period && Array.isArray(period.documentosRequeridos) ? period.documentosRequeridos : [];
+    if (requeridos.length && period.documentos && !withinRange(period.documentos)) {
+      errors.push(`El periodo para el envío de documentos del ciclo ${cicloEscolar} no está abierto, así que no se pueden entregar los documentos requeridos.`);
+    }
   }
-  if (errors.length) return res.status(400).json({ errors });
+  // Documentos adjuntos: documento_<n> + tipo_<n>. Un archivo con formato no permitido
+  // no llega (lo descarta el filtro), así que ese requisito cuenta como faltante.
+  const body = req.body || {};
+  const entregados = (req.files || [])
+    .map((f) => { const m = /^documento_(\d+)$/.exec(f.fieldname); return m ? { file: f, tipo: String(body['tipo_' + m[1]] || '').trim().slice(0, 80) } : null; })
+    .filter((d) => d && d.tipo);
+  const faltan = requeridos.filter((t) => !entregados.some((d) => d.tipo === t));
+  if (faltan.length) errors.push(`Faltan documentos requeridos: ${faltan.join(', ')}. Adjunta cada uno en PDF, JPG o PNG (máx. 5 MB).`);
+  if (errors.length) { borrarArchivos(req.files); return res.status(400).json({ errors }); }
 
   const enrollment = {
     id: nextId(db.enrollments, 'e'),
@@ -158,7 +196,27 @@ router.post('/enrollments', (req, res) => {
     decidedBy: null,
   };
   db.enrollments.push(enrollment);
-  logEvent(db, { actor: u, accion: 'Inscripción creada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: `${institucion.nombre} · ${gradoSolicitado}`, datos: { institucionId: institucion.id, institucion: institucion.nombre, estudiante: enrollment.estudianteNombre, gradoSolicitado, cicloEscolar: enrollment.cicloEscolar, estado: enrollment.estado } });
+  logEvent(db, { actor: u, accion: 'Inscripción creada', entidad: 'Inscripción', entidadId: enrollment.id, detalle: `${institucion.nombre} · ${gradoSolicitado}`, datos: { institucionId: institucion.id, institucion: institucion.nombre, estudiante: student.nombre, gradoSolicitado, cicloEscolar: enrollment.cicloEscolar, estado: enrollment.estado, documentosAdjuntos: entregados.map((d) => d.tipo) } });
+  for (const { file, tipo } of entregados) {
+    const document = {
+      id: nextId(db.documents, 'd'),
+      enrollmentId: enrollment.id,
+      institucionId: enrollment.institucionId,
+      tutorId: enrollment.tutorId,
+      tipoDocumento: tipo,
+      nombreArchivo: file.originalname,
+      storageFile: file.filename,
+      mimeType: file.mimetype,
+      size: file.size,
+      estado: 'Pendiente',
+      motivoRechazo: '',
+      uploadedAt: new Date().toISOString(),
+      decidedAt: null,
+      decidedBy: null,
+    };
+    db.documents.push(document);
+    logEvent(db, { actor: u, accion: 'Documento subido', entidad: 'Documento', entidadId: document.id, detalle: `${tipo} — ${file.originalname}`, datos: { inscripcionId: enrollment.id, tipoDocumento: tipo, archivo: file.originalname, tamanoBytes: file.size, formato: file.mimetype, alIniciarLaSolicitud: true } });
+  }
   save(db);
   res.json({ enrollment: publicEnrollment(enrollment, db) });
 });

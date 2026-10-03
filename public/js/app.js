@@ -3074,7 +3074,7 @@
                 ${showInstCol ? `<td>${escapeHtml(e.institucionNombre)}</td>` : ''}
                 <td>${escapeHtml(e.gradoSolicitado)}</td>
                 <td>${escapeHtml(e.cicloEscolar)}</td>
-                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}${e.estado === 'Abandonada' ? '<div class="help">Sin respuesta durante 30 días.</div>' : ''}</td>
+                <td><span class="estado-cell"><span class="dot" style="background:${estadoColor}"></span>${e.estado}</span>${e.estado === 'Rechazada' && e.motivoRechazo ? `<div class="help">${escapeHtml(e.motivoRechazo)}</div>` : ''}${e.estado === 'Abandonada' ? '<div class="help">Sin respuesta durante 30 días.</div>' : ''}${e.documentos && e.documentos.requeridos ? `<div class="help doc-summary ${e.documentos.aceptados === e.documentos.requeridos ? 'is-ok' : e.documentos.entregados < e.documentos.requeridos ? 'is-missing' : ''}">Documentos: ${e.documentos.aceptados} de ${e.documentos.requeridos} aceptados${e.documentos.entregados < e.documentos.requeridos ? ` · falta${e.documentos.requeridos - e.documentos.entregados === 1 ? '' : 'n'} ${e.documentos.requeridos - e.documentos.entregados}` : ''}</div>` : ''}</td>
                 <td>${fmtDate(e.createdAt)}</td>
                 <td><span class="actions-cell">
                   ${tutor && e.estado === 'Pendiente' ? `<button class="danger" data-cancel="${e.id}" data-name="${escapeHtml(e.estudianteNombre)}">Cancelar</button>` : ''}
@@ -3301,23 +3301,73 @@
                   <select name="cicloEscolar">${ciclos.map((c) => `<option>${c}</option>`).join('')}</select>
                 </div>
               </div>
+              <section class="req-docs" aria-labelledby="req-docs-title">
+                <h3 id="req-docs-title">Documentos requeridos</h3>
+                <div id="req-docs-body"><div class="help">Cargando los documentos que pide la institución…</div></div>
+              </section>
               <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit">Enviar solicitud</button>
+                <button class="btn btn-primary" style="width:auto; padding:12px 22px;" type="submit" id="enroll-submit">Enviar solicitud</button>
               </div>
             </form>
           </div>
         `;
         qs('#btn-back-step').addEventListener('click', () => { step = 1; renderStep(); });
         
+        // HU044/HU046: la institución define qué documentos pide para cada ciclo; el tutor
+        // los adjunta aquí y la solicitud no se envía mientras falte alguno.
+        let requeridos = [];
+        const cicloSel = qs('#enroll-form [name="cicloEscolar"]');
+        const cargarRequisitos = async () => {
+          const body = qs('#req-docs-body');
+          body.innerHTML = '<div class="help">Cargando los documentos que pide la institución…</div>';
+          try {
+            const { periods } = await api('/institutions/' + selectedInst.id + '/periods?cicloEscolar=' + encodeURIComponent(cicloSel.value));
+            requeridos = (periods[0] && Array.isArray(periods[0].documentosRequeridos)) ? periods[0].documentosRequeridos : [];
+          } catch (e) { requeridos = []; }
+          body.innerHTML = requeridos.length
+            ? `<p class="help req-docs-intro">${escapeHtml(selectedInst.nombre)} pide ${requeridos.length === 1 ? 'este documento' : `estos ${requeridos.length} documentos`} para el ciclo ${escapeHtml(cicloSel.value)}. Adjunta cada uno en PDF, JPG o PNG (máx. 5 MB).</p>
+               <ol class="req-docs-list">${requeridos.map((t, i) => `
+                 <li class="req-doc" data-i="${i}">
+                   <span class="req-doc-name"><span class="req-doc-check" aria-hidden="true"></span>${escapeHtml(t)}</span>
+                   <input type="file" name="documento_${i}" data-tipo="${escapeHtml(t)}" accept=".pdf,.jpg,.jpeg,.png" aria-label="Archivo para ${escapeHtml(t)}">
+                 </li>`).join('')}</ol>`
+            : '<div class="notice info">Esta institución no pide documentos para este ciclo. Si más adelante te solicitan alguno, podrás subirlo desde «Documentos» en tu solicitud.</div>';
+          enhanceFileInputs(body);
+          qsa('.req-doc input[type=file]', body).forEach((inp) => inp.addEventListener('change', () => {
+            inp.closest('.req-doc').classList.toggle('is-ready', !!(inp.files && inp.files[0]));
+          }));
+        };
+        cicloSel.addEventListener('change', cargarRequisitos);
+        cargarRequisitos();
+
         qs('#enroll-form').addEventListener('submit', async (e) => {
           e.preventDefault();
-          const fd = new FormData(e.target);
           qs('#err').innerHTML = '';
+          const form = e.target;
+          const inputs = qsa('.req-doc input[type=file]', form);
+          const faltan = inputs.filter((inp) => !(inp.files && inp.files[0])).map((inp) => inp.dataset.tipo);
+          const grandes = inputs.filter((inp) => inp.files && inp.files[0] && inp.files[0].size > 5 * 1024 * 1024).map((inp) => inp.dataset.tipo);
+          if (faltan.length || grandes.length) {
+            qs('#err').innerHTML = fieldErrorsBlock([
+              ...(faltan.length ? [`Falta adjuntar: ${faltan.join(', ')}.`] : []),
+              ...(grandes.length ? [`Supera los 5 MB: ${grandes.join(', ')}.`] : []),
+            ]);
+            qs('#err').scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'center' });
+            return;
+          }
+          const fd = new FormData();
+          ['institucionId', 'studentId', 'gradoSolicitado', 'cicloEscolar'].forEach((k) => fd.append(k, form.elements[k].value));
+          inputs.forEach((inp, i) => { fd.append('tipo_' + i, inp.dataset.tipo); fd.append('documento_' + i, inp.files[0]); });
+          const btn = qs('#enroll-submit');
+          btn.disabled = true;
+          btn.textContent = inputs.length ? 'Enviando solicitud y documentos…' : 'Enviando…';
           try {
-            await api('/enrollments', { method: 'POST', body: Object.fromEntries(fd.entries()) });
-            toast('Solicitud enviada.', 'ok');
+            await api('/enrollments', { method: 'POST', body: fd });
+            toast(inputs.length ? `Solicitud enviada con ${inputs.length} documento${inputs.length === 1 ? '' : 's'}.` : 'Solicitud enviada.', 'ok');
             navigate('#/app/inscripciones');
           } catch (err) {
+            btn.disabled = false;
+            btn.textContent = 'Enviar solicitud';
             qs('#err').innerHTML = fieldErrorsBlock(err.errors || [err.message]);
           }
         });
@@ -3352,11 +3402,30 @@
       api('/institutions/' + enrollment.institucionId + '/periods?cicloEscolar=' + encodeURIComponent(enrollment.cicloEscolar)),
     ]);
     const configurados = periodsRes.periods[0] && periodsRes.periods[0].documentosRequeridos;
-    const tiposParaSubir = configurados && configurados.length ? configurados : TIPOS_DOCUMENTO;
+    const requeridosDocs = configurados && configurados.length ? configurados : [];
+    // Primero los requisitos que faltan o fueron rechazados, para que el tutor suba lo pendiente.
+    const pendienteDe = (t) => { const ult = documents.filter((d) => d.tipoDocumento === t).slice(-1)[0]; return !ult || ult.estado === 'Rechazado'; };
+    const tiposParaSubir = requeridosDocs.length
+      ? [...requeridosDocs.filter(pendienteDe), ...requeridosDocs.filter((t) => !pendienteDe(t))]
+      : TIPOS_DOCUMENTO;
 
     qs('.main').innerHTML = `
       <button class="back-link" data-nav="#/app/inscripciones">${ICONS.back} Volver a inscripciones</button>
       <div class="page-head"><div><h2>Documentos — ${escapeHtml(enrollment.estudianteNombre)}</h2><div class="sub">${escapeHtml(enrollment.institucionNombre)} · ${escapeHtml(enrollment.gradoSolicitado)} · ${escapeHtml(enrollment.cicloEscolar)}</div></div></div>
+      ${requeridosDocs.length ? `
+        <section class="chart-card req-check" aria-labelledby="req-check-title">
+          <h3 id="req-check-title">Documentos que pide la institución</h3>
+          <ul class="req-check-list">
+            ${requeridosDocs.map((t) => {
+              const ult = documents.filter((d) => d.tipoDocumento === t).slice(-1)[0];
+              const est = ult ? ult.estado : 'Falta';
+              const cls = est === 'Aceptado' ? 'ok' : est === 'Rechazado' ? 'bad' : est === 'Pendiente' ? 'wait' : 'miss';
+              const txt = est === 'Pendiente' ? 'En revisión' : est === 'Falta' ? 'Falta' : est;
+              return `<li><span>${escapeHtml(t)}</span><span class="doc-status ${cls}">${txt}</span></li>`;
+            }).join('')}
+          </ul>
+          <p class="help">${(() => { const listos = requeridosDocs.filter((t) => { const u2 = documents.filter((d) => d.tipoDocumento === t).slice(-1)[0]; return u2 && u2.estado === 'Aceptado'; }).length; return listos === requeridosDocs.length ? 'Todos los documentos requeridos fueron aceptados.' : `${listos} de ${requeridosDocs.length} aceptados.`; })()}</p>
+        </section>` : ''}
       ${isOwnerTutor ? `
         <div class="chart-card" style="max-width:560px; margin-bottom:20px;">
           <div id="doc-err"></div>
