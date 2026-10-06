@@ -9,8 +9,8 @@ Para cada uno, en Azure: **New Work Item → Bug**, vincularlo a su historia (Re
 | # | Bug | HU | Responsable | Severidad | Commit |
 |---|---|---|---|---|---|
 | 1 | Editar un usuario guardaba el cambio aunque el correo fuera inválido o repetido | HU015 | Ed | 2 - Alta | 0da783b |
-| 2 | Modificar el nombre o correo de un administrador no notificaba a los administradores | HU017 | Ed | 2 - Alta | (este commit) |
-| 3 | Cambiar contraseña rechazaba contraseñas de 16 a 20 caracteres | HU010 | Ed | 3 - Media | (este commit) |
+| 2 | Modificar el nombre o correo de un administrador no notificaba a los administradores | HU017 | Ed | 2 - Alta | 5e3da87 |
+| 3 | Cambiar contraseña rechazaba contraseñas de 16 a 20 caracteres | HU010 | Ed | 3 - Media | 5e3da87 |
 | 4 | El filtro de Provincia del buscador público solo mostraba "Todas" y Municipio nunca se llenaba | HU023, HU025 | Ed | 2 - Alta | 02fd701 |
 | 5 | Las fotos de las instituciones no cargaban (404) en el detalle público | HU026 | Ed | 3 - Media | a3d0bbb |
 | 6 | "Ver reportes" y "Ver calificaciones" mostraban "No tienes permiso" al personal y al tutor | HU028, HU030 | Ed | 2 - Alta | aec4c60 |
