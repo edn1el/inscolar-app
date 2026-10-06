@@ -5,3 +5,4 @@ data/db.backup-demo.json
 .env
 data/sessions.json
 data/sessions.json.tmp
+data/demo-primer-admin.json

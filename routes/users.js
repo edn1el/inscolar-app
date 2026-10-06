@@ -77,7 +77,7 @@ router.post('/me/password', (req, res) => {
   if (!bcrypt.compareSync(currentPassword || '', user.passwordHash)) {
     return res.status(400).json({ errors: ['La contraseña actual no es correcta.'] });
   }
-  const errors = passwordRules(newPassword, { min: 8, max: 15 });
+  const errors = passwordRules(newPassword, { min: 8, max: 20 }); // HU010: 8 a 20 caracteres
   if (newPassword !== confirmNewPassword) errors.push('Las contraseñas no coinciden.');
   const allPrevious = [user.passwordHash, ...(user.passwordHistory || [])].slice(0, 5);
   if (allPrevious.some((h) => bcrypt.compareSync(newPassword || '', h))) {
@@ -294,6 +294,17 @@ router.put('/:id', requireAdminOrSupport, (req, res) => {
   const camposEditados = [nombre && 'nombre', email && 'correo', institucionId !== undefined && 'institución'].filter(Boolean);
   logEvent(db, { actor: req.currentUser, accion: 'Usuario modificado', entidad: 'Usuario', entidadId: user.id, detalle: camposEditados.length ? `Campos: ${camposEditados.join(', ')}` : '', antes, despues: instantanea(user, CAMPOS_USUARIO) });
   save(db);
+  // HU017: cualquier modificación de la cuenta de un administrador se notifica a los
+  // administradores (en la app y por correo), indicando el campo y quién lo cambió.
+  if (user.role === 'Administrador') {
+    const NOMBRES = { nombre: 'Nombre', email: 'Correo', institucionId: 'Institución' };
+    for (const campo of Object.keys(NOMBRES)) {
+      if ((antes[campo] || '') !== (user[campo] || '')) {
+        notifyAdmins(db, { affectedUser: user, campo: NOMBRES[campo], anterior: antes[campo] || '', nuevo: user[campo] || '', actor: req.currentUser });
+      }
+    }
+    save(db);
+  }
 
   res.json({ user: publicUser(user, db) });
 });

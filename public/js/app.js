@@ -1824,7 +1824,7 @@
           <form id="pw-form">
             <div class="field"><label>Contraseña actual</label><input type="password" name="currentPassword" required></div>
             <div class="field"><label>Contraseña nueva</label><input type="password" name="newPassword" required></div>
-            <p class="help" style="margin-top:-10px; margin-bottom:16px;">8 a 15 caracteres. No puede repetir ninguna de las últimas 5.</p>
+            <p class="help" style="margin-top:-10px; margin-bottom:16px;">8 a 20 caracteres, con letras y números. No puede repetir ninguna de las últimas 5.</p>
             <div class="field"><label>Confirmar contraseña nueva</label><input type="password" name="confirmNewPassword" required></div>
             <button class="btn btn-primary" style="width:auto; padding:11px 20px;" type="submit">Cambiar</button>
           </form>
